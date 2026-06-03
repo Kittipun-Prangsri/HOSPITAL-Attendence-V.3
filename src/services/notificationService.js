@@ -109,6 +109,60 @@ class NotificationService {
   }
 
   /**
+   * Send message directly to a Telegram chat ID
+   */
+  async sendDirectTelegram(telegramChatId, message) {
+    try {
+      if (telegramChatId && process.env.TELEGRAM_BOT_TOKEN) {
+        await telegramBot.sendMessage(telegramChatId, message);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Error sending direct Telegram message:', error.message);
+      return false;
+    }
+  }
+
+  /**
+   * Send notification to a user using both LINE and Telegram (parallel/fallback)
+   */
+  async sendDirectNotification(lineUserId, telegramChatId, message) {
+    let lineSuccess = false;
+    let telegramSuccess = false;
+
+    if (telegramChatId && process.env.TELEGRAM_BOT_TOKEN) {
+      try {
+        await telegramBot.sendMessage(telegramChatId, message);
+        telegramSuccess = true;
+      } catch (err) {
+        console.error(`[NotificationService] Failed to send Telegram notification: ${err.message}`);
+      }
+    }
+
+    if (lineUserId && process.env.LINE_CHANNEL_ACCESS_TOKEN) {
+      try {
+        await lineClient.pushMessage({
+          to: lineUserId,
+          messages: [{
+            type: 'text',
+            text: message,
+          }]
+        });
+        lineSuccess = true;
+      } catch (err) {
+        console.error(`[NotificationService] Failed to send LINE notification: ${err.message}`);
+      }
+    }
+
+    return {
+      line: lineUserId ? lineSuccess : null,
+      telegram: telegramChatId ? telegramSuccess : null,
+      success: lineSuccess || telegramSuccess
+    };
+  }
+
+  /**
    * Reply message to LINE user using reply token
    */
   async replyLineMessage(replyToken, message) {

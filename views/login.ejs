@@ -86,6 +86,15 @@
             box-shadow: 0 0 0 4px rgba(13, 148, 136, 0.1);
         }
 
+        .input-group:focus-within .input-group-text,
+        .input-group:focus-within .form-control {
+            border-color: var(--primary) !important;
+        }
+
+        .forgot-link:hover {
+            text-decoration: underline !important;
+        }
+
         .btn-login {
             width: 100%;
             height: 50px;
@@ -166,12 +175,19 @@
                     </div>
 
                     <div class="mb-4">
-                        <label class="form-label">รหัสผ่าน</label>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <label class="form-label mb-0">รหัสผ่าน</label>
+                            <a href="#" onclick="forgotPasswordAlert(event)" class="forgot-link" style="font-size: 13px; color: var(--primary); text-decoration: none; font-weight: 500;">ลืมรหัสผ่าน?</a>
+                        </div>
                         <div class="input-group">
                             <span class="input-group-text bg-white border-end-0"
-                                style="border-radius: 12px 0 0 12px;"><i class="bi bi-lock text-muted"></i></span>
-                            <input type="password" name="password" class="form-control border-start-0"
-                                placeholder="กรอกรหัสผ่าน" required style="border-radius: 0 12px 12px 0;">
+                                style="border-radius: 12px 0 0 12px; border-color: #E2E8F0;"><i class="bi bi-lock text-muted"></i></span>
+                            <input type="password" id="passwordInput" name="password" class="form-control border-start-0 border-end-0"
+                                placeholder="กรอกรหัสผ่าน" required style="border-color: #E2E8F0; box-shadow: none;">
+                            <span class="input-group-text bg-white border-start-0" id="togglePasswordBtn"
+                                style="border-radius: 0 12px 12px 0; border-color: #E2E8F0; cursor: pointer;">
+                                <i class="bi bi-eye text-muted" id="togglePasswordIcon"></i>
+                            </span>
                         </div>
                     </div>
 
@@ -182,6 +198,27 @@
                     <small class="text-muted">© <%= new Date().getFullYear() %> โรงพยาบาลคลองหาด - Kittipun Prangsri</small>
                 </div>
     </div>
+
+    <script>
+        document.getElementById('togglePasswordBtn').addEventListener('click', function() {
+            const passwordInput = document.getElementById('passwordInput');
+            const toggleIcon = document.getElementById('togglePasswordIcon');
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                toggleIcon.classList.remove('bi-eye');
+                toggleIcon.classList.add('bi-eye-slash');
+            } else {
+                passwordInput.type = 'password';
+                toggleIcon.classList.remove('bi-eye-slash');
+                toggleIcon.classList.add('bi-eye');
+            }
+        });
+
+        function forgotPasswordAlert(e) {
+            e.preventDefault();
+            alert('🔒 ระบบความปลอดภัย:\n\nกรุณาติดต่อผู้ดูแลระบบระดับสูง (Super Admin) ของท่าน เพื่อดำเนินการรีเซ็ตรหัสผ่านเป็นค่าเริ่มต้น (1234)');
+        }
+    </script>
 </body>
 
 </html>

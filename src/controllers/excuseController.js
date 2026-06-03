@@ -91,20 +91,18 @@ exports.createExcuse = async (req, res) => {
       ON DUPLICATE KEY UPDATE issue_type = VALUES(issue_type), reason = VALUES(reason), status = 'pending', admin_comment = NULL, reviewed_at = NULL
     `, [user.username, user.fullname, date, issue_type, reason]);
     
-    // Notify LINE Admin
-    if (process.env.LINE_ADMIN_USER_ID) {
-      let thaiIssue = 'แสกนไม่ติด';
-      if (issue_type === 'absent') thaiIssue = 'ขาดงาน';
-      if (issue_type === 'leave') thaiIssue = 'ลา';
-      if (issue_type === 'late') thaiIssue = 'มาสาย';
-      
-      const adminMsg = `🔔 *มีรายการส่งใบแก้ต่างใหม่*\n\n` +
-                        `👤 บุคลากร: ${user.fullname}\n` +
-                        `📅 ประจำวันที่: ${new Date(date).toLocaleDateString('th-TH')}\n` +
-                        `📍 ประเภทปัญหา: ${thaiIssue}\n` +
-                        `💬 เหตุผล: ${reason}`;
-      await NotificationService.sendDirectLine(process.env.LINE_ADMIN_USER_ID, adminMsg);
-    }
+    // Notify Admin via both channels (LINE & Telegram)
+    let thaiIssue = 'แสกนไม่ติด';
+    if (issue_type === 'absent') thaiIssue = 'ขาดงาน';
+    if (issue_type === 'leave') thaiIssue = 'ลา';
+    if (issue_type === 'late') thaiIssue = 'มาสาย';
+    
+    const adminMsg = `🔔 *มีรายการส่งใบแก้ต่างใหม่*\n\n` +
+                      `👤 บุคลากร: ${user.fullname}\n` +
+                      `📅 ประจำวันที่: ${new Date(date).toLocaleDateString('th-TH')}\n` +
+                      `📍 ประเภทปัญหา: ${thaiIssue}\n` +
+                      `💬 เหตุผล: ${reason}`;
+    await NotificationService.sendToAdmin(adminMsg);
     
     res.json({ success: true, message: 'บันทึกข้อมูลและส่งเรื่องแก้ต่างเรียบร้อยแล้ว' });
   } catch (error) {
@@ -134,9 +132,9 @@ exports.reviewExcuse = async (req, res) => {
     const [rows] = await pool.query('SELECT username, date, issue_type FROM attendance_excuses WHERE id = ?', [id]);
     if (rows.length > 0) {
       const excuse = rows[0];
-      const [userRows] = await hosofficePool.query('SELECT LINE_YOUR_USER_ID as line_user_id, CONCAT(HR_FNAME, "   ", HR_LNAME) as fullname FROM hr_person WHERE HR_CID = ?', [excuse.username]);
-      if (userRows.length > 0 && userRows[0].line_user_id) {
-        const lineUserId = userRows[0].line_user_id;
+      const [userRows] = await hosofficePool.query('SELECT LINE_YOUR_USER_ID as line_user_id, TELEGRAM_CHAT_ID as telegram_chat_id, CONCAT(HR_FNAME, "   ", HR_LNAME) as fullname FROM hr_person WHERE HR_CID = ?', [excuse.username]);
+      if (userRows.length > 0) {
+        const { line_user_id, telegram_chat_id, fullname } = userRows[0];
         
         let thaiIssue = 'แสกนไม่ติด';
         if (excuse.issue_type === 'absent') thaiIssue = 'ขาดงาน';
@@ -144,11 +142,11 @@ exports.reviewExcuse = async (req, res) => {
         if (excuse.issue_type === 'late') thaiIssue = 'มาสาย';
 
         const reviewMsg = `🔔 *ผลการพิจารณาใบแก้ต่าง*\n\n` +
-                          `👤 สวัสดีคุณ: ${userRows[0].fullname}\n` +
+                          `👤 สวัสดีคุณ: ${fullname}\n` +
                           `📅 ประจำวันที่: ${new Date(excuse.date).toLocaleDateString('th-TH')} (${thaiIssue})\n` +
                           `📍 ผลการตรวจ: ${status === 'approved' ? '✅ อนุมัติการแก้ต่าง' : '❌ ปฏิเสธ/ไม่อนุมัติ'}\n` +
                           `💬 ความเห็นผู้ตรวจสอบ: ${admin_comment || 'ไม่มี'}`;
-        await NotificationService.sendDirectLine(lineUserId, reviewMsg);
+        await NotificationService.sendDirectNotification(line_user_id, telegram_chat_id, reviewMsg);
       }
     }
     
@@ -186,18 +184,18 @@ exports.sendReminders = async (req, res) => {
   
   try {
     for (const c of candidates) {
-      // Find line ID of candidate
-      const [userRows] = await hosofficePool.query('SELECT LINE_YOUR_USER_ID as line_user_id FROM hr_person WHERE HR_CID = ?', [c.username]);
-      if (userRows.length > 0 && userRows[0].line_user_id) {
-        const lineUserId = userRows[0].line_user_id;
+      // Find notification IDs of candidate
+      const [userRows] = await hosofficePool.query('SELECT LINE_YOUR_USER_ID as line_user_id, TELEGRAM_CHAT_ID as telegram_chat_id FROM hr_person WHERE HR_CID = ?', [c.username]);
+      if (userRows.length > 0) {
+        const { line_user_id, telegram_chat_id } = userRows[0];
         const thaiIssue = c.issue_type === 'late' ? 'มาสาย' : 'ขาดงาน / ไม่แสกนเข้างาน';
         const msg = `⚠️ *แจ้งเตือน: ค้างส่งใบแก้ต่างการลงเวลา*\n\n` +
                     `👤 สวัสดีคุณ: ${c.fullname}\n` +
                     `📅 วันที่พบปัญหา: ${new Date(c.date).toLocaleDateString('th-TH')}\n` +
                     `📍 สถานะการแสกน: ${thaiIssue} (${c.elapsed_days} วันที่ผ่านมา)\n\n` +
                     `👉 กรุณาเข้าสู่ระบบไปที่เมนู "แจ้งสาเหตุ / ขาด ลา สาย" เพื่อส่งใบแก้ต่างภายในกำหนดด้วยครับ`;
-        const success = await NotificationService.sendDirectLine(lineUserId, msg);
-        if (success) successCount++;
+        const result = await NotificationService.sendDirectNotification(line_user_id, telegram_chat_id, msg);
+        if (result.success) successCount++;
         else failCount++;
       } else {
         failCount++;
@@ -226,7 +224,7 @@ exports.compileReminderCandidates = async () => {
   const lateThresholdTime = `${lateH}:${lateM}:00`;
 
   // 1. Get all local users who are registered
-  const [users] = await hosofficePool.query('SELECT HR_CID as username, CONCAT(HR_FNAME, "   ", HR_LNAME) as fullname, LINE_YOUR_USER_ID as line_user_id FROM hr_person WHERE USER_TYPE IS NOT NULL AND HR_CID IS NOT NULL');
+  const [users] = await hosofficePool.query('SELECT HR_CID as username, CONCAT(HR_FNAME, "   ", HR_LNAME) as fullname, LINE_YOUR_USER_ID as line_user_id, TELEGRAM_CHAT_ID as telegram_chat_id FROM hr_person WHERE USER_TYPE IS NOT NULL AND HR_CID IS NOT NULL');
   
   if (users.length === 0) return [];
   
@@ -285,6 +283,7 @@ exports.compileReminderCandidates = async () => {
               issue_type: exceptionType,
               elapsed_days: elapsedDays,
               has_line: !!user.line_user_id,
+              has_telegram: !!user.telegram_chat_id,
               excuse_status: excuseStatus || 'none'
             });
           }

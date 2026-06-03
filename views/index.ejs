@@ -76,43 +76,50 @@
             </div>
 
             <!-- FILTER BAR -->
-            <div class="filter-bar">
-              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex:1;">
-                <div class="input-group" style="max-width:190px;">
-                  <span class="input-group-text"
-                    style="background:#F8FAFC;border-color:var(--border);border-radius:8px 0 0 8px;font-size:13px;"><i
-                      class="bi bi-calendar3" style="color:var(--muted)"></i></span>
-                  <input type="date" class="form-control" id="dateInput" style="border-radius:0 8px 8px 0;" />
+            <div class="filter-bar-container">
+              <div class="search-header-row">
+                <div class="search-input-wrapper">
+                  <span class="search-icon"><i class="bi bi-search"></i></span>
+                  <input type="text" class="form-control" placeholder="ค้นหาชื่อ / แผนก / รหัส..." id="searchInput" oninput="applyFilter()" />
                 </div>
-                <select class="form-select" style="max-width:120px;" id="shiftFilter" onchange="applyFilter()">
-                  <option value="all">ทุกกะ</option>
-                  <option value="morning">เช้า</option>
-                  <option value="afternoon">บ่าย</option>
-                  <option value="night">ดึก</option>
-                </select>
-                <select class="form-select" style="max-width:170px;" id="deptFilter" onchange="applyFilter()">
-                  <option value="">ทุกกลุ่มงาน</option>
-                  <option>กลุ่มงานประกันสุขภาพยุทธศาสตร์</option>
-                  <option>กลุ่มงานบริหารทั่วไป</option>
-                  <option>กลุ่มงานบริการด้านปฐมภูมิและองค์รวม</option>
-                  <option>กลุ่มงานเภสัชกรรมและคุ้มครองผู้บริโภค</option>
-                  <option>กลุ่มงานสุขภาพดิจิทัล</option>
-                  <option>กลุ่มงานการพยาบาล</option>
-                  <option>กลุ่มงานทันตกรรม</option>
-                  <option>กลุ่มงานเทคนิคการแพทย์</option>
-                  <option>กลุ่มงานเวชกรรมฟื้นฟู</option>
-                  <option>กลุ่มงานการแพทย์แผนไทยและการแพทย์ทางเลือก</option>
-                  <option>กลุ่มงานรังสีวิทยา</option>
-                  <option>กลุ่มงานจิตเวชและยาเสพติด</option>
-                  <option>กลุ่มงานการแพทย์</option>
-                </select>
-
-                <input type="text" class="form-control" placeholder="ค้นหาชื่อ / รหัส..." style="max-width:190px;"
-                  id="searchInput" oninput="applyFilter()" />
+                <button class="filter-toggle-btn" onclick="toggleFilterDrawer()" id="filterToggleBtn" title="ตัวกรองขั้นสูง">
+                  <i class="bi bi-sliders"></i> <span class="btn-text">ตัวกรอง</span>
+                </button>
               </div>
-              <div style="display:flex;gap:8px;">
-                <button class="btn-outline-dark" onclick="exportCSV()"><i class="bi bi-download"></i> ส่งออก</button>
-                <button class="btn-teal" onclick="applyFilter()"><i class="bi bi-funnel-fill"></i> กรอง</button>
+
+              <div id="filterDrawerContent" class="filter-drawer-content">
+                <div class="filter-inputs-grid">
+                  <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-calendar3"></i></span>
+                    <input type="date" class="form-control" id="dateInput" />
+                  </div>
+                  <select class="form-select" id="shiftFilter" onchange="applyFilter()">
+                    <option value="all">ทุกกะ</option>
+                    <option value="morning">เช้า</option>
+                    <option value="afternoon">บ่าย</option>
+                    <option value="night">ดึก</option>
+                  </select>
+                  <select class="form-select" id="deptFilter" onchange="applyFilter()">
+                    <option value="">ทุกกลุ่มงาน</option>
+                    <option>กลุ่มงานประกันสุขภาพยุทธศาสตร์</option>
+                    <option>กลุ่มงานบริหารทั่วไป</option>
+                    <option>กลุ่มงานบริการด้านปฐมภูมิและองค์รวม</option>
+                    <option>กลุ่มงานเภสัชกรรมและคุ้มครองผู้บริโภค</option>
+                    <option>กลุ่มงานสุขภาพดิจิทัล</option>
+                    <option>กลุ่มงานการพยาบาล</option>
+                    <option>กลุ่มงานทันตกรรม</option>
+                    <option>กลุ่มงานเทคนิคการแพทย์</option>
+                    <option>กลุ่มงานเวชกรรมฟื้นฟู</option>
+                    <option>กลุ่มงานการแพทย์แผนไทยและการแพทย์ทางเลือก</option>
+                    <option>กลุ่มงานรังสีวิทยา</option>
+                    <option>กลุ่มงานจิตเวชและยาเสพติด</option>
+                    <option>กลุ่มงานการแพทย์</option>
+                  </select>
+                </div>
+                <div class="filter-actions-group">
+                  <button class="btn-outline-dark mobile-full-btn" onclick="exportCSV()"><i class="bi bi-download"></i> ส่งออก Excel</button>
+                  <button class="btn-teal mobile-full-btn" onclick="applyFilter(); toggleFilterDrawer();"><i class="bi bi-funnel-fill"></i> ใช้ตัวกรอง</button>
+                </div>
               </div>
             </div>
 
@@ -121,44 +128,49 @@
                 id="rowCountSpan">0</span> รายการ</div>
 
             <!-- TABLE -->
-            <div class="table-card">
-              <div class="card-top">
-                <div>
-                  <div class="card-title">บันทึกการเข้า-ออกงานบุคลากร</div>
-                  <div class="card-sub" id="tableSubtitle">กะเช้า 08:00–16:00 | กะบ่าย 16:00–24:00 | กะดึก 00:00–08:00
+            <div class="table-card" id="attendanceTableCard">
+              <div class="card-top" style="user-select: none;">
+                <div onclick="toggleTableCard()" style="cursor: pointer; display: flex; flex-direction: column; flex-grow: 1;">
+                  <div class="card-title" style="display: flex; align-items: center; gap: 8px;">
+                    บันทึกการเข้า-ออกงานบุคลากร
+                    <i id="tableCollapseIcon" class="bi bi-chevron-up" style="transition: transform 0.3s; font-size: 14px; opacity: 0.7;"></i>
                   </div>
+                  <div class="card-sub" id="tableSubtitle">กะเช้า 08:00–16:00 | กะบ่าย 16:00–24:00 | กะดึก 00:00–08:00</div>
                 </div>
-                <div style="display:flex;gap:8px;">
+                <div style="display:flex;align-items:center;gap:8px;">
                   <button class="btn-outline-dark" onclick="exportCSV()"><i class="bi bi-file-earmark-excel"></i>
                     Excel</button>
                   <button class="btn-outline-dark" onclick="window.print()"><i class="bi bi-printer"></i> พิมพ์</button>
+                  <button class="btn-outline-dark" onclick="toggleTableCard()" title="ย่อ/ขยายตาราง" style="width:34px; height:34px; display:flex; align-items:center; justify-content:center; padding:0;"><i id="tableCollapseIconBtn" class="bi bi-chevron-up" style="font-size:14px; transition: transform 0.3s;"></i></button>
                 </div>
               </div>
-              <div style="overflow-x:auto;">
-                <table class="att-tbl">
-                  <thead>
-                    <tr>
-                      <th>#</th>
-                      <th>บุคลากร</th>
-                      <th>แผนก / ตำแหน่ง</th>
-                      <th>กะ</th>
-                      <th>สถานะ</th>
-                      <th>เวลาเข้า</th>
-                      <th>เวลาออก</th>
-                      <th>ชั่วโมงทำงาน</th>
-                      <th>OT</th>
-                      <th class="admin-col">ความแม่นยำ</th>
-                      <th class="admin-col">จัดการ</th>
-                    </tr>
-                  </thead>
-                  <tbody id="tableBody"></tbody>
-                </table>
-              </div>
-              <div class="pager">
-                <div class="pager-info" id="pagerInfo">แสดง 0 รายการ</div>
-                <nav>
-                  <ul class="pagination pagination-sm mb-0 gap-1" id="pagination"></ul>
-                </nav>
+              <div id="tableCardContent" class="table-card-content">
+                <div style="overflow-x:auto;">
+                  <table class="att-tbl">
+                    <thead>
+                      <tr>
+                        <th>#</th>
+                        <th>บุคลากร</th>
+                        <th>แผนก / ตำแหน่ง</th>
+                        <th>กะ</th>
+                        <th>สถานะ</th>
+                        <th>เวลาเข้า</th>
+                        <th>เวลาออก</th>
+                        <th>ชั่วโมงทำงาน</th>
+                        <th>OT</th>
+                        <th class="admin-col">ความแม่นยำ</th>
+                        <th class="admin-col">จัดการ</th>
+                      </tr>
+                    </thead>
+                    <tbody id="tableBody"></tbody>
+                  </table>
+                </div>
+                <div class="pager">
+                  <div class="pager-info" id="pagerInfo">แสดง 0 รายการ</div>
+                  <nav>
+                    <ul class="pagination pagination-sm mb-0 gap-1" id="pagination"></ul>
+                  </nav>
+                </div>
               </div>
             </div>
 
@@ -294,7 +306,10 @@
               const matchDept = !dept || e.dept === dept;
               // const matchStatus = !status || e.status === status; // removed
               const matchShift = shift === 'all' || e.shift === shift;
-              const matchSearch = !search || e.name.toLowerCase().includes(search) || (e.id && e.id.toLowerCase().includes(search));
+              const matchSearch = !search || 
+                e.name.toLowerCase().includes(search) || 
+                (e.id && e.id.toLowerCase().includes(search)) ||
+                (e.dept && e.dept.toLowerCase().includes(search));
               return matchDept && matchShift && matchSearch;
             });
             currentPage = 1;
@@ -876,6 +891,71 @@
   document.getElementById('settingsModal').addEventListener('click', function(e) {
     if (e.target === this) closeSettings();
   });
+
+  // Accordion Toggle for Personnel Attendance Log
+  function toggleTableCard() {
+    const content = document.getElementById('tableCardContent');
+    const icons = [document.getElementById('tableCollapseIcon'), document.getElementById('tableCollapseIconBtn')];
+    
+    if (!content) return;
+    
+    const isCollapsed = content.classList.toggle('collapsed');
+    
+    // Update both icons (the title chevron and the action button chevron)
+    icons.forEach(icon => {
+      if (icon) {
+        if (isCollapsed) {
+          icon.style.transform = 'rotate(-180deg)';
+        } else {
+          icon.style.transform = 'rotate(0deg)';
+        }
+      }
+    });
+    
+    localStorage.setItem('tableCardCollapsed', isCollapsed ? 'true' : 'false');
+  }
+
+  // Restore Accordion state on load
+  function initTableCollapseState() {
+    const content = document.getElementById('tableCardContent');
+    const icons = [document.getElementById('tableCollapseIcon'), document.getElementById('tableCollapseIconBtn')];
+    const isCollapsed = localStorage.getItem('tableCardCollapsed') === 'true';
+    
+    if (content && isCollapsed) {
+      content.classList.add('collapsed');
+      icons.forEach(icon => {
+        if (icon) {
+          icon.style.transform = 'rotate(-180deg)';
+        }
+      });
+    }
+  }
+
+  // Toggle Advanced Filters Drawer on Mobile
+  function toggleFilterDrawer() {
+    if (window.innerWidth < 768) {
+      const drawer = document.getElementById('filterDrawerContent');
+      const btn = document.getElementById('filterToggleBtn');
+      if (drawer) {
+        const isCollapsed = drawer.classList.toggle('collapsed');
+        if (btn) btn.classList.toggle('active', !isCollapsed);
+      }
+    }
+  }
+
+  // Initialize Filter Drawer State
+  function initFilterDrawer() {
+    if (window.innerWidth < 768) {
+      const drawer = document.getElementById('filterDrawerContent');
+      if (drawer) {
+        drawer.classList.add('collapsed');
+      }
+    }
+  }
+
+  // Restore state before initial fetch
+  initFilterDrawer();
+  initTableCollapseState();
 
   init();
 </script>
@@ -1897,7 +1977,7 @@ async function deleteStaff(staffId) {
 </script>
 
   <!-- Emergency Admin Access (Developer Mode) -->
-  <% if (!locals.RBAC_ENABLED || (locals.user && (locals.user.role === 'admin' || locals.user.role === 'super'))) { %>
+  <% if (!locals.RBAC_ENABLED || (locals.user && locals.user.role === 'super')) { %>
   <a href="/admin/permissions" style="
     position: fixed; bottom: 20px; right: 20px; z-index: 10000;
     padding: 10px 16px; background: rgba(30,41,59,0.7); backdrop-filter: blur(8px);
@@ -1908,5 +1988,31 @@ async function deleteStaff(staffId) {
     <i class="bi bi-shield-lock-fill"></i> Admin Setup
   </a>
   <% } %>
+
+  <!-- Scroll to Top Button -->
+  <button id="scrollToTopBtn" class="scroll-to-top" onclick="scrollToTop()" title="กลับไปข้างบน">
+    <i class="bi bi-chevron-up"></i>
+  </button>
+
+  <script>
+    // Scroll to Top behavior
+    window.addEventListener('scroll', () => {
+      const btn = document.getElementById('scrollToTopBtn');
+      if (btn) {
+        if (window.scrollY > 300) {
+          btn.classList.add('show');
+        } else {
+          btn.classList.remove('show');
+        }
+      }
+    });
+
+    function scrollToTop() {
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      });
+    }
+  </script>
 </body>
 </html>

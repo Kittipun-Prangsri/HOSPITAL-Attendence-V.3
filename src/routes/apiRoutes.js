@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { checkAuth, checkAdmin } = require('../middleware/auth');
+const { checkAuth, checkAdmin, checkSuper } = require('../middleware/auth');
 const apiController = require('../controllers/apiController');
 const userController = require('../controllers/userController');
 const personnelController = require('../controllers/personnelController');
@@ -19,10 +19,12 @@ router.get('/notifications/mappings', checkAuth, checkAdmin, attendanceControlle
 router.post('/notifications/mappings', checkAuth, checkAdmin, attendanceController.updateMapping);
 
 // User management
-router.get('/users', checkAuth, checkAdmin, userController.getUsers);
-router.post('/users', checkAuth, checkAdmin, userController.saveUser);
-router.post('/users/test-line', checkAuth, checkAdmin, userController.testLine);
-router.delete('/users/:id', checkAuth, checkAdmin, userController.deleteUser);
+router.get('/users', checkAuth, checkSuper, userController.getUsers);
+router.post('/users', checkAuth, checkSuper, userController.saveUser);
+router.post('/users/test-line', checkAuth, checkSuper, userController.testLine);
+router.post('/users/test-telegram', checkAuth, checkSuper, userController.testTelegram);
+router.delete('/users/:id', checkAuth, checkSuper, userController.deleteUser);
+router.post('/users/:id/reset-password', checkAuth, checkSuper, userController.resetPassword);
 
 // Personnel
 router.get('/personnel', checkAuth, personnelController.getPersonnel);

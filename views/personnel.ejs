@@ -113,6 +113,17 @@
               <div class="sdm-field-icon" style="background:#ECFDF5;color:#0d9488;"><i class="bi bi-line"></i></div>
               <div style="flex:1;"><div class="sdm-field-label">LINE User ID</div><div class="sdm-field-val sdm-view-field" id="sdmLineId"></div><input class="sdm-input sdm-edit-field" id="sdmLineIdInput" type="text" placeholder="พิมพ์หรือวาง LINE User ID (ขึ้นต้นด้วย U...)" style="display:none;"></div>
             </div>
+            <div class="sdm-field-card">
+              <div class="sdm-field-icon" style="background:#E0F2FE;color:#0284c7;"><i class="bi bi-telegram"></i></div>
+              <div style="flex:1;">
+                <div class="sdm-field-label">Telegram Chat ID</div>
+                <div class="sdm-field-val sdm-view-field" id="sdmTelegramId"></div>
+                <div class="sdm-edit-field" style="display:none; display:flex; gap:8px; align-items:center; width:100%;">
+                  <input class="sdm-input" id="sdmTelegramIdInput" type="text" placeholder="พิมพ์หรือวาง Telegram Chat ID" style="flex:1;">
+                  <button type="button" class="btn btn-sm btn-outline-dark" style="min-height:36px; padding: 0 8px; font-size:11px;" onclick="showHowToGetTelegramId()"><i class="bi bi-question-circle"></i></button>
+                </div>
+              </div>
+            </div>
           </div>
           <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:18px;">
             <button onclick="closeStaffDetail()" class="sdm-foot-btn sdm-foot-ghost">ปิด</button>
@@ -195,6 +206,7 @@
     document.getElementById('sdmEmail').textContent = maskSensitiveData(p.HR_EMAIL, 'view_email');
     document.getElementById('sdmNicknameField').textContent = p.NICKNAME || '—';
     document.getElementById('sdmLineId').textContent = p.line_user_id || '—';
+    document.getElementById('sdmTelegramId').textContent = p.telegram_chat_id || '—';
     document.getElementById('sdmEditBtn').style.display = checkPermission('edit_staff') ? '' : 'none';
     document.getElementById('staffDetailModal').style.display = 'flex';
   }
@@ -209,6 +221,7 @@
       document.getElementById('sdmEmailInput').value = p.HR_EMAIL || '';
       document.getElementById('sdmNicknameInput').value = p.NICKNAME || '';
       document.getElementById('sdmLineIdInput').value = p.line_user_id || '';
+      document.getElementById('sdmTelegramIdInput').value = p.telegram_chat_id || '';
     } else {
       document.getElementById('sdmEditBtn').style.display = checkPermission('edit_staff') ? '' : 'none';
       document.getElementById('sdmSaveBtn').style.display = 'none';
@@ -224,7 +237,8 @@
       phone: document.getElementById('sdmPhoneInput').value,
       email: document.getElementById('sdmEmailInput').value,
       nickname: document.getElementById('sdmNicknameInput').value,
-      line_user_id: document.getElementById('sdmLineIdInput').value
+      line_user_id: document.getElementById('sdmLineIdInput').value,
+      telegram_chat_id: document.getElementById('sdmTelegramIdInput').value
     };
     try {
       const res = await fetch('/api/staff/update', {
@@ -236,6 +250,16 @@
       if (resData.success) { alert('อัปเดตสำเร็จ'); location.reload(); }
       else alert('ล้มเหลว: ' + resData.message);
     } catch { alert('เกิดข้อผิดพลาด'); }
+  }
+
+  function showHowToGetTelegramId() {
+    alert(
+      "💬 วิธีหา Telegram Chat ID:\n\n" +
+      "1. แอดบอทของระบบหรือแอดบอท @userinfobot ใน Telegram\n" +
+      "2. พิมพ์ข้อความหรือส่งคำสั่ง /start ไปยังบอท\n" +
+      "3. บอทจะตอบกลับข้อมูลพร้อมระบุ ID ของคุณ (ตัวเลขยาวๆ เช่น 123456789)\n" +
+      "4. คัดลอกตัวเลข ID นั้นมาใส่ในช่องนี้เพื่อบันทึกและเชื่อมต่อระบบ"
+    );
   }
 
   function closeStaffDetail() { document.getElementById('staffDetailModal').style.display = 'none'; toggleEditMode(false); }

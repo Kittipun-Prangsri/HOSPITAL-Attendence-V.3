@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { checkAuth, checkAdmin } = require('../middleware/auth');
+const { checkAuth, checkAdmin, checkSuper } = require('../middleware/auth');
 const { DEPARTMENTS } = require('../constants/departments');
 
 const pages = [
@@ -22,12 +22,18 @@ const pages = [
 pages.forEach(p => {
   const adminPaths = [
     '/attendance', '/personnel', '/scheduling', '/reports', 
-    '/report/daily', '/report/monthly', '/report/hours', 
+    '/report/daily', '/report/monthly', '/report/hours'
+  ];
+  const superPaths = [
     '/admin/users', '/admin/permissions', '/permissions'
   ];
   const isDept = p.path.startsWith('/department/');
 
-  if (adminPaths.includes(p.path) || isDept) {
+  if (superPaths.includes(p.path)) {
+    router.get(p.path, checkAuth, checkSuper, (req, res) => {
+      res.render(p.view, { activeRoute: p.path, deptName: p.deptName || '' });
+    });
+  } else if (adminPaths.includes(p.path) || isDept) {
     router.get(p.path, checkAuth, checkAdmin, (req, res) => {
       res.render(p.view, { activeRoute: p.path, deptName: p.deptName || '' });
     });

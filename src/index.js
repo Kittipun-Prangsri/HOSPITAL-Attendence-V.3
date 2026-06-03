@@ -49,6 +49,21 @@ async function startServer() {
       ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
     `);
 
+    // Try to check/add TELEGRAM_CHAT_ID column to hr_person in HOSoffice DB
+    try {
+      const { hosofficePool } = require('./config/db');
+      const [columns] = await hosofficePool.query("SHOW COLUMNS FROM hr_person LIKE 'TELEGRAM_CHAT_ID'");
+      if (columns.length === 0) {
+        console.log('[Init] Adding TELEGRAM_CHAT_ID column to hr_person table...');
+        await hosofficePool.query("ALTER TABLE hr_person ADD COLUMN TELEGRAM_CHAT_ID VARCHAR(100) NULL AFTER LINE_YOUR_USER_ID");
+        console.log('[Init] TELEGRAM_CHAT_ID column added successfully.');
+      } else {
+        console.log('[Init] TELEGRAM_CHAT_ID column already exists in hr_person table.');
+      }
+    } catch (err) {
+      console.warn('[Init] Warning: Could not check/add TELEGRAM_CHAT_ID column to hr_person. Make sure it exists.', err.message);
+    }
+
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`Server is running at http://localhost:${PORT}`);
       console.log('Login is integrated with HOSoffice hr_person (using HR_CID as username).');

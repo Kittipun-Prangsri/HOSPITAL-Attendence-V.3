@@ -74,6 +74,18 @@ exports.loadMonthlySchedule = (req, res) => {
 exports.getStaffSchedule = async (req, res) => {
   try {
     const { id, yearMonth } = req.params;
+    const currentUser = req.session.user;
+    const isPrivileged = currentUser && (currentUser.role === 'admin' || currentUser.role === 'super');
+
+    if (!isPrivileged) {
+      // Find the user's FINGLE_ID
+      const [userRows] = await hosofficePool.query('SELECT FINGLE_ID FROM hr_person WHERE ID = ?', [currentUser.id]);
+      const userFingleId = userRows.length > 0 ? userRows[0].FINGLE_ID : null;
+      if (String(id) !== String(userFingleId)) {
+        return res.status(403).json({ error: 'Forbidden: You can only access your own schedule' });
+      }
+    }
+
     const [year, month] = yearMonth.split('-').map(Number);
     if (!year || !month) return res.status(400).json({ error: 'Invalid yearMonth' });
 

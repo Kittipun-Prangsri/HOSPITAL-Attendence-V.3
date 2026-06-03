@@ -54,8 +54,8 @@
       }
     </script>
     <div class="topbar-left">
-      <h6 style="font-weight: 700; color: var(--primary, #0D9488); margin: 0;"><%= pageTitle %> - KHH (<%= locals.user ? user.role.toUpperCase() : 'USER' %>)</h6>
-      <small id="currentDate" class="text-muted">กำลังโหลด...</small>
+      <h6 style="font-weight: 700; color: var(--primary, #0D9488); margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px;"><%= pageTitle %><span class="d-none d-md-inline"> - KHH (<%= locals.user ? user.role.toUpperCase() : 'USER' %>)</span></h6>
+      <small id="currentDate" class="text-muted" style="white-space: nowrap;">กำลังโหลด...</small>
     </div>
   </div>
 
@@ -70,7 +70,7 @@
     }
   </style>
   <div class="d-flex align-items:center gap-2" style="display:flex;align-items:center;gap:8px;">
-    <div class="live-pill"><span class="live-dot"></span> ระบบออนไลน์</div>
+    <div class="live-pill" style="white-space: nowrap;"><span class="live-dot"></span> <span class="d-none d-sm-inline">ระบบออนไลน์</span></div>
     <div class="icon-btn" title="แจ้งเตือน"><i class="bi bi-bell"></i></div>
     <div class="icon-btn" title="รีเฟรช" onclick="refreshData(this)"><i class="bi bi-arrow-clockwise"></i></div>
     <div class="icon-btn" title="ตั้งค่า" onclick="openSettings()"><i class="bi bi-gear"></i></div>
@@ -96,14 +96,24 @@
         
         if (dateInput.value !== todayStr) {
           const selectedDate = new Date(dateInput.value);
-          dateEl.textContent = "ข้อมูลของวันที่: " + selectedDate.toLocaleDateString('th-TH', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+          if (window.innerWidth < 768) {
+            dateEl.textContent = "วันที่: " + selectedDate.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' });
+          } else {
+            dateEl.textContent = "ข้อมูลของวันที่: " + selectedDate.toLocaleDateString('th-TH', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+          }
           return;
         }
       }
 
-      const datePart = now.toLocaleDateString('th-TH', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-      const timePart = now.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-      dateEl.textContent = `${datePart} เวลา ${timePart} น.`;
+      if (window.innerWidth < 768) {
+        const datePart = now.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
+        const timePart = now.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+        dateEl.textContent = `${datePart} | ${timePart} น.`;
+      } else {
+        const datePart = now.toLocaleDateString('th-TH', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        const timePart = now.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        dateEl.textContent = `${datePart} เวลา ${timePart} น.`;
+      }
     };
 
     window.updateTopbarClock();
@@ -136,18 +146,24 @@
 
   // Enforce UI restrictions based on role
   document.addEventListener("DOMContentLoaded", () => {
+     if (CURRENT_ROLE === 'admin' || CURRENT_ROLE === 'staff' || CURRENT_ROLE === 'user') {
+         // Disable permissions menu and users menu in sidebar (if they exist in the DOM)
+         const permissionsMenu = document.querySelector('a[href="/admin/permissions"]');
+         if(permissionsMenu) {
+             permissionsMenu.style.display = 'none';
+         }
+         const usersMenu = document.querySelector('a[href="/admin/users"]');
+         if(usersMenu) {
+             usersMenu.style.display = 'none';
+         }
+     }
+
      if (CURRENT_ROLE === 'staff' || CURRENT_ROLE === 'user') {
          // Disable settings menu icon in topbar
          const settingsBtn = document.querySelector('[onclick="openSettings()"]');
          if(settingsBtn) {
              settingsBtn.style.pointerEvents = 'none';
              settingsBtn.style.opacity = '0.5';
-         }
-
-         // Disable permissions menu in sidebar (if exists)
-         const permissionsMenu = document.querySelector('a[href="/admin/permissions"]');
-         if(permissionsMenu) {
-             permissionsMenu.style.display = 'none';
          }
      }
   });

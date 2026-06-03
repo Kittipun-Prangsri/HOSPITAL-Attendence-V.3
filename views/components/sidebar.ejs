@@ -76,7 +76,7 @@
           class="bi bi-calendar3"></i> <span>รายงานสรุปรายเดือน</span></a>
 
       <!-- Dept Menus (Admin only) -->
-      <div class="mt-3 mb-2"
+      <div class="sb-dept-header mt-3 mb-2"
         style="cursor:pointer; display:flex; justify-content:space-between; align-items:center; padding: 10px 15px; background: rgba(255,255,255,0.08); border-radius: 8px; color: #fff; font-size: 14px; font-weight: 600; transition: all 0.2s; border: 1px solid rgba(255,255,255,0.1);"
         onmouseover="this.style.background='rgba(255,255,255,0.15)'"
         onmouseout="this.style.background='rgba(255,255,255,0.08)'"
@@ -113,6 +113,7 @@
       </div>
 
       <!-- Admin configuration tools -->
+      <% if (locals.RBAC_ENABLED === false || (locals.user && user.role === 'super')) { %>
       <div id="admin-tools">
         <div class="sb-sec">ฝ่ายบริหารระบบ</div>
         <a href="/admin/users"
@@ -122,6 +123,7 @@
           class="sb-link <%= typeof activeRoute !== 'undefined' && activeRoute === '/admin/permissions' ? 'active' : '' %>"><i
             class="bi bi-shield-lock-fill"></i> <span>ตั้งค่าระดับสิทธิ์</span></a>
       </div>
+      <% } %>
 
       <a href="/report/hours"
         class="sb-link <%= typeof activeRoute !== 'undefined' && activeRoute === '/report/hours' ? 'active' : '' %>"><i

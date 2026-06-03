@@ -37,8 +37,11 @@ exports.getData = async (req, res) => {
       console.error('Shift load error:', e);
     }
 
+    const currentUser = req.session.user;
+    const isPrivileged = currentUser && (currentUser.role === 'admin' || currentUser.role === 'super');
+
     // 1. Fetch live unified employees summary
-    const [employees] = await hosofficePool.query(`
+    let employeesQuery = `
       SELECT 
         p.FINGLE_ID AS id,
         CONCAT(p.HR_FNAME, ' ', p.HR_LNAME) AS name,
@@ -71,8 +74,15 @@ exports.getData = async (req, res) => {
       ) h ON p.FINGLE_ID = h.EmployeeID
       LEFT JOIN service_work_scans_morning m ON p.ID = m.hr_person_id AND m.year_and_month = ?
       WHERE p.HR_STATUS_ID IN ('01', '02', '03', '04', '09')
-      ORDER BY d.HR_DEPARTMENT_ID, p.FINGLE_ID
-    `, [lateThresholdTime, targetDateStr, targetMonth]);
+    `;
+    const employeesParams = [lateThresholdTime, targetDateStr, targetMonth];
+    if (!isPrivileged) {
+      employeesQuery += ` AND p.ID = ?`;
+      employeesParams.push(currentUser.id);
+    }
+    employeesQuery += ` ORDER BY d.HR_DEPARTMENT_ID, p.FINGLE_ID`;
+
+    const [employees] = await hosofficePool.query(employeesQuery, employeesParams);
     
     // Map shifts
     employees.forEach(e => {
@@ -80,7 +90,7 @@ exports.getData = async (req, res) => {
     });
     
     // 2. Fetch realtime live scans from Hikvision
-    const [liveScans] = await hosofficePool.query(`
+    let liveScansQuery = `
       SELECT 
         h.Direction as type,
         CONCAT(p.HR_FNAME, '   ', p.HR_LNAME) as name,
@@ -102,9 +112,15 @@ exports.getData = async (req, res) => {
       LEFT JOIN hr_department d ON p.HR_DEPARTMENT_ID = d.HR_DEPARTMENT_ID
       WHERE h.AccessDate = ?
       AND (p.HR_STATUS_ID IN ('01', '02', '03', '04', '09') OR h.PersonName IS NOT NULL)
-      ORDER BY h.AccessTime DESC
-      LIMIT 30
-    `, [targetDateStr]);
+    `;
+    const liveScansParams = [targetDateStr];
+    if (!isPrivileged) {
+      liveScansQuery += ` AND p.ID = ?`;
+      liveScansParams.push(currentUser.id);
+    }
+    liveScansQuery += ` ORDER BY h.AccessTime DESC LIMIT 30`;
+
+    const [liveScans] = await hosofficePool.query(liveScansQuery, liveScansParams);
 
     const timelineData = liveScans.map(s => ({
       ...s,
@@ -116,7 +132,7 @@ exports.getData = async (req, res) => {
     const dayColumnIn = `di${day}`;
     const dayColumnOut = `do${day}`;
 
-    const [serviceWorkData] = await hosofficePool.query(`
+    let serviceWorkQuery = `
       SELECT 
         CONCAT(p.HR_FNAME, ' ', p.HR_LNAME) as name,
         d.HR_DEPARTMENT_NAME as dept,
@@ -132,7 +148,14 @@ exports.getData = async (req, res) => {
         OR
         (a.${dayColumnOut} IS NOT NULL AND a.${dayColumnOut} != '' AND a.${dayColumnOut} NOT REGEXP '[0-9]{2}:[0-9]{2}')
       )
-    `, [targetMonth, targetMonth]);
+    `;
+    const serviceWorkParams = [targetMonth, targetMonth];
+    if (!isPrivileged) {
+      serviceWorkQuery += ` AND p.ID = ?`;
+      serviceWorkParams.push(currentUser.id);
+    }
+
+    const [serviceWorkData] = await hosofficePool.query(serviceWorkQuery, serviceWorkParams);
 
     res.json({ employees, timelineData, scanQueue, serviceWorkData });
   } catch (error) {
@@ -151,7 +174,10 @@ exports.getMonthlyReport = async (req, res) => {
     const lateThreshold = (h * 60 + m + lateMin);
     const lateThresholdTime = `${Math.floor(lateThreshold/60).toString().padStart(2,'0')}:${(lateThreshold%60).toString().padStart(2,'0')}:00`;
 
-    const [monthlyData] = await hosofficePool.query(`
+    const currentUser = req.session.user;
+    const isPrivileged = currentUser && (currentUser.role === 'admin' || currentUser.role === 'super');
+
+    let monthlyQuery = `
       SELECT 
         p.FINGLE_ID AS id,
         CONCAT(p.HR_FNAME, ' ', p.HR_LNAME) AS name,
@@ -172,9 +198,15 @@ exports.getMonthlyReport = async (req, res) => {
         GROUP BY EmployeeID, AccessDate
       ) h ON p.FINGLE_ID = h.EmployeeID
       WHERE p.HR_STATUS_ID IN ('01', '02', '03', '04', '09')
-      GROUP BY p.FINGLE_ID
-      HAVING daysWorked > 0
-    `, [lateThresholdTime, `${targetMonth}-%`]);
+    `;
+    const monthlyParams = [lateThresholdTime, `${targetMonth}-%`];
+    if (!isPrivileged) {
+      monthlyQuery += ` AND p.ID = ?`;
+      monthlyParams.push(currentUser.id);
+    }
+    monthlyQuery += ` GROUP BY p.FINGLE_ID HAVING daysWorked > 0`;
+
+    const [monthlyData] = await hosofficePool.query(monthlyQuery, monthlyParams);
 
     res.json({ success: true, report: monthlyData });
   } catch (error) {
