@@ -109,6 +109,10 @@
               <div class="sdm-field-icon" style="background:#FFF7ED;color:#EA580C;"><i class="bi bi-emoji-smile-fill"></i></div>
               <div style="flex:1;"><div class="sdm-field-label">ชื่อเล่น</div><div class="sdm-field-val sdm-view-field" id="sdmNicknameField"></div><input class="sdm-input sdm-edit-field" id="sdmNicknameInput" type="text" style="display:none;"></div>
             </div>
+            <div class="sdm-field-card">
+              <div class="sdm-field-icon" style="background:#ECFDF5;color:#0d9488;"><i class="bi bi-line"></i></div>
+              <div style="flex:1;"><div class="sdm-field-label">LINE User ID</div><div class="sdm-field-val sdm-view-field" id="sdmLineId"></div><input class="sdm-input sdm-edit-field" id="sdmLineIdInput" type="text" placeholder="พิมพ์หรือวาง LINE User ID (ขึ้นต้นด้วย U...)" style="display:none;"></div>
+            </div>
           </div>
           <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:18px;">
             <button onclick="closeStaffDetail()" class="sdm-foot-btn sdm-foot-ghost">ปิด</button>
@@ -190,6 +194,7 @@
     document.getElementById('sdmPhone').textContent = maskSensitiveData(p.HR_PHONE, 'view_phone');
     document.getElementById('sdmEmail').textContent = maskSensitiveData(p.HR_EMAIL, 'view_email');
     document.getElementById('sdmNicknameField').textContent = p.NICKNAME || '—';
+    document.getElementById('sdmLineId').textContent = p.line_user_id || '—';
     document.getElementById('sdmEditBtn').style.display = checkPermission('edit_staff') ? '' : 'none';
     document.getElementById('staffDetailModal').style.display = 'flex';
   }
@@ -203,6 +208,7 @@
       document.getElementById('sdmPhoneInput').value = p.HR_PHONE || '';
       document.getElementById('sdmEmailInput').value = p.HR_EMAIL || '';
       document.getElementById('sdmNicknameInput').value = p.NICKNAME || '';
+      document.getElementById('sdmLineIdInput').value = p.line_user_id || '';
     } else {
       document.getElementById('sdmEditBtn').style.display = checkPermission('edit_staff') ? '' : 'none';
       document.getElementById('sdmSaveBtn').style.display = 'none';
@@ -217,7 +223,8 @@
       id: _currentId,
       phone: document.getElementById('sdmPhoneInput').value,
       email: document.getElementById('sdmEmailInput').value,
-      nickname: document.getElementById('sdmNicknameInput').value
+      nickname: document.getElementById('sdmNicknameInput').value,
+      line_user_id: document.getElementById('sdmLineIdInput').value
     };
     try {
       const res = await fetch('/api/staff/update', {

@@ -1,5 +1,40 @@
 <!-- SIDEBAR -->
 <nav class="sidebar" id="sidebar">
+  <button class="sb-toggle-btn" onclick="toggleGlobalSidebar()" style="
+    position: absolute;
+    top: 20px;
+    right: 15px;
+    background: transparent;
+    border: none;
+    color: rgba(255,255,255,0.8);
+    font-size: 20px;
+    cursor: pointer;
+    z-index: 10;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+  " onmouseover="this.style.background='rgba(255,255,255,0.1)';this.style.color='#fff'" onmouseout="this.style.background='transparent';this.style.color='rgba(255,255,255,0.8)'">
+    <i class="bi bi-list"></i>
+  </button>
+  
+  <style>
+    .sidebar.collapsed .sb-toggle-btn {
+      right: 0 !important;
+      left: 0 !important;
+      margin: 0 auto !important;
+      top: 15px !important;
+    }
+    @media (max-width: 991px) {
+      .sb-toggle-btn {
+        display: none !important;
+      }
+    }
+  </style>
+
   <div class="sb-logo">
     <div class="sb-logo-icon" style="background:transparent;"><img src="/images/LOGO%20KHH.jpg" alt="KHH Hospital Logo"
         style="width:100%; height:100%; border-radius:10px; object-fit:cover;" /></div>
@@ -7,79 +42,92 @@
     <small>ระบบสแกนหน้าบุคลากรโรงพยาบาล</small>
   </div>
   <div class="sb-nav">
-    <div class="sb-sec">เมนูหลัก</div>
+    <div class="sb-sec">Dashboard</div>
     <a href="/" class="sb-link <%= typeof activeRoute !== 'undefined' && activeRoute === '/' ? 'active' : '' %>"><i
-        class="bi bi-speedometer2"></i> <span>หน้าหลัก</span></a>
+        class="bi bi-speedometer2"></i> <span>Dashboard</span></a>
 
     <a href="/schedule"
-       class="sb-link <%= typeof activeRoute !== 'undefined' && activeRoute === '/schedule' ? 'active' : '' %>"><i
+      class="sb-link <%= typeof activeRoute !== 'undefined' && activeRoute === '/schedule' ? 'active' : '' %>"><i
         class="bi bi-clock-history"></i> <span>ตารางเวรตัวเอง</span></a>
 
-    <% if (locals.RBAC_ENABLED === false || (locals.user && user.role === 'admin')) { %>
-    <!-- Admin Menus -->
-    <a href="/attendance"
-      class="sb-link <%= typeof activeRoute !== 'undefined' && activeRoute === '/attendance' ? 'active' : '' %>"><i
-        class="bi bi-person-check"></i> <span>บันทึกเข้า-ออกงาน</span></a>
-    <a href="/personnel"
-      class="sb-link <%= typeof activeRoute !== 'undefined' && activeRoute === '/personnel' ? 'active' : '' %>"><i
-        class="bi bi-people"></i> <span>ข้อมูลบุคลากร</span></a>
-    <a href="/scheduling"
-      class="sb-link <%= typeof activeRoute !== 'undefined' && activeRoute === '/scheduling' ? 'active' : '' %>"><i
-        class="bi bi-calendar2-week-fill"></i> <span>จัดตารางเวรพยาบาล</span></a>
-    <a href="/reports"
-      class="sb-link <%= typeof activeRoute !== 'undefined' && activeRoute === '/reports' ? 'active' : '' %>"><i
-        class="bi bi-graph-up-arrow"></i> <span>แดชบอร์ดวิเคราะห์</span></a>
-    <a href="/report/daily"
-      class="sb-link <%= typeof activeRoute !== 'undefined' && activeRoute === '/report/daily' ? 'active' : '' %>"><i
-        class="bi bi-bar-chart-line"></i> <span>รายงานสรุปรายวัน</span></a>
-    <a href="/report/monthly"
-      class="sb-link <%= typeof activeRoute !== 'undefined' && activeRoute === '/report/monthly' ? 'active' : '' %>"><i
-        class="bi bi-calendar3"></i> <span>รายงานสรุปรายเดือน</span></a>
+    <a href="/excuses"
+      class="sb-link <%= typeof activeRoute !== 'undefined' && activeRoute === '/excuses' ? 'active' : '' %>"><i
+        class="bi bi-exclamation-triangle-fill"></i> <span>แจ้งสาเหตุ / ขาด ลา สาย</span></a>
 
-    <!-- Dept Menus (Admin only) -->
-    <div class="sb-sec mt-3" style="cursor:pointer; display:flex; justify-content:space-between; align-items:center; padding-right:12px;" onclick="document.getElementById('deptMenuBox').style.display = document.getElementById('deptMenuBox').style.display === 'none' ? 'block' : 'none'">
-      <span>ข้อมูลแยกตามกลุ่มงาน</span> <i class="bi bi-chevron-down" style="font-size:10px;"></i>
-    </div>
-    
-    <div id="deptMenuBox" style="display: <%= typeof activeRoute !== 'undefined' && activeRoute.startsWith('/department/') ? 'block' : 'none' %>;">
-      <% const _depts = [
-        { id: 'strat', name: 'ประกันสุขภาพยุทธศาสตร์', icon: 'bi-clipboard2-data' },
-        { id: 'gen', name: 'บริหารทั่วไป', icon: 'bi-briefcase' },
-        { id: 'pri', name: 'บริการด้านปฐมภูมิฯ', icon: 'bi-house-heart' },
-        { id: 'pha', name: 'เภสัชกรรมฯ', icon: 'bi-capsule' },
-        { id: 'digi', name: 'สุขภาพดิจิทัล', icon: 'bi-pc-display' },
-        { id: 'nur', name: 'การพยาบาล', icon: 'bi-heart-pulse' },
-        { id: 'den', name: 'ทันตกรรม', icon: 'bi-bandaid' },
-        { id: 'medtech', name: 'เทคนิคการแพทย์', icon: 'bi-eyedropper' },
-        { id: 'rehab', name: 'เวชกรรมฟื้นฟู', icon: 'bi-person-wheelchair' },
-        { id: 'altmed', name: 'แพทย์แผนไทยฯ', icon: 'bi-flower1' },
-        { id: 'rad', name: 'รังสีวิทยา', icon: 'bi-x-diamond' },
-        { id: 'psy', name: 'จิตเวชและยาเสพติด', icon: 'bi-person-hearts' },
-        { id: 'med', name: 'การแพทย์', icon: 'bi-stethoscope' }
-      ]; %>
-      <% _depts.forEach(d => { %>
-        <a href="/department/<%= d.id %>" class="sb-link <%= typeof activeRoute !== 'undefined' && activeRoute === '/department/' + d.id ? 'active' : '' %>" style="padding-left: 2rem; font-size: 13px;">
-          <i class="bi <%= d.icon %>" style="opacity:0.7;"></i> <span><%= d.name %></span>
-        </a>
-      <% }); %>
-    </div>
+    <% if (locals.RBAC_ENABLED===false || (locals.user && (user.role==='admin' || user.role==='super'))) { %>
+      <!-- Admin Menus -->
+      <a href="/attendance"
+        class="sb-link <%= typeof activeRoute !== 'undefined' && activeRoute === '/attendance' ? 'active' : '' %>"><i
+          class="bi bi-person-check"></i> <span>บันทึกเข้า-ออกงาน</span></a>
+      <a href="/personnel"
+        class="sb-link <%= typeof activeRoute !== 'undefined' && activeRoute === '/personnel' ? 'active' : '' %>"><i
+          class="bi bi-people"></i> <span>ข้อมูลบุคลากร</span></a>
+      <a href="/scheduling"
+        class="sb-link <%= typeof activeRoute !== 'undefined' && activeRoute === '/scheduling' ? 'active' : '' %>"><i
+          class="bi bi-calendar2-week-fill"></i> <span>จัดตารางเวรพยาบาล</span></a>
+      <a href="/reports"
+        class="sb-link <%= typeof activeRoute !== 'undefined' && activeRoute === '/reports' ? 'active' : '' %>"><i
+          class="bi bi-graph-up-arrow"></i> <span>แดชบอร์ดวิเคราะห์</span></a>
+      <a href="/report/daily"
+        class="sb-link <%= typeof activeRoute !== 'undefined' && activeRoute === '/report/daily' ? 'active' : '' %>"><i
+          class="bi bi-bar-chart-line"></i> <span>รายงานสรุปรายวัน</span></a>
+      <a href="/report/monthly"
+        class="sb-link <%= typeof activeRoute !== 'undefined' && activeRoute === '/report/monthly' ? 'active' : '' %>"><i
+          class="bi bi-calendar3"></i> <span>รายงานสรุปรายเดือน</span></a>
 
-    <!-- Admin configuration tools -->
-    <div id="admin-tools">
-      <div class="sb-sec">ฝ่ายบริหารระบบ</div>
-      <a href="/admin/users"
-        class="sb-link <%= typeof activeRoute !== 'undefined' && activeRoute === '/admin/users' ? 'active' : '' %>"><i
-          class="bi bi-person-gear"></i> <span>จัดการผู้เข้าใช้</span></a>
-      <a href="/admin/permissions"
-        class="sb-link <%= typeof activeRoute !== 'undefined' && activeRoute === '/admin/permissions' ? 'active' : '' %>"><i
-          class="bi bi-shield-lock-fill"></i> <span>ตั้งค่าระดับสิทธิ์</span></a>
-    </div>
+      <!-- Dept Menus (Admin only) -->
+      <div class="mt-3 mb-2"
+        style="cursor:pointer; display:flex; justify-content:space-between; align-items:center; padding: 10px 15px; background: rgba(255,255,255,0.08); border-radius: 8px; color: #fff; font-size: 14px; font-weight: 600; transition: all 0.2s; border: 1px solid rgba(255,255,255,0.1);"
+        onmouseover="this.style.background='rgba(255,255,255,0.15)'"
+        onmouseout="this.style.background='rgba(255,255,255,0.08)'"
+        onclick="const box = document.getElementById('deptMenuBox'); const icon = document.getElementById('deptChevron'); if(box.style.display === 'none'){ box.style.display = 'block'; icon.className = 'bi bi-chevron-up'; } else { box.style.display = 'none'; icon.className = 'bi bi-chevron-down'; }">
+        <div>
+          <i class="bi bi-diagram-3-fill" style="margin-right: 8px; opacity: 0.8;"></i>
+          <span>ข้อมูลแยกตามกลุ่มงาน</span>
+        </div>
+        <i id="deptChevron"
+          class="bi <%= typeof activeRoute !== 'undefined' && activeRoute.startsWith('/department/') ? 'bi-chevron-up' : 'bi-chevron-down' %>"
+          style="font-size:13px; font-weight:bold;"></i>
+      </div>
 
-    <a href="/report/hours"
-      class="sb-link <%= typeof activeRoute !== 'undefined' && activeRoute === '/report/hours' ? 'active' : '' %>"><i
-        class="bi bi-file-earmark-medical"></i> <span>สรุปชั่วโมงทำงาน</span></a>
-    
-    <% } /* end if admin */ %>
+      <div id="deptMenuBox"
+        style="display: <%= typeof activeRoute !== 'undefined' && activeRoute.startsWith('/department/') ? 'block' : 'none' %>;">
+        <% const _depts=[ { id: 'srt' , name: 'ประกันสุขภาพยุทธศาสตร์' , icon: 'bi-clipboard2-data' }, { id: 'gen' ,
+          name: 'บริหารทั่วไป' , icon: 'bi-briefcase' }, { id: 'pri' , name: 'บริการด้านปฐมภูมิฯ' ,
+          icon: 'bi-house-heart' }, { id: 'pha' , name: 'เภสัชกรรมฯ' , icon: 'bi-capsule' }, { id: 'dig' ,
+          name: 'สุขภาพดิจิทัล' , icon: 'bi-pc-display' }, { id: 'nur' , name: 'การพยาบาล' , icon: 'bi-heart-pulse' }, {
+          id: 'den' , name: 'ทันตกรรม' , icon: 'bi-bandaid' }, { id: 'medtech' , name: 'เทคนิคการแพทย์' ,
+          icon: 'bi-eyedropper' }, { id: 'rehab' , name: 'เวชกรรมฟื้นฟู' , icon: 'bi-person-wheelchair' }, {
+          id: 'altmed' , name: 'แพทย์แผนไทยฯ' , icon: 'bi-flower1' }, { id: 'rad' , name: 'รังสีวิทยา' ,
+          icon: 'bi-x-diamond' }, { id: 'psy' , name: 'จิตเวชและยาเสพติด' , icon: 'bi-person-hearts' }, { id: 'med' ,
+          name: 'การแพทย์' , icon: 'bi-clipboard2-pulse' } ]; %>
+          <% _depts.forEach(d=> { %>
+            <a href="/department/<%= d.id %>"
+              class="sb-link <%= typeof activeRoute !== 'undefined' && activeRoute === '/department/' + d.id ? 'active' : '' %>"
+              style="padding-left: 2rem; font-size: 13px;">
+              <i class="bi <%= d.icon %>" style="opacity:0.7;"></i> <span>
+                <%= d.name %>
+              </span>
+            </a>
+            <% }); %>
+      </div>
+
+      <!-- Admin configuration tools -->
+      <div id="admin-tools">
+        <div class="sb-sec">ฝ่ายบริหารระบบ</div>
+        <a href="/admin/users"
+          class="sb-link <%= typeof activeRoute !== 'undefined' && activeRoute === '/admin/users' ? 'active' : '' %>"><i
+            class="bi bi-person-gear"></i> <span>จัดการผู้เข้าใช้</span></a>
+        <a href="/admin/permissions"
+          class="sb-link <%= typeof activeRoute !== 'undefined' && activeRoute === '/admin/permissions' ? 'active' : '' %>"><i
+            class="bi bi-shield-lock-fill"></i> <span>ตั้งค่าระดับสิทธิ์</span></a>
+      </div>
+
+      <a href="/report/hours"
+        class="sb-link <%= typeof activeRoute !== 'undefined' && activeRoute === '/report/hours' ? 'active' : '' %>"><i
+          class="bi bi-file-earmark-medical"></i> <span>สรุปชั่วโมงทำงาน</span></a>
+
+      <% } /* end if admin */ %>
   </div>
   <div class="sb-foot">
     <div class="sb-user">
@@ -91,14 +139,17 @@
           <%= locals.user && user.fullname ? user.fullname : 'Unregistered User' %>
         </div>
         <div class="sb-urole">
-          <% if (locals.user && user.role === 'admin') { %>
+          <% if (locals.user && user.role==='super' ) { %>
+            <span class="badge bg-purple" style="background-color: #6f42c1; font-size: 10px; font-weight: 700;">Super Admin</span>
+          <% } else if (locals.user && user.role==='admin' ) { %>
             <span class="badge bg-danger" style="font-size: 10px; font-weight: 700;">Administrator</span>
           <% } else { %>
             <span class="badge bg-success" style="font-size: 10px; font-weight: 700;">Staff Member</span>
           <% } %>
         </div>
       </div>
-      <a href="/logout" class="ms-auto" title="ออกจากระบบ" style="color:rgba(255,255,255,.5);"><i class="bi bi-box-arrow-right"></i></a>
+      <a href="/logout" class="ms-auto" title="ออกจากระบบ" style="color:rgba(255,255,255,.5);"><i
+          class="bi bi-box-arrow-right"></i></a>
     </div>
   </div>
 </nav>

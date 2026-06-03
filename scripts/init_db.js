@@ -1,22 +1,19 @@
+require('dotenv').config();
 const mysql = require('mysql2/promise');
 const fs = require('fs');
 const path = require('path');
-
-const dbConfig = {
-  host: '192.168.80.7',
-  user: 'Khos', // เปลี่ยนเป็น user ของคุณ
-  password: 'KH10866@zjkowfh', // เปลี่ยนเป็น password ของคุณ
-};
+const { dbConfig } = require('../src/config/db');
 
 async function initDB() {
   try {
     const connection = await mysql.createConnection(dbConfig);
     console.log('Connected to MySQL server.');
 
-    await connection.query('CREATE DATABASE IF NOT EXISTS hospital_db COLLATE utf8mb4_unicode_ci');
-    console.log('Database hospital_db created or already exists.');
+    const dbName = process.env.DB_NAME_HOSPITAL || 'hospital_db';
+    await connection.query(`CREATE DATABASE IF NOT EXISTS ${dbName} COLLATE utf8mb4_unicode_ci`);
+    console.log(`Database ${dbName} created or already exists.`);
 
-    await connection.query('USE hospital_db');
+    await connection.query(`USE ${dbName}`);
 
     // Create tables
     await connection.query(`
@@ -60,7 +57,7 @@ async function initDB() {
     console.log('Tables created successfully.');
 
     // Seed data from db.json
-    const dbPath = path.join(__dirname, 'db.json');
+    const dbPath = path.join(__dirname, '..', 'data', 'db.json');
     if (fs.existsSync(dbPath)) {
       const data = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
 

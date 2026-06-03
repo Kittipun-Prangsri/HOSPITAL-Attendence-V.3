@@ -19,6 +19,7 @@
         .user-card p { font-size: 14px; color: var(--muted); margin: 0; display: flex; align-items: center; gap: 6px; }
         .role-badge { padding: 4px 12px; border-radius: 8px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
         .role-super { background: #fee2e2; color: #dc2626; border: 1px solid #fecaca; }
+        .role-admin { background: #dcfce7; color: #16a34a; border: 1px solid #bbf7d0; }
         .role-manager { background: #dcfce7; color: #16a34a; border: 1px solid #bbf7d0; }
         .role-staff { background: #e0f2fe; color: #0284c7; border: 1px solid #bae6fd; }
         .role-user { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
@@ -98,12 +99,31 @@
         <%- include('components/topbar') %>
 
         <div class="page">
-            <div class="page-header d-flex align-items-center justify-content-between" style="display:flex; justify-content:space-between; align-items:center;">
+            <div class="page-header d-flex align-items-center justify-content-between" style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
                 <div>
                     <h4>จัดการสิทธิ์ผู้ใช้งาน</h4>
                     <p>กำหนดสิทธิ์การเข้าถึงข้อมูลและจัดการบัญชีผู้ใช้งานในระบบ</p>
                 </div>
                 <button class="btn-teal" onclick="openModal()"><i class="bi bi-person-plus-fill"></i> เพิ่มผู้ใช้งาน</button>
+            </div>
+
+            <!-- FILTER BAR -->
+            <div class="filter-bar" style="display:flex; align-items:center; gap:12px; margin-bottom:20px; flex-wrap:wrap; background:#fff; padding:16px; border-radius:12px; border:1px solid var(--border);">
+              <div style="display:flex; align-items:center; gap:8px; flex:1; flex-wrap:wrap;">
+                <!-- Text Search -->
+                <div class="input-group" style="max-width:250px; display:flex; align-items:center; border:1px solid var(--border); border-radius:8px; background:#fff; overflow:hidden;">
+                  <span style="padding:8px 12px; background:#f8fafc; border-right:1px solid var(--border); color:var(--muted);"><i class="bi bi-search"></i></span>
+                  <input type="text" id="userSearchInput" placeholder="ค้นหาชื่อ / ชื่อผู้ใช้..." style="border:none; padding:8px 12px; outline:none; font-size:13.5px; width:100%;" oninput="applyFilters()" />
+                </div>
+                
+                <!-- Department Dropdown -->
+                <select class="form-select" id="userDeptFilter" style="max-width:250px; padding:8px 12px; border-radius:8px; border:1px solid var(--border); font-size:13.5px; outline:none;" onchange="applyFilters()">
+                  <option value="all">ทุกแผนก / กลุ่มงาน</option>
+                </select>
+              </div>
+              <div style="font-size:12px; color:var(--muted); font-weight:600;">
+                แสดง <span id="userCountSpan" style="color:var(--primary);">0</span> รายการ
+              </div>
             </div>
 
             <div class="user-grid" id="userList">
@@ -140,11 +160,17 @@
                     <small id="passHint" style="display:none; color:var(--muted); font-size:10px;">(เว้นว่างไว้หากไม่ต้องการเปลี่ยน)</small>
                 </div>
                 <div class="form-group">
+                    <label>LINE User ID (สำหรับการแจ้งเตือน)</label>
+                    <div style="display:flex; gap:8px; align-items:center;">
+                        <input type="text" id="line_user_id" placeholder="พิมพ์หรือวาง LINE User ID (ขึ้นต้นด้วย U...)">
+                        <button type="button" class="btn btn-outline-dark" style="padding: 0 10px; min-height: 38px; font-size: 12px; white-space: nowrap; margin-bottom: 0px;" onclick="showHowToGetLineId()"><i class="bi bi-question-circle"></i> วิธีขอ ID</button>
+                    </div>
+                </div>
+                <div class="form-group">
                     <label>ระดับสิทธิ์ (Role / Layer)</label>
                     <select id="role" class="form-select">
                         <option value="super">Super Admin (สิทธิ์สูงสุด)</option>
-                        <option value="manager">Manager (หัวหน้ากลุ่มงาน)</option>
-                        <option value="staff">Staff Admin (เจ้าหน้าที่ธุรการ)</option>
+                        <option value="admin">Administrator / Staff Admin (เจ้าหน้าที่ดูแลระบบ)</option>
                         <option value="user">General User (พนักงานทั่วไป)</option>
                     </select>
                 </div>
@@ -165,7 +191,8 @@
                 const res = await fetch('/api/users', { headers: { 'Accept-Charset': 'utf-8' } });
                 const data = await res.json();
                 allUsers = data.users;
-                renderUsers();
+                populateDepartmentFilter();
+                applyFilters();
             } catch (err) { console.error('Fetch error:', err); }
         }
 
@@ -177,11 +204,41 @@
             } catch (err) { console.error('Personnel Fetch error:', err); }
         }
 
-        function renderUsers() {
+        function populateDepartmentFilter() {
+            const select = document.getElementById('userDeptFilter');
+            select.innerHTML = '<option value="all">ทุกแผนก / กลุ่มงาน</option>';
+            const depts = [...new Set(allUsers.map(u => u.dept).filter(Boolean))].sort();
+            depts.forEach(d => {
+                const opt = document.createElement('option');
+                opt.value = d;
+                opt.textContent = d;
+                select.appendChild(opt);
+            });
+        }
+
+        function applyFilters() {
+            const query = document.getElementById('userSearchInput').value.toLowerCase().trim();
+            const dept = document.getElementById('userDeptFilter').value;
+            
+            const filtered = allUsers.filter(u => {
+                const matchDept = (dept === 'all' || u.dept === dept);
+                const matchSearch = (!query || 
+                    (u.fullname || '').toLowerCase().includes(query) || 
+                    (u.username || '').toLowerCase().includes(query)
+                );
+                return matchDept && matchSearch;
+            });
+            
+            renderUsers(filtered);
+            document.getElementById('userCountSpan').textContent = filtered.length;
+        }
+
+        function renderUsers(usersList = allUsers) {
             const container = document.getElementById('userList');
-            container.innerHTML = allUsers.map(u => {
+            container.innerHTML = usersList.map(u => {
                 let roleLabel = u.role.toUpperCase();
                 if (u.role === 'super') roleLabel = 'Super Admin';
+                if (u.role === 'admin') roleLabel = 'Administrator';
                 if (u.role === 'manager') roleLabel = 'Manager';
                 if (u.role === 'staff') roleLabel = 'Staff Admin';
                 if (u.role === 'user') roleLabel = 'Common User';
@@ -192,11 +249,16 @@
                         <div>
                             <h5>${u.fullname}</h5>
                             <p><i class="bi bi-person-circle"></i> @${u.username}</p>
+                            <p style="margin-top: 4px; font-size: 12px; color: var(--muted);"><i class="bi bi-building"></i> แผนก: ${u.dept || '—'}</p>
+                            <p style="margin-top: 6px; font-size: 12px; color: ${u.line_user_id ? 'var(--primary)' : 'var(--muted)'};">
+                                <i class="bi bi-line"></i> LINE ID: ${u.line_user_id ? `<span style="font-family: monospace;">${u.line_user_id.substring(0, 12)}...</span>` : '<span style="font-style: italic; color:#94a3b8;">ยังไม่ได้เชื่อมต่อ</span>'}
+                            </p>
                         </div>
                         <span class="role-badge role-${u.role}">${roleLabel}</span>
                     </div>
                     <div class="actions">
                         <button class="btn btn-sm btn-outline-dark" onclick="editUser(${u.id})"><i class="bi bi-pencil-square"></i> แก้ไข</button>
+                        ${u.line_user_id ? `<button class="btn btn-sm btn-outline-dark" style="color: #0d9488 !important; border-color: rgba(13, 148, 136, 0.2) !important; background-color: rgba(13, 148, 136, 0.05) !important;" onclick="testLine(${u.id})"><i class="bi bi-line"></i> ทดสอบ</button>` : ''}
                         <button class="btn btn-sm btn-outline-danger" onclick="deleteUser(${u.id})"><i class="bi bi-trash"></i> ลบ</button>
                     </div>
                 </div>
@@ -263,6 +325,7 @@
             document.getElementById('userId').value = user.id;
             document.getElementById('fullname').value = user.fullname;
             document.getElementById('username').value = user.username;
+            document.getElementById('line_user_id').value = user.line_user_id || '';
             document.getElementById('role').value = user.role;
             document.getElementById('passLabel').innerText = 'เปลี่ยนรหัสผ่าน';
             document.getElementById('passHint').style.display = 'block';
@@ -289,6 +352,7 @@
                 fullname: document.getElementById('fullname').value,
                 username: document.getElementById('username').value,
                 password: document.getElementById('password').value || undefined,
+                line_user_id: document.getElementById('line_user_id').value || null,
                 role: document.getElementById('role').value
             };
 
@@ -310,6 +374,37 @@
                 }
             } catch (err) { alert('เกิดข้อผิดพลาดในการบันทึก'); }
         });
+
+        function showHowToGetLineId() {
+            alert(
+                "💬 วิธีหา LINE User ID:\n\n" +
+                "1. แอดไลน์บอทของระบบเป็นเพื่อน\n" +
+                "2. พิมพ์ข้อความอะไรก็ได้ส่งให้บอท (เช่น 'ขอไอดี' หรือ 'hello')\n" +
+                "3. บอทจะตอบกลับเป็น LINE User ID ของคุณทันที (ขึ้นต้นด้วยตัว U ยาวๆ)\n" +
+                "4. คัดลอก ID นั้นมาใส่ในช่องนี้เพื่อบันทึกและเชื่อมต่อระบบ"
+            );
+        }
+
+        async function testLine(userId) {
+            try {
+                const res = await fetch('/api/users/test-line', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept-Charset': 'utf-8'
+                    },
+                    body: JSON.stringify({ userId })
+                });
+                const result = await res.json();
+                if (result.success) {
+                    alert('✅ ' + result.message);
+                } else {
+                    alert('❌ ส่งข้อความล้มเหลว: ' + (result.error || 'ไม่ทราบสาเหตุ'));
+                }
+            } catch (err) {
+                alert('❌ เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์');
+            }
+        }
 
         // Close search results when clicking outside
         document.addEventListener('click', (e) => {

@@ -1,0 +1,27 @@
+[
+  {
+    "emp_id": "T001",
+    "shift": "MORNING",
+    "date": "2026-03-26"
+  },
+  {
+    "emp_id": "KHH00000001",
+    "shift": "AFTERNOON",
+    "date": "2026-03-26"
+  },
+  {
+    "emp_id": "KHH00110",
+    "shift": "NIGHT",
+    "date": "2026-03-23"
+  },
+  {
+    "emp_id": "KHH00001",
+    "shift": "NIGHT",
+    "date": "2026-03-23"
+  },
+  {
+    "emp_id": "KHH0101010",
+    "shift": "AFTERNOON",
+    "date": "2026-03-27"
+  }
+]

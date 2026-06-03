@@ -289,25 +289,19 @@
           <div class="input-group" style="max-width:210px;">
             <span class="input-group-text" style="font-size:12px;"><i class="bi bi-calendar-event"></i></span>
             <select class="form-select tb-select" id="monthSelect" onchange="initGrid()">
-              <option value="1">มกราคม</option>
-              <option value="2">กุมภาพันธ์</option>
-              <option value="3">มีนาคม</option>
-              <option value="4">เมษายน</option>
-              <option value="5">พฤษภาคม</option>
-              <option value="6">มิถุนายน</option>
-              <option value="7">กรกฎาคม</option>
-              <option value="8">สิงหาคม</option>
-              <option value="9">กันยายน</option>
-              <option value="10">ตุลาคม</option>
-              <option value="11">พฤศจิกายน</option>
-              <option value="12">ธันวาคม</option>
+              <% const currentMonth = new Date().getMonth() + 1; %>
+              <% const months = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"]; %>
+              <% months.forEach((m, i) => { %>
+                <option value="<%= i + 1 %>" <%= (i + 1) === currentMonth ? 'selected' : '' %>><%= m %></option>
+              <% }); %>
             </select>
           </div>
           <div class="input-group" style="max-width:140px;">
             <select class="form-select tb-select" id="yearSelect" onchange="initGrid()">
-              <option value="2025">2025</option>
-              <option value="2026" selected>2026</option>
-              <option value="2027">2027</option>
+              <% const currentYear = new Date().getFullYear(); %>
+              <% for(let y = currentYear - 1; y <= currentYear + 1; y++) { %>
+                <option value="<%= y %>" <%= y === currentYear ? 'selected' : '' %>><%= y + 543 %></option>
+              <% } %>
             </select>
           </div>
           <button class="btn-teal" onclick="initGrid()" style="height:36px;padding:0 14px;font-size:12.5px;">

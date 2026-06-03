@@ -528,22 +528,17 @@
             <div class="section-title">รายงานสรุปรายเดือน (Scheduler)</div>
             <div style="display:flex; gap:10px;">
                 <select class="form-input" id="monthly-month-input" style="width:120px; padding:5px 10px;" onchange="fetchMonthlyReportData()">
-                    <option value="1">มกราคม</option>
-                    <option value="2">กุมภาพันธ์</option>
-                    <option value="3" selected>มีนาคม</option>
-                    <option value="4">เมษายน</option>
-                    <option value="5">พฤษภาคม</option>
-                    <option value="6">มิถุนายน</option>
-                    <option value="7">กรกฎาคม</option>
-                    <option value="8">สิงหาคม</option>
-                    <option value="9">กันยายน</option>
-                    <option value="10">ตุลาคม</option>
-                    <option value="11">พฤศจิกายน</option>
-                    <option value="12">ธันวาคม</option>
+                    <% const currentMonth = new Date().getMonth() + 1; %>
+                    <% const months = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"]; %>
+                    <% months.forEach((m, i) => { %>
+                        <option value="<%= i + 1 %>" <%= (i + 1) === currentMonth ? 'selected' : '' %>><%= m %></option>
+                    <% }); %>
                 </select>
-                <select class="form-input" id="monthly-year-input" style="width:100px; padding:5px 10px;" onchange="fetchMonthlyReportData()">
-                    <option value="2025" selected>2025</option>
-                    <option value="2024">2024</option>
+                <select class="form-input" id="monthly-year-input" style="width: 100px; padding: 5px 10px;" onchange="fetchMonthlyReportData()">
+                    <% const currentYear = new Date().getFullYear(); %>
+                    <% for(let y = currentYear - 1; y <= currentYear + 1; y++) { %>
+                        <option value="<%= y %>" <%= y === currentYear ? 'selected' : '' %>><%= y + 543 %></option>
+                    <% } %>
                 </select>
                 <button class="btn btn-teal btn-sm" onclick="fetchMonthlyReportData()"><i class="bi bi-arrow-clockwise"></i> ประมวลผล</button>
             </div>

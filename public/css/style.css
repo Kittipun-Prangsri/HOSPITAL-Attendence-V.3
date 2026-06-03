@@ -411,3 +411,34 @@ table.att-tbl td{padding:12px 14px;font-size:13px;vertical-align:middle;}
   background:linear-gradient(135deg,#6366f1,#4f46e5);
   color:#fff; box-shadow:0 4px 12px rgba(99,102,241,.3);
 }
+
+/* PRINT STYLES */
+@media print {
+  body { background: #fff; }
+  body * { visibility: hidden; }
+  .table-card, .table-card * { visibility: visible; }
+  .table-card {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    border: none;
+    box-shadow: none;
+    margin: 0;
+    padding: 0;
+  }
+  .card-top button, .sidebar, .topbar, .stat-row, .filter-bar, .pager, .bottom-grid, .admin-col {
+    display: none !important;
+  }
+  .table-card .card-top { border-bottom: none; }
+  table.att-tbl th, table.att-tbl td {
+    padding: 6px 8px;
+    font-size: 11px;
+    color: #000;
+  }
+  .time-tag, .status-chip, .shift-pill {
+    background: transparent !important;
+    border: 1px solid #ddd !important;
+    color: #000 !important;
+  }
+}

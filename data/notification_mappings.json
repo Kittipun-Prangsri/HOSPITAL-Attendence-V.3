@@ -1,0 +1,10 @@
+{
+  "user_001": {
+    "telegram_chat_id": "123456789",
+    "line_user_id": "U1234567890abcdef1234567890abcdef"
+  },
+  "admin": {
+    "telegram_chat_id": "987654321",
+    "line_user_id": "U0987654321fedcba0987654321fedcba"
+  }
+}

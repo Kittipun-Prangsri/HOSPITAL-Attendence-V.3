@@ -354,11 +354,11 @@
 
               return `<tr>
       <td style="color:var(--muted);font-size:11.5px;">${start + i + 1}</td>
-      <td onclick="if(hasAdminAccess){openStaffDetail('${e.id}')}" style="cursor:hasAdminAccess?'pointer':'default';">
+      <td onclick="if(${hasAdminAccess}){openStaffDetail('${e.id}')}" style="cursor:${hasAdminAccess ? 'pointer' : 'default'};">
         <div style="display:flex;align-items:center;gap:9px;">
           <div class="av" style="background:${color}">${init}</div>
           <div>
-            <div style="font-size:13px;font-weight:600;color:var(--primary);${hasAdminAccess?'text-decoration:underline dotted;text-underline-offset:3px;':''}">${maskSensitiveData(e.name || 'ไม่มีชื่อ', 'view_name', e.id)}</div>
+            <div style="font-size:13px;font-weight:600;color:var(--primary);${hasAdminAccess ? 'text-decoration:underline dotted;text-underline-offset:3px;' : ''}">${maskSensitiveData(e.name || 'ไม่มีชื่อ', 'view_name', e.id)}</div>
             <div style="font-size:11px;color:var(--muted);">${maskSensitiveData(e.id || '', 'view_id', e.id)} ${e.role || ''}</div>
           </div>
         </div>
@@ -475,15 +475,20 @@
              EXPORT
           ================================================================ */
           function exportCSV() {
-            let csv = 'รหัส,ชื่อ,แผนก,ตำแหน่ง,กะ,สถานะ,เวลาเข้า,เวลาออก,ชั่วโมงทำงาน,OT,ความแม่นยำ\n';
-            filteredData.forEach(e => {
-              csv += `${e.id},"${e.name}","${e.dept}","${e.role}","${SHIFTS[e.shift]?.label || e.shift}",${e.status},${e.in},${e.out},${e.hours},${e.ot || '—'},${e.conf > 0 ? e.conf + '%' : '—'}\n`;
+            let csv = 'ลำดับ,รหัส,ชื่อ,แผนก,กะ,สถานะ,เวลาเข้า,เวลาออก,ชั่วโมงทำงาน,OT,ความแม่นยำ\n';
+            filteredData.forEach((e, index) => {
+              const shiftStr = (e.shift && SHIFTS[e.shift.toLowerCase()]) ? SHIFTS[e.shift.toLowerCase()].label : (e.shift || '-');
+              const statusMap = { 'in': 'เข้างาน', 'out': 'ออกงาน', 'late': 'มาสาย', 'leave': e.leave_status || 'ลา', 'none': 'ยังไม่มา', '': '-' };
+              const statStr = statusMap[e.status || ''] || e.status || '-';
+              csv += `${index + 1},"${e.id || '-'}","${e.name || '-'}","${e.dept || '-'}","${shiftStr}","${statStr}","${e.in || '-'}","${e.out || '-'}","${e.hours || '0'}","${e.ot || '-'}","${e.conf > 0 ? e.conf + '%' : '-'}"\n`;
             });
             const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
             a.download = 'hospital_attendance_' + new Date().toISOString().split('T')[0] + '.csv';
+            document.body.appendChild(a);
             a.click();
+            document.body.removeChild(a);
           }
 
           /* ================================================================
@@ -491,12 +496,12 @@
           ================================================================ */
           function setDate() {
             const now = new Date();
-            document.getElementById('currentDate').textContent =
-              now.toLocaleDateString('th-TH', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-            
             const dateInput = document.getElementById('dateInput');
             if (!dateInput.value) {
               dateInput.value = now.toISOString().split('T')[0];
+            }
+            if (window.updateTopbarClock) {
+              window.updateTopbarClock();
             }
           }
 
@@ -522,9 +527,9 @@
                 
                 // If date was provided, update the header subtitle or state
                 if (date) {
-                  const d = new Date(date);
-                  document.getElementById('currentDate').textContent =
-                    d.toLocaleDateString('th-TH', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+                  if (window.updateTopbarClock) {
+                    window.updateTopbarClock();
+                  }
                 }
               }
             } catch (err) {
@@ -1892,7 +1897,7 @@ async function deleteStaff(staffId) {
 </script>
 
   <!-- Emergency Admin Access (Developer Mode) -->
-  <% if (!locals.RBAC_ENABLED || (locals.user && locals.user.role === 'admin')) { %>
+  <% if (!locals.RBAC_ENABLED || (locals.user && (locals.user.role === 'admin' || locals.user.role === 'super'))) { %>
   <a href="/admin/permissions" style="
     position: fixed; bottom: 20px; right: 20px; z-index: 10000;
     padding: 10px 16px; background: rgba(30,41,59,0.7); backdrop-filter: blur(8px);
