@@ -10,7 +10,7 @@ exports.postLogin = async (req, res) => {
   const { username, password } = req.body;
   try {
     const [rows] = await hosofficePool.query(
-      'SELECT ID as id, HR_CID as username, CONCAT(HR_FNAME, "   ", HR_LNAME) as fullname, USER_TYPE as role, HR_PASSWORD_HASH as password_hash FROM hr_person WHERE HR_CID = ?',
+      'SELECT ID as id, HR_CID as username, CONCAT(HR_FNAME, \' \', HR_LNAME) as fullname, USER_TYPE as role, HR_PASSWORD_HASH as password_hash FROM hr_person WHERE HR_CID = ?',
       [username]
     );
 

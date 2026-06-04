@@ -65,6 +65,25 @@ exports.getExcuses = async (req, res) => {
     query += ' ORDER BY date DESC, submitted_at DESC';
     
     const [rows] = await pool.query(query, params);
+    
+    // Override fullname with the standard single-spaced concat from hr_person
+    if (rows.length > 0) {
+      const usernames = rows.map(r => r.username);
+      const [personRows] = await hosofficePool.query(
+        "SELECT HR_CID as username, CONCAT(HR_FNAME, ' ', HR_LNAME) as real_fullname FROM hr_person WHERE HR_CID IN (?)",
+        [usernames]
+      );
+      const nameMap = {};
+      personRows.forEach(p => {
+        nameMap[p.username] = p.real_fullname;
+      });
+      rows.forEach(r => {
+        if (nameMap[r.username]) {
+          r.fullname = nameMap[r.username];
+        }
+      });
+    }
+    
     res.json({ success: true, excuses: rows });
   } catch (error) {
     console.error('Error getting excuses:', error);
@@ -132,7 +151,7 @@ exports.reviewExcuse = async (req, res) => {
     const [rows] = await pool.query('SELECT username, date, issue_type FROM attendance_excuses WHERE id = ?', [id]);
     if (rows.length > 0) {
       const excuse = rows[0];
-      const [userRows] = await hosofficePool.query('SELECT LINE_YOUR_USER_ID as line_user_id, TELEGRAM_CHAT_ID as telegram_chat_id, CONCAT(HR_FNAME, "   ", HR_LNAME) as fullname FROM hr_person WHERE HR_CID = ?', [excuse.username]);
+      const [userRows] = await hosofficePool.query('SELECT LINE_YOUR_USER_ID as line_user_id, TELEGRAM_CHAT_ID as telegram_chat_id, CONCAT(HR_FNAME, \' \', HR_LNAME) as fullname FROM hr_person WHERE HR_CID = ?', [excuse.username]);
       if (userRows.length > 0) {
         const { line_user_id, telegram_chat_id, fullname } = userRows[0];
         
@@ -224,7 +243,7 @@ exports.compileReminderCandidates = async () => {
   const lateThresholdTime = `${lateH}:${lateM}:00`;
 
   // 1. Get all local users who are registered
-  const [users] = await hosofficePool.query('SELECT HR_CID as username, CONCAT(HR_FNAME, "   ", HR_LNAME) as fullname, LINE_YOUR_USER_ID as line_user_id, TELEGRAM_CHAT_ID as telegram_chat_id FROM hr_person WHERE USER_TYPE IS NOT NULL AND HR_CID IS NOT NULL');
+  const [users] = await hosofficePool.query('SELECT HR_CID as username, CONCAT(HR_FNAME, \' \', HR_LNAME) as fullname, LINE_YOUR_USER_ID as line_user_id, TELEGRAM_CHAT_ID as telegram_chat_id FROM hr_person WHERE USER_TYPE IS NOT NULL AND HR_CID IS NOT NULL');
   
   if (users.length === 0) return [];
   

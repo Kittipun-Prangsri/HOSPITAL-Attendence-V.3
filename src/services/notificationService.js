@@ -11,7 +11,44 @@ const lineClient = new line.messagingApi.MessagingApiClient({
 });
 
 // Telegram Config
-const telegramBot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN || 'dummy_token');
+const botToken = process.env.TELEGRAM_BOT_TOKEN;
+const isTelegramConfigured = botToken && botToken !== 'dummy_token';
+const telegramBot = new TelegramBot(botToken || 'dummy_token', isTelegramConfigured ? { polling: true } : {});
+
+if (isTelegramConfigured) {
+  telegramBot.on('message', async (msg) => {
+    try {
+      const chatId = msg.chat.id;
+      const text = msg.text;
+      if (!text) return;
+
+      // Import inside to prevent circular dependency
+      const chatbotService = require('./chatbotService');
+      const replyText = await chatbotService.handleMessage(text, chatId.toString());
+      if (replyText) {
+        if (replyText.length <= 4000) {
+          await telegramBot.sendMessage(chatId, replyText, { parse_mode: 'Markdown' });
+        } else {
+          // Split message by lines to fit within Telegram's 4096 character limit
+          const lines = replyText.split('\n');
+          let chunk = '';
+          for (const line of lines) {
+            if (chunk.length + line.length + 1 > 4000) {
+              if (chunk) await telegramBot.sendMessage(chatId, chunk, { parse_mode: 'Markdown' });
+              chunk = line;
+            } else {
+              chunk = chunk ? chunk + '\n' + line : line;
+            }
+          }
+          if (chunk) await telegramBot.sendMessage(chatId, chunk, { parse_mode: 'Markdown' });
+        }
+      }
+    } catch (err) {
+      console.error('[TelegramBot] Error handling message:', err.message);
+    }
+  });
+  console.log('[TelegramBot] Polling listener initialized successfully.');
+}
 
 // Mapping path
 const MAPPING_PATH = path.join(__dirname, '../../data/notification_mappings.json');
@@ -168,12 +205,36 @@ class NotificationService {
   async replyLineMessage(replyToken, message) {
     try {
       if (replyToken && process.env.LINE_CHANNEL_ACCESS_TOKEN) {
-        await lineClient.replyMessage({
-          replyToken: replyToken,
-          messages: [{
+        let messages = [];
+        if (message.length <= 4000) {
+          messages.push({
             type: 'text',
             text: message,
-          }]
+          });
+        } else {
+          // Split message by lines to fit within LINE's 5000 character limit per text block (max 5 blocks)
+          const lines = message.split('\n');
+          let chunk = '';
+          for (const line of lines) {
+            if (chunk.length + line.length + 1 > 4000) {
+              if (chunk) messages.push({ type: 'text', text: chunk });
+              chunk = line;
+            } else {
+              chunk = chunk ? chunk + '\n' + line : line;
+            }
+          }
+          if (chunk) messages.push({ type: 'text', text: chunk });
+          
+          // LINE limits up to 5 messages in reply. Keep only first 5 to prevent API error
+          if (messages.length > 5) {
+            messages = messages.slice(0, 5);
+            messages[4].text += '\n\n... (ข้อมูลถูกจำกัดการแสดงผลเนื่องจากจำนวนรายการเกินขีดจำกัด)';
+          }
+        }
+
+        await lineClient.replyMessage({
+          replyToken: replyToken,
+          messages: messages
         });
         return true;
       }

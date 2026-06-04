@@ -49,6 +49,19 @@ async function startServer() {
       ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
     `);
 
+    // Create incident_logs table if not exists
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS incident_logs (
+        incident_id INT AUTO_INCREMENT PRIMARY KEY,
+        employee_id VARCHAR(50) NOT NULL,
+        incident_date DATE NOT NULL,
+        incident_type ENUM('LATE', 'ABSENT') NOT NULL,
+        status ENUM('PENDING', 'OVERDUE', 'SUBMITTED') DEFAULT 'PENDING',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY unique_emp_date_type (employee_id, incident_date, incident_type)
+      ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+    `);
+
     // Try to check/add TELEGRAM_CHAT_ID column to hr_person in HOSoffice DB
     try {
       const { hosofficePool } = require('./config/db');
@@ -60,8 +73,18 @@ async function startServer() {
       } else {
         console.log('[Init] TELEGRAM_CHAT_ID column already exists in hr_person table.');
       }
+
+      // Check and add index on hikvision(EmployeeID, AccessDate)
+      const [indexes] = await hosofficePool.query("SHOW INDEX FROM hikvision WHERE Key_name = 'idx_hikvision_emp_date'");
+      if (indexes.length === 0) {
+        console.log('[Init] Adding idx_hikvision_emp_date index to hikvision table...');
+        await hosofficePool.query("ALTER TABLE hikvision ADD INDEX idx_hikvision_emp_date (EmployeeID, AccessDate)");
+        console.log('[Init] Index idx_hikvision_emp_date added successfully.');
+      } else {
+        console.log('[Init] Index idx_hikvision_emp_date already exists in hikvision table.');
+      }
     } catch (err) {
-      console.warn('[Init] Warning: Could not check/add TELEGRAM_CHAT_ID column to hr_person. Make sure it exists.', err.message);
+      console.warn('[Init] Warning: Could not run HOSoffice DB migration tasks:', err.message);
     }
 
     app.listen(PORT, '0.0.0.0', () => {

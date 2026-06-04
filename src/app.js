@@ -44,8 +44,18 @@ app.post(['/', '/webhook'], async (req, res) => {
       for (const event of events) {
         // If message is text
         if (event.type === 'message' && event.message && event.message.type === 'text') {
-          const replyText = `LINE User ID ของคุณคือ:\n${event.source.userId}\n\n` +
-                            `คัดลอกไอดีด้านบนเพื่อนำไปวางในช่อง 'LINE ID' ในฟอร์มลงทะเบียนพนักงานเพื่อรับข้อความแจ้งเตือนครับ`;
+          const chatbotService = require('./services/chatbotService');
+          const incomingText = event.message.text;
+          const lineUserId = event.source.userId;
+
+          // Check if message matches chatbot commands
+          let replyText = await chatbotService.handleMessage(incomingText, lineUserId);
+
+          // Fallback to default message showing LINE ID if no command matched
+          if (!replyText) {
+            replyText = `LINE User ID ของคุณคือ:\n${lineUserId}\n\n` +
+                        `คัดลอกไอดีด้านบนเพื่อนำไปวางในช่อง 'LINE ID' ในฟอร์มลงทะเบียนพนักงานเพื่อรับข้อความแจ้งเตือนครับ`;
+          }
           
           await notificationService.replyLineMessage(event.replyToken, replyText);
         } else if (event.type === 'follow') {

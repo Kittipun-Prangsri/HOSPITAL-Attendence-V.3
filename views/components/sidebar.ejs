@@ -46,9 +46,7 @@
     <a href="/" class="sb-link <%= typeof activeRoute !== 'undefined' && activeRoute === '/' ? 'active' : '' %>"><i
         class="bi bi-speedometer2"></i> <span>Dashboard</span></a>
 
-    <a href="/schedule"
-      class="sb-link <%= typeof activeRoute !== 'undefined' && activeRoute === '/schedule' ? 'active' : '' %>"><i
-        class="bi bi-clock-history"></i> <span>ตารางเวรตัวเอง</span></a>
+
 
     <a href="/excuses"
       class="sb-link <%= typeof activeRoute !== 'undefined' && activeRoute === '/excuses' ? 'active' : '' %>"><i
@@ -158,3 +156,29 @@
 
 <!-- MOBILE OVERLAY -->
 <div class="sb-overlay" id="sidebar-overlay" onclick="toggleGlobalSidebar()"></div>
+
+<!-- Scroll to Top Button -->
+<button id="scrollToTopBtn" class="scroll-to-top" onclick="scrollToTop()" title="กลับไปข้างบน">
+  <i class="bi bi-chevron-up"></i>
+</button>
+
+<script>
+  // Scroll to Top behavior
+  window.addEventListener('scroll', () => {
+    const btn = document.getElementById('scrollToTopBtn');
+    if (btn) {
+      if (window.scrollY > 300) {
+        btn.classList.add('show');
+      } else {
+        btn.classList.remove('show');
+      }
+    }
+  });
+
+  function scrollToTop() {
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    });
+  }
+</script>

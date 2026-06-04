@@ -28,7 +28,7 @@ async function checkNewScans() {
         h.SkinSurfaceTemperature,
         p.LINE_YOUR_USER_ID as line_user_id,
         p.TELEGRAM_CHAT_ID as telegram_chat_id,
-        CONCAT(p.HR_FNAME, '   ', p.HR_LNAME) as fullname
+        CONCAT(p.HR_FNAME, ' ', p.HR_LNAME) as fullname
       FROM hikvision h
       INNER JOIN hr_person p ON h.EmployeeID = p.FINGLE_ID
       WHERE h.AccessDate = ? 
@@ -81,6 +81,12 @@ async function checkNewScans() {
       `, [EmployeeID, AccessDate, AccessTime]);
 
       if (line_user_id || telegram_chat_id) {
+        // Bypass actual sending if disabled in configuration
+        if (process.env.ENABLE_REALTIME_NOTIFICATIONS === 'false') {
+          console.log(`[RealtimeNotifier] Real-time notifications are disabled in .env. Skipping push to ${fullname} (${EmployeeID}).`);
+          continue;
+        }
+
         let directionThai = 'สแกนผ่านเครื่อง';
         if (Direction === 'in') directionThai = 'เข้างาน (Check-in)';
         if (Direction === 'out') directionThai = 'ออกงาน (Check-out)';

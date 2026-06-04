@@ -9,7 +9,7 @@ exports.getUsers = async (req, res) => {
       `SELECT 
         p.ID as id, 
         p.HR_CID as username, 
-        CONCAT(p.HR_FNAME, "   ", p.HR_LNAME) as fullname, 
+        CONCAT(p.HR_FNAME, " ", p.HR_LNAME) as fullname, 
         p.USER_TYPE as role, 
         p.LINE_YOUR_USER_ID as line_user_id,
         p.TELEGRAM_CHAT_ID as telegram_chat_id,
@@ -75,7 +75,7 @@ exports.testLine = async (req, res) => {
   const { userId } = req.body;
   try {
     const [rows] = await hosofficePool.query(
-      'SELECT LINE_YOUR_USER_ID as line_user_id, CONCAT(HR_FNAME, "   ", HR_LNAME) as fullname FROM hr_person WHERE ID = ?',
+      'SELECT LINE_YOUR_USER_ID as line_user_id, CONCAT(HR_FNAME, " ", HR_LNAME) as fullname FROM hr_person WHERE ID = ?',
       [userId]
     );
     if (rows.length === 0) {
@@ -106,7 +106,7 @@ exports.testTelegram = async (req, res) => {
   const { userId } = req.body;
   try {
     const [rows] = await hosofficePool.query(
-      'SELECT TELEGRAM_CHAT_ID as telegram_chat_id, CONCAT(HR_FNAME, "   ", HR_LNAME) as fullname FROM hr_person WHERE ID = ?',
+      'SELECT TELEGRAM_CHAT_ID as telegram_chat_id, CONCAT(HR_FNAME, " ", HR_LNAME) as fullname FROM hr_person WHERE ID = ?',
       [userId]
     );
     if (rows.length === 0) {

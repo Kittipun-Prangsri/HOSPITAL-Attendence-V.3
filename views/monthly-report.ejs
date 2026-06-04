@@ -10,6 +10,7 @@
 <link rel="stylesheet" href="/css/style.css" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
   :root {
     --primary: #0D9488;
@@ -137,6 +138,68 @@
     color: white;
     border-color: var(--primary);
   }
+
+  @media print {
+    .sidebar, 
+    .topbar, 
+    .filter-section, 
+    #reportViewTabs, 
+    .btn, 
+    #chartCard, 
+    #pagination-footer, 
+    .input-group,
+    .card-header .d-flex {
+      display: none !important;
+    }
+    
+    body {
+      background-color: white !important;
+      color: black !important;
+      font-size: 11px;
+    }
+    
+    .main {
+      margin-left: 0 !important;
+      padding: 0 !important;
+      width: 100% !important;
+    }
+    
+    .page-container {
+      padding: 0 !important;
+    }
+    
+    .card {
+      border: none !important;
+      box-shadow: none !important;
+    }
+    
+    .table-responsive {
+      overflow: visible !important;
+      max-height: none !important;
+    }
+    
+    .att-table {
+      min-width: auto !important;
+      width: 100% !important;
+      border: 1px solid #000 !important;
+    }
+    
+    .att-table th, .att-table td {
+      border: 1px solid #000 !important;
+      padding: 5px !important;
+      color: black !important;
+    }
+    
+    .sticky-col-1, .sticky-col-2 {
+      position: static !important;
+      background: none !important;
+    }
+    
+    @page {
+      size: landscape;
+      margin: 1cm;
+    }
+  }
 </style>
 </head>
 <body>
@@ -147,7 +210,6 @@
   <%- include("components/topbar") %>
 
   <div class="page-container">
-    <!-- Header -->
     <div class="d-flex justify-content-between align-items-center mb-4">
       <div>
         <h2 style="font-weight: 700; margin: 0; display:flex; align-items:center; gap:10px;">
@@ -161,23 +223,37 @@
       </div>
     </div>
 
+    <!-- View Tabs Toggle -->
+    <ul class="nav nav-pills mb-4" id="reportViewTabs" style="background: rgba(15, 23, 42, 0.05); padding: 6px; border-radius: 12px; display: inline-flex; gap: 8px;">
+      <li class="nav-item">
+        <button class="nav-link active py-2 px-4" id="summaryViewBtn" onclick="setView('summary')" style="border-radius: 8px; font-weight: 600; transition: all 0.2s;">
+          <i class="bi bi-grid-1x2-fill me-2"></i>สรุปภาพรวมรายเดือน (Summary View)
+        </button>
+      </li>
+      <li class="nav-item">
+        <button class="nav-link py-2 px-4" id="detailedViewBtn" onclick="setView('detailed')" style="border-radius: 8px; font-weight: 600; transition: all 0.2s;">
+          <i class="bi bi-table me-2"></i>ตารางเวลาสแกนละเอียด (Detailed Matrix)
+        </button>
+      </li>
+    </ul>
+
     <!-- Filter Bar -->
     <div class="filter-section">
       <div class="filter-group">
-        <div class="btn-group me-3" role="group" aria-label="Shift Type Toggle">
-          <input type="radio" class="btn-check" name="shiftType" id="typeNormal" value="1" checked onchange="fetchMonthlyData()">
+        <div class="btn-group me-3" role="group" aria-label="Shift Type Toggle" id="shiftTypeGroup" style="display: none;">
+          <input type="radio" class="btn-check" name="shiftType" id="typeNormal" value="1" checked onchange="loadData()">
           <label class="btn btn-outline-teal" for="typeNormal">เวรปกติ</label>
-          <input type="radio" class="btn-check" name="shiftType" id="typeShift8" value="2" onchange="fetchMonthlyData()">
+          <input type="radio" class="btn-check" name="shiftType" id="typeShift8" value="2" onchange="loadData()">
           <label class="btn btn-outline-teal" for="typeShift8">เวร 8</label>
         </div>
-        <select class="form-select" id="monthSelector" style="width: 140px;" onchange="fetchMonthlyData()">
+        <select class="form-select" id="monthSelector" style="width: 140px;" onchange="loadData()">
           <% const currentMonth = new Date().getMonth() + 1; %>
           <% const months = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"]; %>
           <% months.forEach((m, i) => { %>
             <option value="<%= i + 1 %>" <%= (i + 1) === currentMonth ? 'selected' : '' %>><%= m %></option>
           <% }); %>
         </select>
-        <select class="form-select" id="yearSelector" style="width: 110px;" onchange="fetchMonthlyData()">
+        <select class="form-select" id="yearSelector" style="width: 110px;" onchange="loadData()">
           <% const currentYear = new Date().getFullYear(); %>
           <% for(let y = currentYear - 2; y <= currentYear + 2; y++) { %>
             <option value="<%= y %>" <%= y === currentYear ? 'selected' : '' %>><%= y + 543 %></option>
@@ -210,48 +286,60 @@
 
     <!-- Stats Cards -->
     <div class="stats-grid">
-      <div class="stat-card">
+      <div class="stat-card shadow-sm border-0" style="transition: transform 0.2s;">
         <div class="stat-icon" style="background: rgba(13, 148, 136, 0.1); color: var(--primary);">
           <i class="bi bi-people"></i>
         </div>
         <div class="stat-info">
           <p>บุคลากรทั้งหมด</p>
-          <h4 id="statTotalEmps">124</h4>
+          <h4 id="statTotalEmps">-</h4>
         </div>
       </div>
-      <div class="stat-card">
+      <div class="stat-card shadow-sm border-0" style="transition: transform 0.2s;">
         <div class="stat-icon" style="background: rgba(16, 185, 129, 0.1); color: var(--success);">
-          <i class="bi bi-clock-history"></i>
+          <i class="bi bi-percent"></i>
         </div>
         <div class="stat-info">
-          <p>รวมเวลาทำงาน (ชม.)</p>
-          <h4 id="statTotalHours">14,250</h4>
+          <p id="statCard2Label">อัตราเข้างานเฉลี่ย</p>
+          <h4 id="statTotalHours">-</h4>
         </div>
       </div>
-      <div class="stat-card">
+      <div class="stat-card shadow-sm border-0" style="transition: transform 0.2s;">
         <div class="stat-icon" style="background: rgba(245, 158, 11, 0.1); color: var(--warning);">
           <i class="bi bi-check2-circle"></i>
         </div>
         <div class="stat-info">
           <p>มาสายรวม (ครั้ง)</p>
-          <h4 id="statTotalLate">42</h4>
+          <h4 id="statTotalLate">-</h4>
         </div>
       </div>
-      <div class="stat-card">
+      <div class="stat-card shadow-sm border-0" style="transition: transform 0.2s;">
         <div class="stat-icon" style="background: rgba(239, 68, 68, 0.1); color: var(--danger);">
           <i class="bi bi-slash-circle"></i>
         </div>
         <div class="stat-info">
           <p>ขาดงานรวม (วัน)</p>
-          <h4 id="statTotalAbsent">15</h4>
+          <h4 id="statTotalAbsent">-</h4>
         </div>
       </div>
     </div>
 
-    <!-- Monthly Report Table Matrix (Card Layout) -->
+    <!-- Visualization Chart Card -->
+    <div id="chartCard" class="card border-0 shadow-sm mb-4" style="border-radius:16px;">
+      <div class="card-header bg-white py-3 border-0" style="border-radius: 16px 16px 0 0;">
+        <h5 class="mb-0 fw-bold"><i class="bi bi-bar-chart-line text-primary me-2"></i>สถิติการมาสายแยกตามกลุ่มงาน</h5>
+      </div>
+      <div class="card-body">
+        <div style="height: 250px; position: relative;">
+          <canvas id="latenessChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Monthly Report Table (Card Layout) -->
     <div class="card border-0 shadow-sm" style="border-radius:16px;">
-        <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center" style="border-radius: 16px 16px 0 0;">
-            <h5 class="mb-0 fw-bold" id="table-title">ตารางข้อมูล</h5>
+        <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center" style="border-radius: 16px 16px 0 0; border-bottom: 1px solid var(--border);">
+            <h5 class="mb-0 fw-bold" id="table-title">ตารางสรุปรายงาน</h5>
             <div class="d-flex align-items-center">
                 <div class="input-group input-group-sm" style="width: 250px;">
                     <span class="input-group-text bg-light border-end-0"><i class="bi bi-search"></i></span>
@@ -311,28 +399,216 @@
 </style>
 
 <script>
+  let currentView = 'summary'; // 'summary' or 'detailed'
+  
+  // Detailed view variables
   let rawData = [];
   let filteredData = [];
+  
+  // Summary view variables
+  let rawSummaryData = [];
+  let filteredSummaryData = [];
+  let latenessChartInstance = null;
+
   const now = new Date();
   let currentMonth = now.getMonth() + 1;
   let currentYear = now.getFullYear();
   let daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
 
-  // Set selectors to current date
   window.addEventListener('DOMContentLoaded', () => {
     document.getElementById('monthSelector').value = currentMonth;
     document.getElementById('yearSelector').value = currentYear;
-    fetchMonthlyData();
+    setView('summary'); // Default to Summary View
   });
 
-  async function fetchMonthlyData() {
+  async function loadData() {
     currentMonth = parseInt(document.getElementById('monthSelector').value);
     currentYear = parseInt(document.getElementById('yearSelector').value);
-    const template = document.querySelector('input[name="shiftType"]:checked').value;
     daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
 
+    if (currentView === 'summary') {
+      await fetchSummaryData();
+    } else {
+      await fetchDetailedData();
+    }
+  }
+
+  function setView(view) {
+    currentView = view;
+    
+    // Toggle active tabs styling
+    if (view === 'summary') {
+      document.getElementById('summaryViewBtn').classList.add('active');
+      document.getElementById('detailedViewBtn').classList.remove('active');
+      document.getElementById('chartCard').style.display = 'block';
+      document.getElementById('shiftTypeGroup').style.display = 'none';
+      document.querySelector('.att-table').style.minWidth = 'auto';
+      document.getElementById('table-title').textContent = 'ตารางสรุปข้อมูลรายเดือน';
+    } else {
+      document.getElementById('summaryViewBtn').classList.remove('active');
+      document.getElementById('detailedViewBtn').classList.add('active');
+      document.getElementById('chartCard').style.display = 'none';
+      document.getElementById('shiftTypeGroup').style.display = 'inline-flex';
+      document.querySelector('.att-table').style.minWidth = '1800px';
+      document.getElementById('table-title').textContent = 'ตารางลงเวลาโดยละเอียด';
+    }
+    
+    loadData();
+  }
+
+  async function fetchSummaryData() {
+    const month = document.getElementById('monthSelector').value;
+    const year = document.getElementById('yearSelector').value;
+    const dept = document.getElementById('deptFilter').value;
+    const search = document.getElementById('nameSearch').value;
+
     const tableBody = document.getElementById('reportTableBody');
-    tableBody.innerHTML = '<tr><td colspan="35" class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><div class="mt-2 text-muted">กำลังดึงข้อมูล...</div></td></tr>';
+    tableBody.innerHTML = '<tr><td colspan="8" class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><div class="mt-2 text-muted">กำลังดึงข้อมูลสรุป...</div></td></tr>';
+
+    try {
+      const res = await fetch(`/api/report/monthly?month=${month}&year=${year}&department=${encodeURIComponent(dept)}&search=${encodeURIComponent(search)}`);
+      const data = await res.json();
+      if (data.success) {
+        rawSummaryData = data.report || [];
+        filteredSummaryData = rawSummaryData;
+        
+        // Update Headers
+        const thead = document.getElementById('reportTableHead');
+        thead.innerHTML = `
+          <tr>
+            <th>รหัสพนักงาน</th>
+            <th>ชื่อ-นามสกุล</th>
+            <th>กลุ่มงาน/แผนก</th>
+            <th>วันปฏิบัติงาน (วัน)</th>
+            <th>มาสาย (ครั้ง)</th>
+            <th>ขาดงาน (วัน)</th>
+            <th>วันลา (วัน)</th>
+            <th>สถานะ</th>
+          </tr>
+        `;
+
+        renderSummaryTableBody();
+        updateSummaryStats();
+        renderSummaryChart();
+      } else {
+        tableBody.innerHTML = `<tr><td colspan="8" class="text-center text-danger py-4">ดึงข้อมูลล้มเหลว: ${data.message}</td></tr>`;
+      }
+    } catch (err) {
+      console.error(err);
+      tableBody.innerHTML = '<tr><td colspan="8" class="text-center text-danger py-4">เกิดข้อผิดพลาดในการโหลดข้อมูลสรุป</td></tr>';
+    }
+  }
+
+  function renderSummaryTableBody() {
+    const tbody = document.getElementById('reportTableBody');
+    if (filteredSummaryData.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="8" class="text-center py-5 text-muted">ไม่พบข้อมูลตามเงื่อนไขที่ระบุ</td></tr>';
+      return;
+    }
+
+    let html = '';
+    filteredSummaryData.forEach(person => {
+      let badgeClass = 'bg-success';
+      if (person.status === 'ต้องปรับปรุง') {
+        badgeClass = 'bg-danger';
+      } else if (person.status === 'รอดำเนินการ (Overdue)') {
+        badgeClass = 'bg-warning text-dark';
+      }
+
+      html += `
+        <tr>
+          <td><strong>${person.id}</strong></td>
+          <td class="text-start">
+            <div class="fw-bold">${person.name}</div>
+          </td>
+          <td>${person.dept}</td>
+          <td><span class="badge-hours">${person.daysPresent}</span></td>
+          <td><span class="badge-late">${person.lateCount}</span></td>
+          <td><span class="badge-absent">${person.absentCount}</span></td>
+          <td><span class="badge bg-light text-dark">${person.leaveCount}</span></td>
+          <td><span class="badge ${badgeClass}">${person.status}</span></td>
+        </tr>
+      `;
+    });
+    tbody.innerHTML = html;
+  }
+
+  function updateSummaryStats() {
+    let totalStaff = rawSummaryData.length;
+    let totalLate = 0;
+    let totalAbsent = 0;
+    let totalPresentDays = 0;
+
+    rawSummaryData.forEach(p => {
+      totalLate += p.lateCount;
+      totalAbsent += p.absentCount;
+      totalPresentDays += p.daysPresent;
+    });
+
+    const totalPossibleDays = totalPresentDays + totalAbsent;
+    const avgAttendanceRate = totalPossibleDays > 0 
+      ? ((totalPresentDays / totalPossibleDays) * 100).toFixed(1) 
+      : '100.0';
+
+    document.getElementById('statTotalEmps').textContent = totalStaff;
+    document.getElementById('statCard2Label').textContent = 'อัตราเข้างานเฉลี่ย';
+    document.getElementById('statTotalHours').textContent = `${avgAttendanceRate}%`;
+    document.getElementById('statTotalLate').textContent = totalLate.toLocaleString();
+    document.getElementById('statTotalAbsent').textContent = totalAbsent.toLocaleString();
+  }
+
+  function renderSummaryChart() {
+    const deptLates = {};
+    rawSummaryData.forEach(e => {
+      if (e.lateCount > 0) {
+        deptLates[e.dept] = (deptLates[e.dept] || 0) + e.lateCount;
+      }
+    });
+
+    const sortedDepts = Object.entries(deptLates)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10);
+
+    const labels = sortedDepts.map(d => d[0]);
+    const values = sortedDepts.map(d => d[1]);
+
+    if (latenessChartInstance) latenessChartInstance.destroy();
+    
+    const canvas = document.getElementById('latenessChart');
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    latenessChartInstance = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: labels.length > 0 ? labels : ['ไม่มีข้อมูลการสาย'],
+        datasets: [{
+          label: 'จำนวนครั้งที่สาย',
+          data: values.length > 0 ? values : [0],
+          backgroundColor: 'rgba(13, 148, 136, 0.7)',
+          borderColor: '#0D9488',
+          borderWidth: 1.5,
+          borderRadius: 8,
+          barPercentage: 0.5
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false }
+        },
+        scales: {
+          y: { beginAtZero: true, ticks: { stepSize: 1 } }
+        }
+      }
+    });
+  }
+
+  async function fetchDetailedData() {
+    const template = document.querySelector('input[name="shiftType"]:checked').value;
+    const tableBody = document.getElementById('reportTableBody');
+    tableBody.innerHTML = '<tr><td colspan="35" class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><div class="mt-2 text-muted">กำลังดึงข้อมูลรายละเอียด...</div></td></tr>';
     
     try {
       const monthStr = String(currentMonth).padStart(2, '0');
@@ -350,11 +626,11 @@
         attendance: processRealAttendance(p.ID, scans, template)
       }));
       
+      renderDetailedTableHeader();
       applyFilters();
-      updateGlobalStats();
     } catch(err) {
       console.error(err);
-      tableBody.innerHTML = '<tr><td class="text-center text-danger py-4">เกิดข้อผิดพลาดในการโหลดข้อมูล</td></tr>';
+      tableBody.innerHTML = '<tr><td class="text-center text-danger py-4">เกิดข้อผิดพลาดในการโหลดข้อมูลรายละเอียด</td></tr>';
     }
   }
 
@@ -364,7 +640,6 @@
     const afternoonArr = Array.isArray(scans.afternoon) ? scans.afternoon : [];
     const nightArr = Array.isArray(scans.night) ? scans.night : [];
 
-    // Use loose equality (==) or convert to String for matching IDs
     const mRow = morningArr.find(r => String(r.hr_person_id) === String(personId)) || {};
     const aRow = afternoonArr.find(r => String(r.hr_person_id) === String(personId)) || {};
     const nRow = nightArr.find(r => String(r.hr_person_id) === String(personId)) || {};
@@ -377,7 +652,6 @@
       let mIn, mOut, aIn, aOut, nIn, nOut;
 
       if (template === '2') {
-        // Shift 8 (Nursing)
         mIn = mRow['dmi' + d] || null;
         mOut = mRow['dmo' + d] || null;
         aIn = aRow['dai' + d] || null;
@@ -385,8 +659,6 @@
         nIn = nRow['dni' + d] || null;
         nOut = nRow['dno' + d] || null;
       } else {
-        // Normal Shift
-        // morning table.di = In, afternoon table.do = Out, night table.d = Night/OT
         mIn = mRow['di' + d] || null;
         mOut = aRow['do' + d] || null;
         aIn = null;
@@ -396,7 +668,7 @@
       }
 
       const vals = [mIn, mOut, aIn, aOut, nIn, nOut].filter(v => v !== null && String(v).trim() !== '');
-      const textVals = vals.filter(v => !/^\d{2}:\d{2}/.test(String(v))); // Looking for texts like 'ไปราชการ'
+      const textVals = vals.filter(v => !/^\d{2}:\d{2}/.test(String(v)));
       
       if (textVals.length > 0) {
          att[dateStr] = { status: 'OFFICIAL', label: textVals[0], isWeekend };
@@ -405,7 +677,7 @@
          if (timeVals.length > 0) {
              let inTime = timeVals[0];
              let outTime = timeVals[timeVals.length - 1];
-             if (inTime === outTime) outTime = null; // Only scanned once
+             if (inTime === outTime) outTime = null;
              att[dateStr] = { in: inTime, out: outTime, isWeekend };
          } else {
              att[dateStr] = { in: null, out: null, isWeekend };
@@ -419,22 +691,29 @@
     const dept = document.getElementById('deptFilter').value;
     const search = document.getElementById('nameSearch').value.toLowerCase();
     
-    filteredData = rawData.filter(e => {
-      const matchDept = !dept || e.dept === dept;
-      const matchSearch = e.name.toLowerCase().includes(search) || e.id.toString().includes(search);
-      return matchDept && matchSearch;
-    });
-    
-    renderTableHeader();
-    renderTableBody();
+    if (currentView === 'summary') {
+      filteredSummaryData = rawSummaryData.filter(e => {
+        const matchDept = !dept || e.dept === dept;
+        const matchSearch = e.name.toLowerCase().includes(search) || e.id.toString().includes(search);
+        return matchDept && matchSearch;
+      });
+      renderSummaryTableBody();
+      updateSummaryStats();
+    } else {
+      filteredData = rawData.filter(e => {
+        const matchDept = !dept || e.dept === dept;
+        const matchSearch = e.name.toLowerCase().includes(search) || e.id.toString().includes(search);
+        return matchDept && matchSearch;
+      });
+      renderTableBody();
+      updateGlobalStats();
+    }
   }
 
-  function renderTableHeader() {
+  function renderDetailedTableHeader() {
     const thead = document.getElementById('reportTableHead');
-    let row1 = `<tr>
-      <th rowspan="2" class="sticky-col-1 align-middle text-center">ชื่อ-นามสกุล</th>`;
+    let row1 = `<tr><th rowspan="2" class="sticky-col-1 align-middle text-center">ชื่อ-นามสกุล</th>`;
     let row2 = `<tr>`;
-
     const daysTh = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.'];
 
     for(let d=1; d<=daysInMonth; d++) {
@@ -478,7 +757,6 @@
         } else if (record.status === 'OFFICIAL') {
            html += `<td colspan="2" class="official-business">${record.label || 'ไปราชการ'}</td>`;
         } else {
-           // Display time in blue, out in red
            html += `<td class="time-in">${record.in || '-'}</td>
                     <td class="time-out">${record.out || '-'}</td>`;
         }
@@ -499,16 +777,12 @@
         if (record.in || record.status === 'OFFICIAL') {
            totalWorked++;
         }
-        
-        // Count Late (e.g., after 08:30)
         if (record.in) {
            const [h, m] = record.in.split(':').map(Number);
            if ((h === 8 && m >= 31) || h > 8) {
               totalLate++;
            }
         }
-
-        // Count Absent (no scan on weekday)
         if (!record.isWeekend && !record.in && !record.status) {
            totalAbsent++;
         }
@@ -516,20 +790,43 @@
     });
 
     document.getElementById('statTotalEmps').textContent = rawData.length;
-    document.getElementById('statTotalHours').textContent = (totalWorked * 8).toLocaleString();
+    document.getElementById('statCard2Label').textContent = 'รวมเวลาทำงาน (ชม.)';
+    document.getElementById('statTotalHours').textContent = `${(totalWorked * 8).toLocaleString()} ชม.`;
     document.getElementById('statTotalLate').textContent = totalLate.toLocaleString();
     document.getElementById('statTotalAbsent').textContent = totalAbsent.toLocaleString();
   }
 
   function exportToPDF() {
-    alert("ระบบนี้เหมาะสำหรับการ Export เป็น Excel มากกว่า เนื่องจากตารางมีความกว้างมากครับ");
+    window.print();
   }
 
   function exportData() {
-    alert("สามารถใช้ Library (เช่น SheetJS / xlsx) ในการเซฟตารางที่มีขนาดกว้างนี้ลง Excel ได้ครับ");
+    let ws, filename;
+    const monthStr = String(currentMonth).padStart(2, '0');
+    
+    if (currentView === 'summary') {
+      filename = `รายงานสรุปภาพรวมรายเดือน_${currentYear}_${monthStr}.xlsx`;
+      const dataToExport = filteredSummaryData.map(e => ({
+        'รหัสพนักงาน': e.id,
+        'ชื่อ-นามสกุล': e.name,
+        'กลุ่มงาน/แผนก': e.dept,
+        'วันปฏิบัติงาน': e.daysPresent,
+        'มาสาย (ครั้ง)': e.lateCount,
+        'ขาดงาน (วัน)': e.absentCount,
+        'วันลา (วัน)': e.leaveCount,
+        'สถานะ': e.status
+      }));
+      ws = XLSX.utils.json_to_sheet(dataToExport);
+    } else {
+      filename = `รายงานตารางสแกนรายละเอียด_${currentYear}_${monthStr}.xlsx`;
+      const table = document.querySelector('.att-table');
+      ws = XLSX.utils.table_to_sheet(table);
+    }
+    
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "รายงาน");
+    XLSX.writeFile(wb, filename);
   }
-
-  fetchMonthlyData();
 </script>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>

@@ -470,6 +470,34 @@
       const all = db.employees || [];
       nurses = all.filter(e => e.dept === 'กลุ่มงานการพยาบาล');
 
+      // Fetch saved monthly schedule from backend
+      try {
+        const loadRes = await fetch(`/api/schedule/load?year=${year}&month=${month}`);
+        if (loadRes.ok) {
+          const loadData = await loadRes.json();
+          if (loadData.success && loadData.data && loadData.data.schedule) {
+            scheduleData = loadData.data.schedule;
+          } else {
+            // Fallback to localstorage or empty
+            const localSaved = localStorage.getItem(`schedule_${year}_${month}`);
+            if (localSaved) {
+              scheduleData = JSON.parse(localSaved);
+            } else {
+              scheduleData = {};
+            }
+          }
+        } else {
+          const localSaved = localStorage.getItem(`schedule_${year}_${month}`);
+          if (localSaved) scheduleData = JSON.parse(localSaved);
+          else scheduleData = {};
+        }
+      } catch (loadErr) {
+        console.error('Error loading schedule:', loadErr);
+        const localSaved = localStorage.getItem(`schedule_${year}_${month}`);
+        if (localSaved) scheduleData = JSON.parse(localSaved);
+        else scheduleData = {};
+      }
+
       // Ensure scheduleData has entries for every nurse
       nurses.forEach(n => {
         if (!scheduleData[n.id]) scheduleData[n.id] = {};
