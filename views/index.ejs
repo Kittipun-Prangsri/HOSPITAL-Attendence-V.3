@@ -445,8 +445,8 @@
             const SHIFT_COLOR = { morning: '#F59E0B', afternoon: '#3B82F6', night: '#7C3AED' };
             const el = document.getElementById('timeline');
             el.innerHTML = timelineData.map(t => {
-              const cls = t.type === 'in' ? 'in' : t.type === 'out' ? 'out' : 'late';
-              const ic = t.type === 'in' ? 'bi-box-arrow-in-right' : t.type === 'out' ? 'bi-box-arrow-right' : 'bi-clock-history';
+              const cls = (t.type === 'in' || t.type === 'i') ? 'in' : (t.type === 'out' || t.type === 'o') ? 'out' : 'late';
+              const ic = (t.type === 'in' || t.type === 'i') ? 'bi-box-arrow-in-right' : (t.type === 'out' || t.type === 'o') ? 'bi-box-arrow-right' : 'bi-clock-history';
               const sc = SHIFT_COLOR[t.shift] || '#999';
               const shiftLabel = (t.shift && SHIFTS[t.shift]) ? ` · <span style="color:${sc};font-weight:600;">${SHIFTS[t.shift].label}</span>` : '';
               const locationLabel = t.location ? ` · <span style="color:var(--primary);"><i class="bi bi-geo-alt-fill"></i> ${t.location}</span>` : '';

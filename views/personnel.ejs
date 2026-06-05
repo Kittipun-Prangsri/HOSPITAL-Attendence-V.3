@@ -124,6 +124,18 @@
                 </div>
               </div>
             </div>
+            <div class="sdm-field-card">
+              <div class="sdm-field-icon" style="background:#FFF1F2;color:#E11D48;"><i class="bi bi-clock-fill"></i></div>
+              <div style="flex:1;"><div class="sdm-field-label">รอบเวร (Shift)</div><div class="sdm-field-val sdm-view-field" id="sdmShift"></div><input class="sdm-input sdm-edit-field" id="sdmShiftInput" type="text" placeholder="เช่น เช้า, บ่าย, ดึก" style="display:none;"></div>
+            </div>
+            <div class="sdm-field-card">
+              <div class="sdm-field-icon" style="background:#F0FDFA;color:#0D9488;"><i class="bi bi-box-arrow-in-right"></i></div>
+              <div style="flex:1;"><div class="sdm-field-label">เวลาเข้างาน</div><div class="sdm-field-val sdm-view-field" id="sdmTimeIn"></div><input class="sdm-input sdm-edit-field" id="sdmTimeInInput" type="time" style="display:none;"></div>
+            </div>
+            <div class="sdm-field-card">
+              <div class="sdm-field-icon" style="background:#FFF7ED;color:#C2410C;"><i class="bi bi-box-arrow-right"></i></div>
+              <div style="flex:1;"><div class="sdm-field-label">เวลาออกงาน</div><div class="sdm-field-val sdm-view-field" id="sdmTimeOut"></div><input class="sdm-input sdm-edit-field" id="sdmTimeOutInput" type="time" style="display:none;"></div>
+            </div>
           </div>
           <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:18px;">
             <button onclick="closeStaffDetail()" class="sdm-foot-btn sdm-foot-ghost">ปิด</button>
@@ -207,6 +219,9 @@
     document.getElementById('sdmNicknameField').textContent = p.NICKNAME || '—';
     document.getElementById('sdmLineId').textContent = p.line_user_id || '—';
     document.getElementById('sdmTelegramId').textContent = p.telegram_chat_id || '—';
+    document.getElementById('sdmShift').textContent = p.WORK_SHIFT || '—';
+    document.getElementById('sdmTimeIn').textContent = p.TIME_IN || '—';
+    document.getElementById('sdmTimeOut').textContent = p.TIME_OUT || '—';
     document.getElementById('sdmEditBtn').style.display = checkPermission('edit_staff') ? '' : 'none';
     document.getElementById('staffDetailModal').style.display = 'flex';
   }
@@ -222,6 +237,9 @@
       document.getElementById('sdmNicknameInput').value = p.NICKNAME || '';
       document.getElementById('sdmLineIdInput').value = p.line_user_id || '';
       document.getElementById('sdmTelegramIdInput').value = p.telegram_chat_id || '';
+      document.getElementById('sdmShiftInput').value = p.WORK_SHIFT || '';
+      document.getElementById('sdmTimeInInput').value = p.TIME_IN || '';
+      document.getElementById('sdmTimeOutInput').value = p.TIME_OUT || '';
     } else {
       document.getElementById('sdmEditBtn').style.display = checkPermission('edit_staff') ? '' : 'none';
       document.getElementById('sdmSaveBtn').style.display = 'none';
@@ -238,7 +256,10 @@
       email: document.getElementById('sdmEmailInput').value,
       nickname: document.getElementById('sdmNicknameInput').value,
       line_user_id: document.getElementById('sdmLineIdInput').value,
-      telegram_chat_id: document.getElementById('sdmTelegramIdInput').value
+      telegram_chat_id: document.getElementById('sdmTelegramIdInput').value,
+      work_shift: document.getElementById('sdmShiftInput').value,
+      time_in: document.getElementById('sdmTimeInInput').value,
+      time_out: document.getElementById('sdmTimeOutInput').value
     };
     try {
       const res = await fetch('/api/staff/update', {

@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>จัดการสิทธิ์ผู้ใช้งาน - KHH Attendance</title>
+    <!-- Google Fonts: Sarabun -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&subset=thai&display=swap" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .user-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 24px; }
+        .user-card { background: #fff; border-radius: 16px; border: 1px solid var(--border); padding: 24px; transition: all 0.3s ease; display: flex; flex-direction: column; gap: 16px; box-shadow: 0 4px 12px rgba(11, 48, 96, 0.04); }
+        .user-card:hover { transform: translateY(-4px); box-shadow: 0 12px 24px rgba(11, 48, 96, 0.1); border-color: var(--primary); }
+        .user-card h5 { margin: 0; font-size: 18px; font-weight: 800; color: var(--primary); letter-spacing: -0.02em; }
+        .user-card p { font-size: 13.5px; color: var(--muted); margin: 0; display: flex; align-items: center; gap: 6px; }
+        .role-badge { padding: 4px 12px; border-radius: 8px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
+        .role-super { background: #fee2e2; color: #dc2626; border: 1px solid #fecaca; }
+        .role-admin { background: #dcfce7; color: #16a34a; border: 1px solid #bbf7d0; }
+        .role-manager { background: #dcfce7; color: #16a34a; border: 1px solid #bbf7d0; }
+        .role-staff { background: #e0f2fe; color: #0284c7; border: 1px solid #bae6fd; }
+        .role-user { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+        
+        .actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            border-top: 1px solid var(--border);
+            padding-top: 16px;
+            margin-top: auto;
+        }
+        
+        /* Modern Button Styles */
+        button, .btn {
+            min-height: 38px;
+            display: inline-flex !important;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 13.5px;
+            font-weight: 700;
+            transition: all 0.25s ease !important;
+            cursor: pointer;
+        }
+        button:hover, .btn:hover {
+            transform: translateY(-1.5px);
+            box-shadow: 0 4px 12px rgba(11, 48, 96, 0.08);
+        }
+        .actions button, .actions .btn {
+            flex: 1 1 calc(50% - 4px);
+            min-width: 120px;
+            min-height: 36px;
+            font-size: 12.5px;
+            padding: 6px 12px;
+            display: inline-flex !important;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            border-radius: 8px;
+            font-weight: 700;
+            transition: all 0.25s ease !important;
+            cursor: pointer;
+            border: 1px solid var(--border);
+        }
+        .btn-teal {
+            background-color: var(--accent);
+            color: #fff;
+            border: none;
+            box-shadow: 0 4px 12px rgba(0, 184, 169, 0.15);
+        }
+        .btn-teal:hover {
+            background-color: var(--accent);
+            filter: brightness(1.05);
+            box-shadow: 0 6px 16px rgba(0, 184, 169, 0.3);
+        }
+        .btn-outline-danger {
+            background-color: rgba(220, 38, 38, 0.04) !important;
+            color: #dc2626 !important;
+            border: 1px solid rgba(220, 38, 38, 0.15) !important;
+        }
+        .btn-outline-danger:hover {
+            background-color: #dc2626 !important;
+            color: #fff !important;
+            border-color: #dc2626 !important;
+            box-shadow: 0 6px 16px rgba(220, 38, 38, 0.2) !important;
+        }
+        .btn-outline-dark {
+            background-color: #fff !important;
+            color: #475569 !important;
+            border: 1px solid var(--border) !important;
+        }
+        .btn-outline-dark:hover {
+            background-color: #f8fafc !important;
+            color: #0f172a !important;
+            border-color: var(--border-focus) !important;
+            box-shadow: 0 4px 12px rgba(11, 48, 96, 0.05) !important;
+        }
+        
+        /* Modal for Add User */
+        .modal-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(15, 23, 42, 0.45); backdrop-filter: blur(10px); z-index:1000; display:flex; align-items:center; justify-content:center; visibility:hidden; opacity:0; transition:all 0.3s; }
+        .modal-overlay.active { visibility:visible; opacity:1; }
+        .modal-box { background:#fff; width:95%; max-width:450px; border-radius:16px; padding:28px; box-shadow: 0 20px 50px rgba(11, 48, 96, 0.15); max-height: 90vh; overflow-y: auto; }
+        .modal-box h3 { margin-top:0; font-size:20px; color:var(--primary); margin-bottom:24px; font-weight:800; letter-spacing:-0.02em; }
+        .form-group { margin-bottom:18px; position: relative; }
+        .form-group label { display:block; font-size:12.5px; margin-bottom:6px; color:var(--muted); font-weight:700; text-transform: uppercase; letter-spacing: 0.5px; }
+        .form-group input, .form-group select { width:100%; padding:10px 14px; border-radius:8px; border:1px solid var(--border); font-family:inherit; font-size:13.5px; transition: var(--transition-smooth); }
+        .form-group input:focus, .form-group select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(11, 48, 96, 0.08); outline: none; }
+        
+        /* Search Suggestions */
+        .search-results { position: absolute; top: 100%; left: 0; width: 100%; background: #fff; border: 1px solid var(--border); border-radius: 8px; z-index: 100; max-height: 200px; overflow-y: auto; box-shadow: 0 4px 12px rgba(0,0,0,0.1); display: none; }
+        .search-item { padding: 10px 12px; cursor: pointer; border-bottom: 1px solid #f8fafc; font-size: 13px; }
+        .search-item:hover { background: #f1f5f9; }
+        .search-item small { display: block; color: var(--muted); font-size: 11px; }
+    </style>
+</head>
+<body>
+    <%- include('components/sidebar') %>
+
+    <div class="main">
+        <%- include('components/topbar') %>
+
+        <div class="page">
+            <div class="page-header d-flex align-items-center justify-content-between" style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
+                <div>
+                    <h4>จัดการสิทธิ์ผู้ใช้งาน</h4>
+                    <p>กำหนดสิทธิ์การเข้าถึงข้อมูลและจัดการบัญชีผู้ใช้งานในระบบ</p>
+                </div>
+                <button class="btn-teal" onclick="openModal()"><i class="bi bi-person-plus-fill"></i> เพิ่มผู้ใช้งาน</button>
+            </div>
+
+            <!-- FILTER BAR -->
+            <div class="filter-bar" style="display:flex; align-items:center; gap:12px; margin-bottom:20px; flex-wrap:wrap; background:#fff; padding:16px; border-radius:12px; border:1px solid var(--border);">
+              <div style="display:flex; align-items:center; gap:8px; flex:1; flex-wrap:wrap;">
+                <!-- Text Search -->
+                <div class="input-group" style="max-width:250px; display:flex; align-items:center; border:1px solid var(--border); border-radius:8px; background:#fff; overflow:hidden;">
+                  <span style="padding:8px 12px; background:#f8fafc; border-right:1px solid var(--border); color:var(--muted);"><i class="bi bi-search"></i></span>
+                  <input type="text" id="userSearchInput" placeholder="ค้นหาชื่อ / ชื่อผู้ใช้..." style="border:none; padding:8px 12px; outline:none; font-size:13.5px; width:100%;" oninput="applyFilters()" />
+                </div>
+                
+                <!-- Department Dropdown -->
+                <select class="form-select" id="userDeptFilter" style="max-width:250px; padding:8px 12px; border-radius:8px; border:1px solid var(--border); font-size:13.5px; outline:none;" onchange="applyFilters()">
+                  <option value="all">ทุกแผนก / กลุ่มงาน</option>
+                </select>
+              </div>
+              <div style="font-size:12px; color:var(--muted); font-weight:600;">
+                แสดง <span id="userCountSpan" style="color:var(--primary);">0</span> รายการ
+              </div>
+            </div>
+
+            <div class="user-grid" id="userList">
+                <!-- User Cards will be injected here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit Modal -->
+    <div class="modal-overlay" id="userModal">
+        <div class="modal-box">
+            <h3 id="modalTitle">เพิ่มผู้ใช้งานใหม่</h3>
+            <form id="userForm" accept-charset="UTF-8">
+                <input type="hidden" id="userId">
+                <div class="form-group">
+                    <label>ค้นหาและเลือกบุคลากร (พิมพ์เลข CID หรือชื่อ)</label>
+                    <div style="display:flex; gap:8px;">
+                        <input type="text" id="personSearch" placeholder="ระบุเลขบัตร 13 หลัก หรือ ชื่อ-นามสกุล..." oninput="searchPersonnel(this.value)">
+                    </div>
+                    <div id="searchResults" class="search-results"></div>
+                </div>
+                <hr style="border:0; border-top:1px dashed var(--border); margin:20px 0;">
+                <div class="form-group">
+                    <label>ชื่อเต็ม</label>
+                    <input type="text" id="fullname" placeholder="ระบบจะเติมให้อัตโนมัติเมื่อเลือกคน" required>
+                </div>
+                <div class="form-group">
+                    <label>ชื่อผู้ใช้งาน (CID / Username)</label>
+                    <input type="text" id="username" placeholder="ระบบจะใช้เลข CID อัตโนมัติ" required>
+                </div>
+                <div class="form-group">
+                    <label id="passLabel">รหัสผ่าน</label>
+                    <input type="password" id="password" placeholder="อย่างน้อย 6 ตัวอักษร">
+                    <small id="passHint" style="display:none; color:var(--muted); font-size:10px;">(เว้นว่างไว้หากไม่ต้องการเปลี่ยน)</small>
+                </div>
+                <div class="form-group">
+                    <label>LINE User ID (สำหรับการแจ้งเตือน)</label>
+                    <div style="display:flex; gap:8px; align-items:center;">
+                        <input type="text" id="line_user_id" placeholder="พิมพ์หรือวาง LINE User ID (ขึ้นต้นด้วย U...)">
+                        <button type="button" class="btn btn-outline-dark" style="padding: 0 10px; min-height: 38px; font-size: 12px; white-space: nowrap; margin-bottom: 0px;" onclick="showHowToGetLineId()"><i class="bi bi-question-circle"></i> วิธีขอ ID</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Telegram Chat ID (สำหรับการแจ้งเตือนคู่ขนาน/สำรอง)</label>
+                    <div style="display:flex; gap:8px; align-items:center;">
+                        <input type="text" id="telegram_chat_id" placeholder="พิมพ์หรือวาง Telegram Chat ID (ตัวเลข)">
+                        <button type="button" class="btn btn-outline-dark" style="padding: 0 10px; min-height: 38px; font-size: 12px; white-space: nowrap; margin-bottom: 0px;" onclick="showHowToGetTelegramId()"><i class="bi bi-question-circle"></i> วิธีขอ ID</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>ระดับสิทธิ์ (Role / Layer)</label>
+                    <select id="role" class="form-select">
+                        <option value="super">Super Admin (สิทธิ์สูงสุด)</option>
+                        <option value="admin">Administrator / Staff Admin (เจ้าหน้าที่ดูแลระบบ)</option>
+                        <option value="user">General User (พนักงานทั่วไป)</option>
+                    </select>
+                </div>
+                <div class="actions" style="border:none; margin:0; padding:0; display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+                    <button type="button" class="btn btn-outline-dark" onclick="closeModal()"><i class="bi bi-x-circle"></i> ยกเลิก</button>
+                    <button type="submit" class="btn btn-teal"><i class="bi bi-floppy-fill"></i> บันทึกข้อมูล</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let allUsers = [];
+        let allPersonnel = [];
+
+        async function fetchUsers() {
+            try {
+                const res = await fetch('/api/users', { headers: { 'Accept-Charset': 'utf-8' } });
+                const data = await res.json();
+                allUsers = data.users;
+                populateDepartmentFilter();
+                applyFilters();
+            } catch (err) { console.error('Fetch error:', err); }
+        }
+
+        async function fetchPersonnel() {
+            try {
+                const res = await fetch('/api/personnel', { headers: { 'Accept-Charset': 'utf-8' } });
+                const data = await res.json();
+                allPersonnel = data.personnel || [];
+            } catch (err) { console.error('Personnel Fetch error:', err); }
+        }
+
+        function populateDepartmentFilter() {
+            const select = document.getElementById('userDeptFilter');
+            select.innerHTML = '<option value="all">ทุกแผนก / กลุ่มงาน</option>';
+            const depts = [...new Set(allUsers.map(u => u.dept).filter(Boolean))].sort();
+            depts.forEach(d => {
+                const opt = document.createElement('option');
+                opt.value = d;
+                opt.textContent = d;
+                select.appendChild(opt);
+            });
+        }
+
+        function applyFilters() {
+            const query = document.getElementById('userSearchInput').value.toLowerCase().trim();
+            const dept = document.getElementById('userDeptFilter').value;
+            
+            const filtered = allUsers.filter(u => {
+                const matchDept = (dept === 'all' || u.dept === dept);
+                const matchSearch = (!query || 
+                    (u.fullname || '').toLowerCase().includes(query) || 
+                    (u.username || '').toLowerCase().includes(query)
+                );
+                return matchDept && matchSearch;
+            });
+            
+            renderUsers(filtered);
+            document.getElementById('userCountSpan').textContent = filtered.length;
+        }
+
+        function renderUsers(usersList = allUsers) {
+            const container = document.getElementById('userList');
+            container.innerHTML = usersList.map(u => {
+                let roleLabel = u.role.toUpperCase();
+                if (u.role === 'super') roleLabel = 'Super Admin';
+                if (u.role === 'admin') roleLabel = 'Administrator';
+                if (u.role === 'manager') roleLabel = 'Manager';
+                if (u.role === 'staff') roleLabel = 'Staff Admin';
+                if (u.role === 'user') roleLabel = 'Common User';
+
+                return `
+                <div class="user-card">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                        <div>
+                            <h5>${u.fullname}</h5>
+                            <p><i class="bi bi-person-circle"></i> @${u.username}</p>
+                            <p style="margin-top: 4px; font-size: 12px; color: var(--muted);"><i class="bi bi-building"></i> แผนก: ${u.dept || '—'}</p>
+                            <p style="margin-top: 6px; font-size: 12px; color: ${u.line_user_id ? 'var(--primary)' : 'var(--muted)'};">
+                                <i class="bi bi-line"></i> LINE ID: ${u.line_user_id ? `<span style="font-family: monospace;">${u.line_user_id.substring(0, 12)}...</span>` : '<span style="font-style: italic; color:#94a3b8;">ยังไม่ได้เชื่อมต่อ</span>'}
+                            </p>
+                            <p style="margin-top: 4px; font-size: 12px; color: ${u.telegram_chat_id ? 'var(--primary)' : 'var(--muted)'};">
+                                <i class="bi bi-telegram"></i> Telegram ID: ${u.telegram_chat_id ? `<span style="font-family: monospace;">${u.telegram_chat_id}</span>` : '<span style="font-style: italic; color:#94a3b8;">ยังไม่ได้เชื่อมต่อ</span>'}
+                            </p>
+                        </div>
+                        <span class="role-badge role-${u.role}">${roleLabel}</span>
+                    </div>
+                    <div class="actions">
+                        <button class="btn btn-sm btn-outline-dark" onclick="editUser(${u.id})"><i class="bi bi-pencil-square"></i> แก้ไข</button>
+                        <button class="btn btn-sm btn-outline-warning" style="color: #d97706 !important; border-color: rgba(217, 119, 6, 0.2) !important; background-color: rgba(217, 119, 6, 0.05) !important;" onclick="resetUserPassword(${u.id}, '${u.fullname}')"><i class="bi bi-key-fill"></i> รีเซ็ตรหัสผ่าน</button>
+                        ${u.line_user_id ? `<button class="btn btn-sm btn-outline-dark" style="color: #0d9488 !important; border-color: rgba(13, 148, 136, 0.2) !important; background-color: rgba(13, 148, 136, 0.05) !important;" onclick="testLine(${u.id})"><i class="bi bi-line"></i> ทดสอบ LINE</button>` : ''}
+                        ${u.telegram_chat_id ? `<button class="btn btn-sm btn-outline-dark" style="color: #229ED9 !important; border-color: rgba(34, 158, 217, 0.2) !important; background-color: rgba(34, 158, 217, 0.05) !important;" onclick="testTelegram(${u.id})"><i class="bi bi-telegram"></i> ทดสอบ Telegram</button>` : ''}
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteUser(${u.id})"><i class="bi bi-trash"></i> ลบ</button>
+                    </div>
+                </div>
+                `;
+            }).join('');
+        }
+
+        function searchPersonnel(query) {
+            const resultsBox = document.getElementById('searchResults');
+            if (!query || query.length < 2) {
+                resultsBox.style.display = 'none';
+                return;
+            }
+
+            const term = query.toLowerCase();
+            const matches = allPersonnel.filter(p => {
+                const fullName = (p.HR_FNAME + ' ' + p.HR_LNAME).toLowerCase();
+                const cid = (p.HR_CID || '').toLowerCase();
+                return fullName.includes(term) || cid.includes(term);
+            }).slice(0, 10);
+
+            if (matches.length > 0) {
+                resultsBox.innerHTML = matches.map(p => `
+                    <div class="search-item" onclick="selectPersonnel(${JSON.stringify(p).replace(/"/g, '&quot;')})">
+                        <strong>${p.HR_FNAME} ${p.HR_LNAME}</strong>
+                        <small>เลข CID: ${p.HR_CID || '—'} | แผนก: ${p.HR_DEPARTMENT_NAME || '—'}</small>
+                    </div>
+                `).join('');
+                resultsBox.style.display = 'block';
+            } else {
+                resultsBox.style.display = 'none';
+            }
+        }
+
+        function selectPersonnel(p) {
+            document.getElementById('fullname').value = `${p.HR_FNAME} ${p.HR_LNAME}`;
+            document.getElementById('username').value = p.HR_CID || '';
+            document.getElementById('personSearch').value = `${p.HR_FNAME} ${p.HR_LNAME}`;
+            document.getElementById('searchResults').style.display = 'none';
+        }
+
+        function openModal() {
+            document.getElementById('userModal').classList.add('active');
+            const form = document.getElementById('userForm');
+            form.reset();
+            document.getElementById('userId').value = '';
+            document.getElementById('modalTitle').innerText = 'เพิ่มผู้ใช้งานใหม่';
+            document.getElementById('passLabel').innerText = 'รหัสผ่าน';
+            document.getElementById('passHint').style.display = 'none';
+            document.getElementById('password').required = true;
+            document.getElementById('searchResults').style.display = 'none';
+        }
+
+        function closeModal() {
+            document.getElementById('userModal').classList.remove('active');
+        }
+
+        function editUser(id) {
+            const user = allUsers.find(u => u.id === id);
+            if (!user) return;
+            
+            openModal();
+            document.getElementById('modalTitle').innerText = 'แก้ไขผู้ใช้งาน';
+            document.getElementById('userId').value = user.id;
+            document.getElementById('fullname').value = user.fullname;
+            document.getElementById('username').value = user.username;
+            document.getElementById('line_user_id').value = user.line_user_id || '';
+            document.getElementById('telegram_chat_id').value = user.telegram_chat_id || '';
+            document.getElementById('role').value = user.role;
+            document.getElementById('passLabel').innerText = 'เปลี่ยนรหัสผ่าน';
+            document.getElementById('passHint').style.display = 'block';
+            document.getElementById('password').required = false;
+        }
+
+        async function deleteUser(id) {
+            if (!confirm('ยืนยันหน้าการลบผู้ใช้งานนี้หรือไม่?')) return;
+            try {
+                const res = await fetch(`/api/users/${id}`, { 
+                    method: 'DELETE',
+                    headers: { 'Accept-Charset': 'utf-8' }
+                });
+                const result = await res.json();
+                if (result.success) fetchUsers();
+            } catch (err) { alert('เกิดข้อผิดพลาดในการลบ'); }
+        }
+
+        document.getElementById('userForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('userId').value;
+            const data = {
+                id: id || undefined,
+                fullname: document.getElementById('fullname').value,
+                username: document.getElementById('username').value,
+                password: document.getElementById('password').value || undefined,
+                line_user_id: document.getElementById('line_user_id').value || null,
+                telegram_chat_id: document.getElementById('telegram_chat_id').value || null,
+                role: document.getElementById('role').value
+            };
+
+            try {
+                const res = await fetch('/api/users', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Accept-Charset': 'utf-8'
+                    },
+                    body: JSON.stringify(data)
+                });
+                const result = await res.json();
+                if (result.success) {
+                    closeModal();
+                    fetchUsers();
+                } else {
+                    alert(result.error || 'เกิดข้อผิดพลาด');
+                }
+            } catch (err) { alert('เกิดข้อผิดพลาดในการบันทึก'); }
+        });
+
+        function showHowToGetLineId() {
+            alert(
+                "💬 วิธีหา LINE User ID:\n\n" +
+                "1. แอดไลน์บอทของระบบเป็นเพื่อน\n" +
+                "2. พิมพ์ข้อความอะไรก็ได้ส่งให้บอท (เช่น 'ขอไอดี' หรือ 'hello')\n" +
+                "3. บอทจะตอบกลับเป็น LINE User ID ของคุณทันที (ขึ้นต้นด้วยตัว U ยาวๆ)\n" +
+                "4. คัดลอก ID นั้นมาใส่ในช่องนี้เพื่อบันทึกและเชื่อมต่อระบบ"
+            );
+        }
+
+        function showHowToGetTelegramId() {
+            alert(
+                "💬 วิธีหา Telegram Chat ID:\n\n" +
+                "1. แอดบอทของระบบหรือแอดบอท @userinfobot ใน Telegram\n" +
+                "2. พิมพ์ข้อความหรือส่งคำสั่ง /start ไปยังบอท\n" +
+                "3. บอทจะตอบกลับข้อมูลพร้อมระบุ ID ของคุณ (ตัวเลขยาวๆ เช่น 123456789)\n" +
+                "4. คัดลอกตัวเลข ID นั้นมาใส่ในช่องนี้เพื่อบันทึกและเชื่อมต่อระบบ"
+            );
+        }
+
+        async function testTelegram(userId) {
+            try {
+                const res = await fetch('/api/users/test-telegram', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept-Charset': 'utf-8'
+                    },
+                    body: JSON.stringify({ userId })
+                });
+                const result = await res.json();
+                if (result.success) {
+                    alert('✅ ' + result.message);
+                } else {
+                    alert('❌ ส่งข้อความล้มเหลว: ' + (result.error || 'ไม่ทราบสาเหตุ'));
+                }
+            } catch (err) {
+                alert('❌ เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์');
+            }
+        }
+
+        async function testLine(userId) {
+            try {
+                const res = await fetch('/api/users/test-line', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept-Charset': 'utf-8'
+                    },
+                    body: JSON.stringify({ userId })
+                });
+                const result = await res.json();
+                if (result.success) {
+                    alert('✅ ' + result.message);
+                } else {
+                    alert('❌ ส่งข้อความล้มเหลว: ' + (result.error || 'ไม่ทราบสาเหตุ'));
+                }
+            } catch (err) {
+                alert('❌ เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์');
+            }
+        }
+
+        async function resetUserPassword(userId, fullname) {
+            if (!confirm(`คุณต้องการรีเซ็ตรหัสผ่านของ ${fullname} เป็นค่าเริ่มต้น '1234' หรือไม่?`)) return;
+            try {
+                const res = await fetch(`/api/users/${userId}/reset-password`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept-Charset': 'utf-8' }
+                });
+                const result = await res.json();
+                if (result.success) {
+                    alert('✅ รีเซ็ตรหัสผ่านสำเร็จ: รหัสผ่านใหม่คือ 1234');
+                } else {
+                    alert('❌ เกิดข้อผิดพลาด: ' + (result.error || 'ไม่สามารถรีเซ็ตได้'));
+                }
+            } catch (err) {
+                alert('❌ เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์');
+            }
+        }
+
+        // Close search results when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.form-group')) {
+                document.getElementById('searchResults').style.display = 'none';
+            }
+        });
+
+        // Initial Load
+        fetchUsers();
+        fetchPersonnel();
+    </script>
+</body>
+</html>

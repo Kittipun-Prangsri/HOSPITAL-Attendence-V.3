@@ -115,8 +115,8 @@ exports.getData = async (req, res) => {
         h.SkinSurfaceTemperature as temp,
         h.TemperatureStatus as tempStatus,
         CASE 
-          WHEN h.Direction = 'in' THEN 'เข้างาน' 
-          WHEN h.Direction = 'out' THEN 'ออกงาน' 
+          WHEN h.Direction = 'in' OR h.Direction = 'i' THEN 'เข้างาน' 
+          WHEN h.Direction = 'out' OR h.Direction = 'o' THEN 'ออกงาน' 
           ELSE 'สแกน' END as action,
         h.Direction as subType,
         '' as shift, 

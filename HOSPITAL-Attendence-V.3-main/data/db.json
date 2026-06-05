@@ -1,0 +1,43 @@
+{
+  "employees": [
+    {"id":"N001","name":"สมหญิง พยาบาลดี","dept":"ห้องฉุกเฉิน (ER)","role":"พยาบาลวิชาชีพ","shift":"morning","status":"เข้างาน","in":"07:58","out":"—","hours":"8h 02m","ot":"","conf":98.1},
+    {"id":"N002","name":"วิภา รักษาดี","dept":"ICU / CCU","role":"พยาบาลวิชาชีพ","shift":"morning","status":"ออกงาน","in":"08:00","out":"16:05","hours":"8h 05m","ot":"","conf":97.4},
+    {"id":"N003","name":"นพ.ชาติชาย แพทย์ดี","dept":"อายุรกรรม","role":"แพทย์","shift":"morning","status":"มาสาย","in":"08:42","out":"—","hours":"7h 18m","ot":"","conf":95.6},
+    {"id":"N004","name":"กนกวรรณ ขยันดี","dept":"ศัลยกรรม","role":"พยาบาลวิชาชีพ","shift":"morning","status":"เข้างาน","in":"07:52","out":"—","hours":"8h 08m","ot":"+0:30","conf":99.2},
+    {"id":"N005","name":"ภญ.สุภาพร เภสัช","dept":"เภสัชกรรม","role":"เภสัชกร","shift":"morning","status":"ออกงาน","in":"08:05","out":"16:00","hours":"7h 55m","ot":"","conf":96.8},
+    {"id":"N006","name":"อนันต์ มั่นคง","dept":"ห้องผ่าตัด (OR)","role":"พยาบาลวิชาชีพ","shift":"morning","status":"ขาดงาน","in":"—","out":"—","hours":"—","ot":"","conf":0},
+    {"id":"N007","name":"รัตนา ใจดี","dept":"อายุรกรรม","role":"นักเทคนิคการแพทย์","shift":"morning","status":"เข้างาน","in":"08:00","out":"—","hours":"8h 00m","ot":"","conf":97.9},
+    {"id":"N008","name":"ปรีชา สุขสม","dept":"ICU / CCU","role":"พยาบาลวิชาชีพ","shift":"morning","status":"เข้างาน","in":"07:55","out":"—","hours":"8h 05m","ot":"+1:00","conf":98.5},
+    {"id":"N009","name":"มาลินี สว่างใจ","dept":"ห้องฉุกเฉิน (ER)","role":"พยาบาลวิชาชีพ","shift":"afternoon","status":"เข้างาน","in":"15:58","out":"—","hours":"4h 02m","ot":"","conf":97.3},
+    {"id":"N010","name":"ธนพล เก่งกาจ","dept":"ICU / CCU","role":"แพทย์","shift":"afternoon","status":"เข้างาน","in":"16:00","out":"—","hours":"4h 00m","ot":"","conf":98.8},
+    {"id":"N011","name":"สายฝน ดาวเรือง","dept":"ศัลยกรรม","role":"พยาบาลวิชาชีพ","shift":"afternoon","status":"มาสาย","in":"16:35","out":"—","hours":"3h 25m","ot":"","conf":94.2},
+    {"id":"N012","name":"ภญ.นภาพร ยาดี","dept":"เภสัชกรรม","role":"เภสัชกร","shift":"afternoon","status":"เข้างาน","in":"15:55","out":"—","hours":"4h 05m","ot":"","conf":99.0},
+    {"id":"N013","name":"วิวัฒน์ กล้าหาญ","dept":"ห้องผ่าตัด (OR)","role":"พยาบาลวิชาชีพ","shift":"afternoon","status":"เข้างาน","in":"16:02","out":"—","hours":"3h 58m","ot":"+0:30","conf":96.5},
+    {"id":"N014","name":"อรอนงค์ แสนดี","dept":"อายุรกรรม","role":"นักกายภาพ","shift":"afternoon","status":"ขาดงาน","in":"—","out":"—","hours":"—","ot":"","conf":0},
+    {"id":"N015","name":"สมศรี ตื่นเช้า","dept":"ห้องฉุกเฉิน (ER)","role":"พยาบาลวิชาชีพ","shift":"night","status":"ออกงาน","in":"00:02","out":"08:00","hours":"7h 58m","ot":"","conf":97.0},
+    {"id":"N016","name":"นพ.ทรงพล กลางคืน","dept":"ICU / CCU","role":"แพทย์","shift":"night","status":"ออกงาน","in":"23:58","out":"08:05","hours":"8h 07m","ot":"+0:05","conf":98.2},
+    {"id":"N017","name":"จิตรา นิ่งเงียบ","dept":"อายุรกรรม","role":"พยาบาลวิชาชีพ","shift":"night","status":"เข้างาน","in":"00:00","out":"—","hours":"8h 00m","ot":"","conf":96.7},
+    {"id":"N018","name":"บัณฑิต เฝ้าดู","dept":"ห้องผ่าตัด (OR)","role":"พยาบาลวิชาชีพ","shift":"night","status":"มาสาย","in":"00:28","out":"—","hours":"7h 32m","ot":"","conf":93.8},
+    {"id":"N019","name":"กาญจนา แข็งขัน","dept":"ศัลยกรรม","role":"พยาบาลวิชาชีพ","shift":"night","status":"เข้างาน","in":"23:55","out":"—","hours":"8h 05m","ot":"+1:00","conf":98.9},
+    {"id":"N020","name":"อานนท์ ตรวจตรา","dept":"ICU / CCU","role":"นักเทคนิคการแพทย์","shift":"night","status":"ขาดงาน","in":"—","out":"—","hours":"—","ot":"","conf":0}
+  ],
+  "timelineData": [
+    {"type":"in","name":"สมหญิง พยาบาลดี","shift":"morning","time":"07:58","dept":"ER","action":"เข้างาน"},
+    {"type":"in","name":"มาลินี สว่างใจ","shift":"afternoon","time":"15:58","dept":"ER","action":"เข้างาน"},
+    {"type":"out","name":"วิภา รักษาดี","shift":"morning","time":"16:05","dept":"ICU","action":"ออกงาน"},
+    {"type":"in","name":"ธนพล เก่งกาจ","shift":"afternoon","time":"16:00","dept":"ICU","action":"เข้างาน"},
+    {"type":"late","name":"สายฝน ดาวเรือง","shift":"afternoon","time":"16:35","dept":"ศัลยกรรม","action":"เข้างาน (สาย)"},
+    {"type":"out","name":"นพ.ทรงพล กลางคืน","shift":"night","time":"08:05","dept":"ICU","action":"ออกงาน"},
+    {"type":"in","name":"ภญ.นภาพร ยาดี","shift":"afternoon","time":"15:55","dept":"เภสัชกรรม","action":"เข้างาน"},
+    {"type":"late","name":"บัณฑิต เฝ้าดู","shift":"night","time":"00:28","dept":"OR","action":"เข้างาน (สาย)"},
+    {"type":"in","name":"กาญจนา แข็งขัน","shift":"night","time":"23:55","dept":"ศัลยกรรม","action":"เข้างาน"},
+    {"type":"out","name":"สมศรี ตื่นเช้า","shift":"night","time":"08:00","dept":"ER","action":"ออกงาน"}
+  ],
+  "scanQueue": [
+    {"name":"สมหญิง พยาบาลดี","dept":"ER","shift":"morning","conf":98.1,"type":"in"},
+    {"name":"ธนพล เก่งกาจ","dept":"ICU","shift":"afternoon","conf":98.8,"type":"in"},
+    {"name":"วิภา รักษาดี","dept":"ICU","shift":"morning","conf":97.4,"type":"out"},
+    {"name":"กาญจนา แข็งขัน","dept":"ศัลยกรรม","shift":"night","conf":98.9,"type":"in"},
+    {"name":"นพ.ทรงพล กลางคืน","dept":"ICU","shift":"night","conf":98.2,"type":"out"}
+  ]
+}

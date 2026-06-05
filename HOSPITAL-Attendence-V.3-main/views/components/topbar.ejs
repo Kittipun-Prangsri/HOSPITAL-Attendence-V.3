@@ -1,0 +1,212 @@
+<%
+  let pageTitle = "Dashboard";
+  const currentRoute = typeof activeRoute !== 'undefined' ? activeRoute : '/';
+  
+  if (currentRoute === '/') {
+    pageTitle = "Dashboard";
+  } else if (currentRoute === '/schedule') {
+    pageTitle = "ตารางเวรตัวเอง";
+  } else if (currentRoute === '/excuses') {
+    pageTitle = "แจ้งสาเหตุ / ขาด ลา สาย";
+  } else if (currentRoute === '/attendance') {
+    pageTitle = "บันทึกเข้า-ออกงาน";
+  } else if (currentRoute === '/personnel') {
+    pageTitle = "ข้อมูลบุคลากร";
+  } else if (currentRoute === '/scheduling') {
+    pageTitle = "จัดตารางเวรพยาบาล";
+  } else if (currentRoute === '/reports') {
+    pageTitle = "แดชบอร์ดวิเคราะห์";
+  } else if (currentRoute === '/report/daily') {
+    pageTitle = "รายงานสรุปรายวัน";
+  } else if (currentRoute === '/report/monthly') {
+    pageTitle = "รายงานสรุปรายเดือน";
+  } else if (currentRoute === '/report/hours') {
+    pageTitle = "สรุปชั่วโมงทำงาน";
+  } else if (currentRoute === '/admin/users') {
+    pageTitle = "จัดการผู้เข้าใช้";
+  } else if (currentRoute === '/admin/permissions') {
+    pageTitle = "ตั้งค่าระดับสิทธิ์";
+  } else if (currentRoute.startsWith('/department/')) {
+    pageTitle = "กลุ่มงาน" + (typeof deptName !== 'undefined' && deptName ? deptName : '');
+  }
+%>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="d-flex align-items-center gap-3">
+    <button class="icon-btn me-2 topbar-toggle-btn" onclick="toggleGlobalSidebar()">
+      <i class="bi bi-list"></i>
+    </button>
+
+    <script>
+      function toggleGlobalSidebar() {
+        const sidebar = document.getElementById('sidebar');
+        const main = document.querySelector('.main');
+        const overlay = document.getElementById('sidebar-overlay');
+        
+        if (window.innerWidth < 992) {
+          sidebar.classList.toggle('mobile-active');
+          if (overlay) overlay.classList.toggle('active');
+        } else {
+          if (sidebar) sidebar.classList.toggle('collapsed');
+          if (main) main.classList.toggle('expanded');
+        }
+      }
+    </script>
+    <div class="topbar-left">
+      <h6 style="font-weight: 700; color: var(--primary, #0D9488); margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px;"><%= pageTitle %><span class="d-none d-md-inline"> - KHH (<%= locals.user ? user.role.toUpperCase() : 'USER' %>)</span></h6>
+      <small id="currentDate" class="text-muted" style="white-space: nowrap;">กำลังโหลด...</small>
+    </div>
+  </div>
+
+  <style>
+    .topbar-toggle-btn {
+      display: none !important;
+    }
+    @media (max-width: 991px) {
+      .topbar-toggle-btn {
+        display: flex !important;
+      }
+    }
+  </style>
+  <div class="d-flex align-items:center gap-2" style="display:flex;align-items:center;gap:8px;">
+    <div class="live-pill" style="white-space: nowrap;"><span class="live-dot"></span> <span class="d-none d-sm-inline">ระบบออนไลน์</span></div>
+    <div class="icon-btn" title="แจ้งเตือน"><i class="bi bi-bell"></i></div>
+    <div class="icon-btn" title="รีเฟรช" onclick="refreshData(this)"><i class="bi bi-arrow-clockwise"></i></div>
+    <div class="icon-btn" title="ตั้งค่า" onclick="openSettings()"><i class="bi bi-gear"></i></div>
+  </div>
+</div>
+
+<script>
+  // Live ticking clock for topbar
+  function initTopbarClock() {
+    const dateEl = document.getElementById('currentDate');
+    if (!dateEl) return;
+
+    window.updateTopbarClock = function() {
+      const now = new Date();
+      
+      // Check if we are on dashboard and a different date is selected
+      const dateInput = document.getElementById('dateInput');
+      if (dateInput && dateInput.value) {
+        const y = now.getFullYear();
+        const m = String(now.getMonth() + 1).padStart(2, '0');
+        const d = String(now.getDate()).padStart(2, '0');
+        const todayStr = `${y}-${m}-${d}`;
+        
+        if (dateInput.value !== todayStr) {
+          const selectedDate = new Date(dateInput.value);
+          if (window.innerWidth < 768) {
+            dateEl.textContent = "วันที่: " + selectedDate.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' });
+          } else {
+            dateEl.textContent = "ข้อมูลของวันที่: " + selectedDate.toLocaleDateString('th-TH', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+          }
+          return;
+        }
+      }
+
+      if (window.innerWidth < 768) {
+        const datePart = now.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
+        const timePart = now.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+        dateEl.textContent = `${datePart} | ${timePart} น.`;
+      } else {
+        const datePart = now.toLocaleDateString('th-TH', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        const timePart = now.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        dateEl.textContent = `${datePart} เวลา ${timePart} น.`;
+      }
+    };
+
+    window.updateTopbarClock();
+    setInterval(window.updateTopbarClock, 1000);
+  }
+  initTopbarClock();
+
+  // Dashboard Initialization: Store User Role from Session to localStorage
+  const sessionRole = "<%= (locals.user && user.role) ? user.role : 'staff' %>";
+  localStorage.setItem('userRole', sessionRole);
+  const CURRENT_ROLE = localStorage.getItem('userRole');
+  const CURRENT_USER_ID = "<%= (locals.user && user.username) ? user.username : '' %>";
+  
+  const RBAC_ENABLED = true; // เปิดระบบ RBAC แล้ว
+  console.log('Current User Role:', CURRENT_ROLE, '| User ID:', CURRENT_USER_ID, '| RBAC_ENABLED:', RBAC_ENABLED);
+
+  // Load appPermissions from localStorage
+  const appPermissions = JSON.parse(localStorage.getItem('APP_PERMISSIONS')) || {
+    admin: ['view_dashboard', 'view_phone', 'view_email', 'edit_staff', 'delete_staff', 'manage_permissions'],
+    staff: ['view_dashboard'],
+    user: ['view_dashboard']
+  };
+
+  // Global Check Permission
+  function checkPermission(capability) {
+    if (!RBAC_ENABLED) return true;
+    if (CURRENT_ROLE === 'admin' || CURRENT_ROLE === 'super') return true;
+    return appPermissions[CURRENT_ROLE] && appPermissions[CURRENT_ROLE].includes(capability);
+  }
+
+  // Enforce UI restrictions based on role
+  document.addEventListener("DOMContentLoaded", () => {
+     if (CURRENT_ROLE === 'admin' || CURRENT_ROLE === 'staff' || CURRENT_ROLE === 'user') {
+         // Disable permissions menu and users menu in sidebar (if they exist in the DOM)
+         const permissionsMenu = document.querySelector('a[href="/admin/permissions"]');
+         if(permissionsMenu) {
+             permissionsMenu.style.display = 'none';
+         }
+         const usersMenu = document.querySelector('a[href="/admin/users"]');
+         if(usersMenu) {
+             usersMenu.style.display = 'none';
+         }
+     }
+
+     if (CURRENT_ROLE === 'staff' || CURRENT_ROLE === 'user') {
+         // Disable settings menu icon in topbar
+         const settingsBtn = document.querySelector('[onclick="openSettings()"]');
+         if(settingsBtn) {
+             settingsBtn.style.pointerEvents = 'none';
+             settingsBtn.style.opacity = '0.5';
+         }
+     }
+  });
+
+  function maskSensitiveData(str, capability, dataOwnerId) {
+    if (!RBAC_ENABLED) return str;
+    if (!str || str === '-') return '-';
+    // Owner of the data sees everything
+    if (dataOwnerId && String(dataOwnerId) === String(CURRENT_USER_ID)) return str;
+    // Admin sees everything
+    if (checkPermission(capability)) return str;
+    
+    // Masking phone example: 09xxxx
+    if (capability === 'view_phone') {
+        return str.substring(0, 2) + '*'.repeat(Math.max(0, str.length - 2)); 
+    }
+    // Masking email: ITx****@hotmail.com
+    if (capability === 'view_email') {
+        const parts = str.split('@');
+        if(parts.length === 2) {
+           return parts[0].substring(0, 2) + '***@' + parts[1];
+        }
+        return '********';
+    }
+    // Masking Name: นาย xxx
+    if (capability === 'view_name') {
+        const titles = ['นายแพทย์', 'พญ.', 'นพ.', 'นาย', 'นางสาว', 'นาง'];
+        let title = '';
+        let bareName = str;
+        for (let t of titles) {
+            if (str.startsWith(t)) {
+                title = t + ' ';
+                bareName = str.substring(t.length).trim();
+                break;
+            }
+        }
+        return title + 'x'.repeat(bareName.length > 0 ? bareName.length : 3);
+    }
+    // Masking ID: KHH00023 -> ***
+    if (capability === 'view_id') {
+        return '***';
+    }
+    
+    return '********';
+  }
+</script>

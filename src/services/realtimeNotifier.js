@@ -16,7 +16,7 @@ async function checkNewScans() {
       processedScans.clear();
     }
     
-    // 1. Fetch unprocessed scans for today (is_notified = 1 or 2) that have a registered LINE ID or Telegram Chat ID in hr_person
+    // 1. Fetch unprocessed scans for today (is_notified = 1 or 2)
     const [scans] = await hosofficePool.query(`
       SELECT 
         h.EmployeeID, 
@@ -27,36 +27,23 @@ async function checkNewScans() {
         h.ReaderName,
         h.SkinSurfaceTemperature,
         p.LINE_YOUR_USER_ID as line_user_id,
-        p.TELEGRAM_CHAT_ID as telegram_chat_id,
         CONCAT(p.HR_FNAME, ' ', p.HR_LNAME) as fullname
       FROM hikvision h
       INNER JOIN hr_person p ON h.EmployeeID = p.FINGLE_ID
       WHERE h.AccessDate = ? 
         AND h.is_notified IN (1, 2)
-        AND (
-          (p.LINE_YOUR_USER_ID IS NOT NULL AND p.LINE_YOUR_USER_ID != '')
-          OR
-          (p.TELEGRAM_CHAT_ID IS NOT NULL AND p.TELEGRAM_CHAT_ID != '')
-        )
       ORDER BY h.AccessTime ASC
       LIMIT 10
     `, [today]);
 
-    // 2. Automatically mark other scans for employees without notification IDs as notified (value 3) to keep database clean
+    // 2. Automatically mark scans of unregistered cards as notified (value 3)
     await hosofficePool.query(`
       UPDATE hikvision h
       LEFT JOIN hr_person p ON h.EmployeeID = p.FINGLE_ID
       SET h.is_notified = 3
       WHERE h.AccessDate = ? 
         AND h.is_notified IN (1, 2)
-        AND (
-          p.FINGLE_ID IS NULL
-          OR (
-            (p.LINE_YOUR_USER_ID IS NULL OR p.LINE_YOUR_USER_ID = '')
-            AND
-            (p.TELEGRAM_CHAT_ID IS NULL OR p.TELEGRAM_CHAT_ID = '')
-          )
-        )
+        AND p.FINGLE_ID IS NULL
     `, [today]);
 
     if (scans.length === 0) return;
@@ -64,7 +51,7 @@ async function checkNewScans() {
     console.log(`[RealtimeNotifier] Found ${scans.length} unprocessed scans to notify.`);
 
     for (const scan of scans) {
-      const { EmployeeID, AccessDate, AccessTime, Direction, DeviceName, ReaderName, SkinSurfaceTemperature, line_user_id, telegram_chat_id, fullname } = scan;
+      const { EmployeeID, AccessDate, AccessTime, Direction, DeviceName, ReaderName, SkinSurfaceTemperature, line_user_id, fullname } = scan;
 
       // Prevent duplicate notifications in the same run/session using in-memory cache
       const scanKey = `${EmployeeID}_${AccessDate}_${AccessTime}`;
@@ -80,44 +67,210 @@ async function checkNewScans() {
         WHERE EmployeeID = ? AND AccessDate = ? AND AccessTime = ?
       `, [EmployeeID, AccessDate, AccessTime]);
 
-      if (line_user_id || telegram_chat_id) {
-        // Bypass actual sending if disabled in configuration
-        if (process.env.ENABLE_REALTIME_NOTIFICATIONS === 'false') {
-          console.log(`[RealtimeNotifier] Real-time notifications are disabled in .env. Skipping push to ${fullname} (${EmployeeID}).`);
-          continue;
+      // Bypass actual sending if disabled in configuration
+      if (process.env.ENABLE_REALTIME_NOTIFICATIONS === 'false') {
+        console.log(`[RealtimeNotifier] Real-time notifications are disabled in .env. Skipping push to ${fullname || EmployeeID} (${EmployeeID}).`);
+        continue;
+      }
+
+      let directionThai = 'สแกนผ่านเครื่อง';
+      if (Direction === 'in' || Direction === 'i') directionThai = '✅ เข้างาน (Check-in)';
+      if (Direction === 'out' || Direction === 'o') directionThai = '🚪 ออกงาน (Check-out)';
+
+      const location = DeviceName || 'ไม่ระบุจุดสแกน';
+      const dateThai = new Date(AccessDate).toLocaleDateString('th-TH', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+
+      let message = `🕒 *บันทึกเวลาปฏิบัติงาน*\n\n` +
+                    `👤 พนักงาน: ${fullname || EmployeeID}\n` +
+                    `📋 สถานะ: ${directionThai}\n` +
+                    `⏰ เวลา: ${AccessTime} น.\n` +
+                    `📅 วันที่: ${dateThai}\n` +
+                    `🚪 จุดบันทึก: ${location}`;
+
+      if (SkinSurfaceTemperature && SkinSurfaceTemperature.trim() !== '') {
+        message += `\n🌡️ อุณหภูมิ: ${SkinSurfaceTemperature} °C`;
+      }
+
+      const telegramOptions = {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              {
+                text: 'ดูประวัติการเข้างาน',
+                url: process.env.SYSTEM_URL ? `${process.env.SYSTEM_URL}/history` : 'https://your-hospital-system.com/history'
+              }
+            ]
+          ]
         }
+      };
 
-        let directionThai = 'สแกนผ่านเครื่อง';
-        if (Direction === 'in') directionThai = 'เข้างาน (Check-in)';
-        if (Direction === 'out') directionThai = 'ออกงาน (Check-out)';
-
-        const location = DeviceName || 'ไม่ระบุจุดสแกน';
-        const dateThai = new Date(AccessDate).toLocaleDateString('th-TH', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric'
-        });
-
-        let message = `🔔 *บันทึกเวลาทำงานสำเร็จ*\n\n` +
-                      `👤 คุณ: ${fullname}\n` +
-                      `📅 วันที่: ${dateThai}\n` +
-                      `⏰ เวลา: ${AccessTime} น.\n` +
-                      `📍 สถานะ: ${directionThai}\n` +
-                      `🚪 จุดบันทึก: ${location}`;
-
-        if (SkinSurfaceTemperature && SkinSurfaceTemperature.trim() !== '') {
-          message += `\n🌡️ อุณหภูมิ: ${SkinSurfaceTemperature} °C`;
+      const lineFlexContents = {
+        type: "bubble",
+        size: "mega",
+        header: {
+          type: "box",
+          layout: "vertical",
+          contents: [
+            {
+              type: "text",
+              text: "ATTENDANCE LOG",
+              color: "#FFFFFF",
+              size: "xs",
+              weight: "bold",
+              align: "center"
+            },
+            {
+              type: "text",
+              text: "บันทึกเวลาปฏิบัติงาน",
+              color: "#FFFFFF",
+              size: "lg",
+              weight: "bold",
+              margin: "sm",
+              align: "center"
+            }
+          ],
+          paddingTop: "25px",
+          paddingBottom: "25px",
+          backgroundColor: "#FF0099"
+        },
+        hero: {
+          type: "image",
+          url: "https://cdn-icons-png.flaticon.com/512/3135/3135715.png",
+          size: "full",
+          aspectRatio: "3:1",
+          aspectMode: "cover",
+          gravity: "center"
+        },
+        body: {
+          type: "box",
+          layout: "vertical",
+          contents: [
+            {
+              type: "text",
+              text: fullname || EmployeeID,
+              weight: "bold",
+              size: "xl",
+              align: "center",
+              color: "#333333"
+            },
+            {
+              type: "box",
+              layout: "vertical",
+              margin: "xxl",
+              spacing: "sm",
+              contents: [
+                {
+                  type: "box",
+                  layout: "baseline",
+                  contents: [
+                    {
+                      type: "text",
+                      text: "สถานะ",
+                      color: "#aaaaaa",
+                      size: "sm",
+                      flex: 1,
+                      align: "start"
+                    },
+                    {
+                      type: "text",
+                      text: directionThai,
+                      color: "#FF0099",
+                      size: "sm",
+                      flex: 3,
+                      weight: "bold",
+                      margin: "lg"
+                    }
+                  ]
+                },
+                {
+                  type: "box",
+                  layout: "baseline",
+                  contents: [
+                    {
+                      type: "text",
+                      text: "เวลา",
+                      color: "#aaaaaa",
+                      size: "sm",
+                      flex: 1,
+                      align: "start"
+                    },
+                    {
+                      type: "text",
+                      text: `${dateThai}, ${AccessTime} น.`,
+                      color: "#555555",
+                      size: "sm",
+                      flex: 3,
+                      margin: "lg"
+                    }
+                  ]
+                },
+                {
+                  type: "box",
+                  layout: "baseline",
+                  contents: [
+                    {
+                      type: "text",
+                      text: "จุดบันทึก",
+                      color: "#aaaaaa",
+                      size: "sm",
+                      flex: 1,
+                      align: "start"
+                    },
+                    {
+                      type: "text",
+                      text: location,
+                      color: "#555555",
+                      size: "sm",
+                      flex: 3,
+                      margin: "lg"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        footer: {
+          type: "box",
+          layout: "horizontal",
+          spacing: "md",
+          contents: [
+            {
+              type: "button",
+              action: {
+                type: "uri",
+                label: "ดูประวัติ",
+                uri: process.env.SYSTEM_URL ? `${process.env.SYSTEM_URL}/history` : 'https://your-hospital-system.com/history'
+              },
+              style: "primary",
+              color: "#FF0099"
+            },
+            {
+              type: "button",
+              action: {
+                type: "uri",
+                label: "แจ้งเหตุฉุกเฉิน",
+                uri: process.env.EMERGENCY_URL || "https://line.me"
+              },
+              style: "secondary",
+              color: "#FF0099"
+            }
+          ]
         }
+      };
 
-        // Send parallel / fallback notifications
-        const result = await NotificationService.sendDirectNotification(line_user_id, telegram_chat_id, message);
-        if (result.success) {
-          console.log(`[RealtimeNotifier] Successfully sent notification to ${fullname} (${EmployeeID}). LINE: ${result.line}, Telegram: ${result.telegram}`);
-        } else {
-          console.error(`[RealtimeNotifier] Failed to send notification to ${fullname} (${EmployeeID}). Both services failed.`);
-        }
+      const targetTelegramChatId = process.env.TELEGRAM_ADMIN_CHAT_ID || '7857036135';
+
+      // Send parallel / fallback notifications
+      const result = await NotificationService.sendDirectNotification(line_user_id, targetTelegramChatId, message, telegramOptions, lineFlexContents);
+      if (result.success) {
+        console.log(`[RealtimeNotifier] Successfully sent notification to ${fullname || EmployeeID} (${EmployeeID}). LINE: ${result.line}, Telegram: ${result.telegram}`);
       } else {
-        console.log(`[RealtimeNotifier] No notification ID mapped for user ${fullname || EmployeeID}`);
+        console.error(`[RealtimeNotifier] Failed to send notification to ${fullname || EmployeeID} (${EmployeeID}). Both services failed.`);
       }
     }
   } catch (error) {

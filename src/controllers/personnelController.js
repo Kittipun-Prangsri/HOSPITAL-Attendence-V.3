@@ -11,7 +11,8 @@ exports.getPersonnel = async (req, res) => {
         p.HR_PHONE, p.HR_EMAIL, p.HR_DEPARTMENT_ID, d.HR_DEPARTMENT_NAME,
         p.HR_POSITION_ID, p.HR_STATUS_ID, s.HR_STATUS_NAME,
         p.HR_STARTWORK_DATE, p.HR_CID, p.LINE_YOUR_USER_ID as line_user_id,
-        p.TELEGRAM_CHAT_ID as telegram_chat_id
+        p.TELEGRAM_CHAT_ID as telegram_chat_id,
+        p.WORK_SHIFT, p.TIME_IN, p.TIME_OUT
       FROM hr_person p
       LEFT JOIN hr_department d ON p.HR_DEPARTMENT_ID = d.HR_DEPARTMENT_ID
       LEFT JOIN hr_status s ON s.HR_STATUS_ID = p.HR_STATUS_ID
@@ -31,13 +32,13 @@ exports.getPersonnel = async (req, res) => {
 };
 
 exports.updateStaff = async (req, res) => {
-  const { id, nickname, phone, email, line_user_id, telegram_chat_id } = req.body;
+  const { id, nickname, phone, email, line_user_id, telegram_chat_id, work_shift, time_in, time_out } = req.body;
   if (!id) return res.status(400).json({ success: false, message: 'Missing staff ID' });
 
   try {
     const [result] = await hosofficePool.query(
-      `UPDATE hr_person SET NICKNAME = ?, HR_PHONE = ?, HR_EMAIL = ?, LINE_YOUR_USER_ID = ?, TELEGRAM_CHAT_ID = ? WHERE FINGLE_ID = ?`,
-      [nickname || null, phone || null, email || null, line_user_id || null, telegram_chat_id || null, id]
+      `UPDATE hr_person SET NICKNAME = ?, HR_PHONE = ?, HR_EMAIL = ?, LINE_YOUR_USER_ID = ?, TELEGRAM_CHAT_ID = ?, WORK_SHIFT = ?, TIME_IN = ?, TIME_OUT = ? WHERE FINGLE_ID = ?`,
+      [nickname || null, phone || null, email || null, line_user_id || null, telegram_chat_id || null, work_shift || null, time_in || null, time_out || null, id]
     );
 
     if (result.affectedRows === 0) {

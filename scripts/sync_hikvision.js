@@ -38,8 +38,8 @@ async function syncHikvisionData() {
     const [todayLogs] = await hosofficePool.query(`
       SELECT 
         EmployeeID as id,
-        MIN(CASE WHEN Direction = 'in' THEN AccessTime END) as time_in,
-        MAX(CASE WHEN Direction = 'out' THEN AccessTime END) as time_out
+        MIN(CASE WHEN Direction = 'in' OR Direction = 'i' THEN AccessTime END) as time_in,
+        MAX(CASE WHEN Direction = 'out' OR Direction = 'o' THEN AccessTime END) as time_out
       FROM hikvision
       WHERE AccessDate = ?
       GROUP BY EmployeeID

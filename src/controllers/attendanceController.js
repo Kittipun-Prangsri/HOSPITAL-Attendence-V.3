@@ -99,3 +99,272 @@ exports.updateMapping = (req, res) => {
     res.status(500).json({ error: 'Failed to update mapping' });
   }
 };
+
+exports.logAttendance = async (req, res) => {
+  const { employeeId, status, deviceName } = req.body;
+  const now = new Date();
+  
+  // Format current date and time in Thai timezone/format
+  const currentTimeStr = now.toLocaleTimeString('th-TH', { hour12: false, timeZone: 'Asia/Bangkok' }).slice(0, 5); // HH:MM
+  const dateThai = now.toLocaleDateString('th-TH', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    timeZone: 'Asia/Bangkok'
+  });
+  
+  const today = now.toLocaleDateString('sv-SE', { timeZone: 'Asia/Bangkok' });
+  const time = now.toLocaleTimeString('th-TH', { hour12: false, timeZone: 'Asia/Bangkok' });
+
+  if (!employeeId || !status) {
+    return res.status(400).json({ success: false, error: 'employeeId and status are required' });
+  }
+
+  try {
+    // 1. Fetch employee details from HOSoffice DB hr_person
+    const { hosofficePool } = require('../config/db');
+    const [empRows] = await hosofficePool.query(
+      "SELECT LINE_YOUR_USER_ID as line_user_id, TELEGRAM_CHAT_ID as telegram_chat_id, CONCAT(HR_FNAME, ' ', HR_LNAME) as fullname FROM hr_person WHERE FINGLE_ID = ? OR HR_CID = ?",
+      [employeeId, employeeId]
+    );
+
+    if (empRows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Employee not found' });
+    }
+
+    const { fullname, line_user_id } = empRows[0];
+
+    const normalizedStatus = (status === 'in' || status === 'check-in') ? 'check-in' : 'check-out';
+    const direction = normalizedStatus === 'check-in' ? 'in' : 'out';
+    const isLate = normalizedStatus === 'check-in' && (now.toTimeString().split(' ')[0] > '08:31:00');
+    
+    // 2. Save to local attendance table
+    await pool.query(
+      'INSERT INTO attendance (user_name, status, timestamp, is_late) VALUES (?, ?, ?, ?)',
+      [fullname, normalizedStatus, now, isLate]
+    );
+
+    // 3. Save to HOSoffice hikvision table
+    const resolvedDeviceName = deviceName || 'Web/Manual';
+    await hosofficePool.query(`
+      INSERT INTO hikvision (
+        EmployeeID, 
+        AccessDateandTime, 
+        AccessDate, 
+        AccessTime, 
+        AuthenticationResult, 
+        AuthenticationType, 
+        DeviceName, 
+        PersonName, 
+        Direction, 
+        is_notified
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+      employeeId,
+      `${today}T${time}`,
+      today,
+      time,
+      'Success',
+      'API',
+      resolvedDeviceName,
+      fullname,
+      direction,
+      3 // Mark as notified immediately since we send it below
+    ]);
+
+    // 4. Send Flex Message to LINE (and fallback/parallel Telegram to central group)
+    const directionThai = normalizedStatus === 'check-in' ? '✅ เข้างาน (Check-in)' : '🚪 ออกงาน (Check-out)';
+
+    // Plain text message fallback
+    const plainMessage = `🕒 *บันทึกเวลาปฏิบัติงาน*\n\n` +
+                         `👤 พนักงาน: ${fullname}\n` +
+                         `📋 สถานะ: ${directionThai}\n` +
+                         `⏰ เวลา: ${currentTimeStr} น.\n` +
+                         `📅 วันที่: ${dateThai}\n` +
+                         `🚪 จุดบันทึก: ${resolvedDeviceName}`;
+
+    // LINE Flex Message structure
+    const lineFlexContents = {
+      type: "bubble",
+      size: "mega",
+      header: {
+        type: "box",
+        layout: "vertical",
+        contents: [
+          {
+            type: "text",
+            text: "ATTENDANCE LOG",
+            color: "#FFFFFF",
+            size: "xs",
+            weight: "bold",
+            align: "center"
+          },
+          {
+            type: "text",
+            text: "บันทึกเวลาปฏิบัติงาน",
+            color: "#FFFFFF",
+            size: "lg",
+            weight: "bold",
+            margin: "sm",
+            align: "center"
+          }
+        ],
+        paddingTop: "25px",
+        paddingBottom: "25px",
+        backgroundColor: "#FF0099"
+      },
+      hero: {
+        type: "image",
+        url: "https://cdn-icons-png.flaticon.com/512/3135/3135715.png",
+        size: "full",
+        aspectRatio: "3:1",
+        aspectMode: "cover",
+        gravity: "center"
+      },
+      body: {
+        type: "box",
+        layout: "vertical",
+        contents: [
+          {
+            type: "text",
+            text: fullname,
+            weight: "bold",
+            size: "xl",
+            align: "center",
+            color: "#333333"
+          },
+          {
+            type: "box",
+            layout: "vertical",
+            margin: "xxl",
+            spacing: "sm",
+            contents: [
+              {
+                type: "box",
+                layout: "baseline",
+                contents: [
+                  {
+                    type: "text",
+                    text: "สถานะ",
+                    color: "#aaaaaa",
+                    size: "sm",
+                    flex: 1,
+                    align: "start"
+                  },
+                  {
+                    type: "text",
+                    text: directionThai,
+                    color: "#FF0099",
+                    size: "sm",
+                    flex: 3,
+                    weight: "bold",
+                    margin: "lg"
+                  }
+                ]
+              },
+              {
+                type: "box",
+                layout: "baseline",
+                contents: [
+                  {
+                    type: "text",
+                    text: "เวลา",
+                    color: "#aaaaaa",
+                    size: "sm",
+                    flex: 1,
+                    align: "start"
+                  },
+                  {
+                    type: "text",
+                    text: `${dateThai}, ${currentTimeStr} น.`,
+                    color: "#555555",
+                    size: "sm",
+                    flex: 3,
+                    margin: "lg"
+                  }
+                ]
+              },
+              {
+                type: "box",
+                layout: "baseline",
+                contents: [
+                  {
+                    type: "text",
+                    text: "จุดบันทึก",
+                    color: "#aaaaaa",
+                    size: "sm",
+                    flex: 1,
+                    align: "start"
+                  },
+                  {
+                    type: "text",
+                    text: resolvedDeviceName,
+                    color: "#555555",
+                    size: "sm",
+                    flex: 3,
+                    margin: "lg"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      footer: {
+        type: "box",
+        layout: "horizontal",
+        spacing: "md",
+        contents: [
+          {
+            type: "button",
+            action: {
+              type: "uri",
+              label: "ดูประวัติ",
+              uri: process.env.SYSTEM_URL ? `${process.env.SYSTEM_URL}/history` : 'https://your-hospital-system.com/history'
+            },
+            style: "primary",
+            color: "#FF0099"
+          },
+          {
+            type: "button",
+            action: {
+              type: "uri",
+              label: "แจ้งเหตุฉุกเฉิน",
+              uri: process.env.EMERGENCY_URL || "https://line.me"
+            },
+            style: "secondary",
+            color: "#FF0099"
+          }
+        ]
+      }
+    };
+
+    const telegramOptions = {
+      reply_markup: {
+        inline_keyboard: [
+          [
+            {
+              text: 'ดูประวัติการเข้างาน',
+              url: process.env.SYSTEM_URL ? `${process.env.SYSTEM_URL}/history` : 'https://your-hospital-system.com/history'
+            }
+          ]
+        ]
+      }
+    };
+
+    const targetTelegramChatId = process.env.TELEGRAM_ADMIN_CHAT_ID || '7857036135';
+
+    await NotificationService.sendDirectNotification(
+      line_user_id,
+      targetTelegramChatId,
+      plainMessage,
+      telegramOptions,
+      lineFlexContents
+    );
+
+    res.status(200).send("Success");
+  } catch (error) {
+    console.error('Error in logAttendance API:', error.message);
+    res.status(500).send(error.message);
+  }
+};

@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>ข้อมูลบุคลากร - MediFace Attend</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&subset=thai&display=swap" rel="stylesheet"/>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet"/>
+<link rel="stylesheet" href="/css/style.css" />
+<style>
+.search-bar { max-width: 400px; }
+.person-av { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: 16px; flex-shrink: 0; }
+</style>
+</head>
+<body>
+<%- include("components/sidebar") %>
+<div class="main">
+<%- include("components/topbar") %>
+  <div class="page">
+    
+    <div class="filter-bar mb-3 d-flex justify-content-between">
+      <div class="d-flex align-items-center gap-2">
+        <h5 class="mb-0" style="font-weight: 700;">รายชื่อบุคลากรทั้งหมด</h5>
+        <span class="badge" style="background:var(--primary); font-size: 14px;" id="totalCountSpan">0</span>
+      </div>
+      <div>
+        <input type="text" id="searchInput" class="form-control search-bar" placeholder="ค้นหา ชื่อ, นามสกุล, เบอร์โทร..." oninput="applyFilter()">
+      </div>
+    </div>
+
+    <div class="table-card">
+      <div style="overflow-x:auto;">
+        <table class="att-tbl">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>ชื่อ - นามสกุล (ชื่อเล่น)</th>
+              <th>รหัสสแกนนิ้ว</th>
+              <th>แผนก / ตำแหน่ง (รหัส)</th>
+              <th>สถานะการทำงาน</th>
+              <th>เบอร์โทรศัพท์</th>
+              <th>อีเมล</th>
+              <th>วันที่เริ่มงาน</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody">
+            <tr>
+              <td colspan="7" class="text-center" style="padding: 40px 0; color: var(--muted);">กำลังโหลดข้อมูล...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="pager">
+        <div class="pager-info" id="pagerInfo">แสดง 0 รายการ</div>
+        <nav><ul class="pagination pagination-sm mb-0 gap-1" id="pagination"></ul></nav>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- STAFF DETAIL MODAL -->
+  <div id="staffDetailModal" style="display:none; position:fixed; inset:0; z-index:10000; background:rgba(15,23,42,0.55); backdrop-filter:blur(7px); align-items:center; justify-content:center; padding:16px;">
+    <div class="sdm-card">
+      <div class="sdm-header">
+        <div style="display:flex;align-items:center;gap:16px;">
+          <div id="sdmAv" class="sdm-av"></div>
+          <div>
+            <div id="sdmName" class="sdm-h-name"></div>
+            <div id="sdmNickname" class="sdm-h-sub"></div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <button id="sdmEditBtn" class="sdm-hbtn" onclick="toggleEditMode(true)" title="แก้ไขข้อมูล"><i class="bi bi-pencil-square"></i></button>
+          <button id="sdmSaveBtn" class="sdm-hbtn sdm-hbtn-save" onclick="saveStaffEdit()" style="display:none;" title="บันทึก"><i class="bi bi-check2-circle"></i> บันทึก</button>
+          <button id="sdmCancelBtn" class="sdm-hbtn" onclick="toggleEditMode(false)" style="display:none;" title="ยกเลิก"><i class="bi bi-x-circle"></i></button>
+          <button onclick="closeStaffDetail()" class="sdm-hbtn" title="ปิด">&times;</button>
+        </div>
+      </div>
+      <div id="sdmStatusBar" class="sdm-status-strip"></div>
+      <div class="sdm-tabs-bar">
+        <button class="sdm-tab active" id="sdmTab1" onclick="sdmSwitchTab(1)"><i class="bi bi-person-lines-fill"></i> ข้อมูลทั่วไป</button>
+        <button class="sdm-tab" id="sdmTab2" onclick="sdmSwitchTab(2)"><i class="bi bi-clock-history"></i> ประวัติการเข้างาน</button>
+      </div>
+      <div style="flex:1;overflow-y:auto;background:#f8fafc;">
+        <div id="sdmPanel1" class="sdm-panel">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div class="sdm-field-card">
+              <div class="sdm-field-icon" style="background:#F5F3FF;color:#7C3AED;"><i class="bi bi-fingerprint"></i></div>
+              <div style="flex:1;"><div class="sdm-field-label">รหัสพนักงาน</div><div class="sdm-field-val" id="sdmId"></div></div>
+            </div>
+            <div class="sdm-field-card">
+              <div class="sdm-field-icon" style="background:#ECFDF5;color:#059669;"><i class="bi bi-activity"></i></div>
+              <div style="flex:1;"><div class="sdm-field-label">สถานะงาน</div><div id="sdmStatusBadge"></div></div>
+            </div>
+            <div class="sdm-field-card">
+              <div class="sdm-field-icon" style="background:#EFF6FF;color:#3B82F6;"><i class="bi bi-telephone-fill"></i></div>
+              <div style="flex:1;"><div class="sdm-field-label">โทรศัพท์</div><div class="sdm-field-val sdm-view-field" id="sdmPhone"></div><input class="sdm-input sdm-edit-field" id="sdmPhoneInput" type="tel" style="display:none;"></div>
+            </div>
+            <div class="sdm-field-card">
+              <div class="sdm-field-icon" style="background:#ECFDF5;color:#059669;"><i class="bi bi-envelope-at-fill"></i></div>
+              <div style="flex:1;"><div class="sdm-field-label">อีเมล</div><div class="sdm-field-val sdm-view-field" id="sdmEmail"></div><input class="sdm-input sdm-edit-field" id="sdmEmailInput" type="email" style="display:none;"></div>
+            </div>
+            <div class="sdm-field-card">
+              <div class="sdm-field-icon" style="background:#EEF2FF;color:#6366F1;"><i class="bi bi-diagram-3-fill"></i></div>
+              <div><div class="sdm-field-label">กลุ่มงาน</div><div class="sdm-field-val" id="sdmDept"></div></div>
+            </div>
+            <div class="sdm-field-card">
+              <div class="sdm-field-icon" style="background:#FFF7ED;color:#EA580C;"><i class="bi bi-emoji-smile-fill"></i></div>
+              <div style="flex:1;"><div class="sdm-field-label">ชื่อเล่น</div><div class="sdm-field-val sdm-view-field" id="sdmNicknameField"></div><input class="sdm-input sdm-edit-field" id="sdmNicknameInput" type="text" style="display:none;"></div>
+            </div>
+            <div class="sdm-field-card">
+              <div class="sdm-field-icon" style="background:#ECFDF5;color:#0d9488;"><i class="bi bi-line"></i></div>
+              <div style="flex:1;"><div class="sdm-field-label">LINE User ID</div><div class="sdm-field-val sdm-view-field" id="sdmLineId"></div><input class="sdm-input sdm-edit-field" id="sdmLineIdInput" type="text" placeholder="พิมพ์หรือวาง LINE User ID (ขึ้นต้นด้วย U...)" style="display:none;"></div>
+            </div>
+            <div class="sdm-field-card">
+              <div class="sdm-field-icon" style="background:#E0F2FE;color:#0284c7;"><i class="bi bi-telegram"></i></div>
+              <div style="flex:1;">
+                <div class="sdm-field-label">Telegram Chat ID</div>
+                <div class="sdm-field-val sdm-view-field" id="sdmTelegramId"></div>
+                <div class="sdm-edit-field" style="display:none; display:flex; gap:8px; align-items:center; width:100%;">
+                  <input class="sdm-input" id="sdmTelegramIdInput" type="text" placeholder="พิมพ์หรือวาง Telegram Chat ID" style="flex:1;">
+                  <button type="button" class="btn btn-sm btn-outline-dark" style="min-height:36px; padding: 0 8px; font-size:11px;" onclick="showHowToGetTelegramId()"><i class="bi bi-question-circle"></i></button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:18px;">
+            <button onclick="closeStaffDetail()" class="sdm-foot-btn sdm-foot-ghost">ปิด</button>
+          </div>
+        </div>
+        <div id="sdmPanel2" class="sdm-panel" style="display:none;">
+           <div class="text-center py-5 text-muted">ประวัติย้อนหลังจะแสดงที่นี่ในเวอร์ชันถัดไป</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+  const AV_COLORS = ['#4F46E5','#059669','#D97706','#DC2626','#7C3AED','#0891B2','#DB2777','#16A34A'];
+  let personnel = [], filteredConfig = [], currentPage = 1;
+  const PER_PAGE = 20;
+
+  function formatThaiDate(isoString) {
+    if (!isoString) return '—';
+    const d = new Date(isoString);
+    return d.toLocaleDateString('th-TH', { year:'numeric', month:'short', day:'numeric' });
+  }
+
+  function renderTable() {
+    const start = (currentPage - 1) * PER_PAGE;
+    const pageData = filteredConfig.slice(start, start + PER_PAGE);
+    const tbody = document.getElementById('tableBody');
+    if (pageData.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" class="text-center">ไม่พบข้อมูล</td></tr>';
+      return;
+    }
+    tbody.innerHTML = pageData.map((e, i) => {
+      const color = AV_COLORS[e.ID % AV_COLORS.length];
+      const initial = (e.HR_FNAME || 'A').charAt(0);
+      const fullName = `${e.HR_FNAME || ''} ${e.HR_LNAME || ''} ${e.NICKNAME ? `(${e.NICKNAME})` : ''}`.trim();
+      return `<tr>
+        <td style="color:var(--muted);">${start + i + 1}</td>
+        <td>
+          <div onclick="openStaffDetail('${e.FINGLE_ID || e.ID}')" style="display:flex;align-items:center;gap:12px;cursor:pointer;">
+            <div class="person-av" style="background:${color}">${initial}</div>
+            <div style="font-size:14px;font-weight:600;color:var(--primary);text-decoration:underline dotted;">${fullName}</div>
+          </div>
+        </td>
+        <td><span style="font-weight: 600; color: var(--primary);">${e.FINGLE_ID || '—'}</span></td>
+        <td><div style="font-size:12px;color:var(--muted);">แผนก: ${e.HR_DEPARTMENT_NAME || '—'}</div></td>
+        <td><span class="status-chip chip-in">${e.HR_STATUS_NAME || 'ปกติ'}</span></td>
+        <td>${maskSensitiveData(e.HR_PHONE, 'view_phone')}</td>
+        <td>${maskSensitiveData(e.HR_EMAIL, 'view_email')}</td>
+        <td><span class="status-chip chip-in" style="background:#F1F5F9; color:#475569;">${formatThaiDate(e.HR_STARTWORK_DATE)}</span></td>
+      </tr>`;
+    }).join('');
+    document.getElementById('totalCountSpan').textContent = filteredConfig.length;
+    document.getElementById('pagerInfo').textContent = `แสดง ${start+1}–${Math.min(start+PER_PAGE, filteredConfig.length)} จาก ${filteredConfig.length} รายการ`;
+  }
+
+  function applyFilter() {
+    const keyword = document.getElementById('searchInput').value.toLowerCase();
+    filteredConfig = personnel.filter(e => {
+      const nameStr = (e.HR_FNAME + ' ' + e.HR_LNAME + ' ' + (e.NICKNAME||'')).toLowerCase();
+      return nameStr.includes(keyword) || (e.FINGLE_ID && e.FINGLE_ID.includes(keyword));
+    });
+    currentPage = 1;
+    renderTable();
+  }
+
+  /* STAFF DETAIL LOGIC */
+  let _currentId = null;
+  async function openStaffDetail(id) {
+    _currentId = id;
+    const p = personnel.find(x => x.FINGLE_ID == id || x.ID == id);
+    if (!p) return;
+    document.getElementById('sdmAv').textContent = (p.HR_FNAME || 'A').charAt(0);
+    document.getElementById('sdmName').textContent = `${p.HR_FNAME} ${p.HR_LNAME}`;
+    document.getElementById('sdmNickname').textContent = p.NICKNAME ? `(${p.NICKNAME}) · ${p.FINGLE_ID}` : p.FINGLE_ID;
+    document.getElementById('sdmId').textContent = p.FINGLE_ID || p.ID;
+    document.getElementById('sdmStatusBadge').innerHTML = `<span class="status-chip chip-in">${p.HR_STATUS_NAME || 'ปกติ'}</span>`;
+    document.getElementById('sdmDept').textContent = p.HR_DEPARTMENT_NAME || '—';
+    document.getElementById('sdmPhone').textContent = maskSensitiveData(p.HR_PHONE, 'view_phone');
+    document.getElementById('sdmEmail').textContent = maskSensitiveData(p.HR_EMAIL, 'view_email');
+    document.getElementById('sdmNicknameField').textContent = p.NICKNAME || '—';
+    document.getElementById('sdmLineId').textContent = p.line_user_id || '—';
+    document.getElementById('sdmTelegramId').textContent = p.telegram_chat_id || '—';
+    document.getElementById('sdmEditBtn').style.display = checkPermission('edit_staff') ? '' : 'none';
+    document.getElementById('staffDetailModal').style.display = 'flex';
+  }
+
+  function toggleEditMode(isEdit) {
+    if (isEdit) {
+      document.getElementById('sdmEditBtn').style.display = 'none';
+      document.getElementById('sdmSaveBtn').style.display = '';
+      document.getElementById('sdmCancelBtn').style.display = '';
+      const p = personnel.find(x => x.FINGLE_ID == _currentId || x.ID == _currentId);
+      document.getElementById('sdmPhoneInput').value = p.HR_PHONE || '';
+      document.getElementById('sdmEmailInput').value = p.HR_EMAIL || '';
+      document.getElementById('sdmNicknameInput').value = p.NICKNAME || '';
+      document.getElementById('sdmLineIdInput').value = p.line_user_id || '';
+      document.getElementById('sdmTelegramIdInput').value = p.telegram_chat_id || '';
+    } else {
+      document.getElementById('sdmEditBtn').style.display = checkPermission('edit_staff') ? '' : 'none';
+      document.getElementById('sdmSaveBtn').style.display = 'none';
+      document.getElementById('sdmCancelBtn').style.display = 'none';
+    }
+    document.querySelectorAll('.sdm-view-field').forEach(el => el.style.display = isEdit ? 'none' : '');
+    document.querySelectorAll('.sdm-edit-field').forEach(el => el.style.display = isEdit ? 'block' : 'none');
+  }
+
+  async function saveStaffEdit() {
+    const payload = {
+      id: _currentId,
+      phone: document.getElementById('sdmPhoneInput').value,
+      email: document.getElementById('sdmEmailInput').value,
+      nickname: document.getElementById('sdmNicknameInput').value,
+      line_user_id: document.getElementById('sdmLineIdInput').value,
+      telegram_chat_id: document.getElementById('sdmTelegramIdInput').value
+    };
+    try {
+      const res = await fetch('/api/staff/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const resData = await res.json();
+      if (resData.success) { alert('อัปเดตสำเร็จ'); location.reload(); }
+      else alert('ล้มเหลว: ' + resData.message);
+    } catch { alert('เกิดข้อผิดพลาด'); }
+  }
+
+  function showHowToGetTelegramId() {
+    alert(
+      "💬 วิธีหา Telegram Chat ID:\n\n" +
+      "1. แอดบอทของระบบหรือแอดบอท @userinfobot ใน Telegram\n" +
+      "2. พิมพ์ข้อความหรือส่งคำสั่ง /start ไปยังบอท\n" +
+      "3. บอทจะตอบกลับข้อมูลพร้อมระบุ ID ของคุณ (ตัวเลขยาวๆ เช่น 123456789)\n" +
+      "4. คัดลอกตัวเลข ID นั้นมาใส่ในช่องนี้เพื่อบันทึกและเชื่อมต่อระบบ"
+    );
+  }
+
+  function closeStaffDetail() { document.getElementById('staffDetailModal').style.display = 'none'; toggleEditMode(false); }
+  function sdmSwitchTab(n) { [1,2].forEach(i => { document.getElementById(`sdmTab${i}`).classList.toggle('active', i==n); document.getElementById(`sdmPanel${i}`).style.display = i==n?'block':'none'; }); }
+
+  async function loadData() {
+    try {
+      const res = await fetch('/api/personnel');
+      const data = await res.json();
+      personnel = data.personnel || [];
+      applyFilter();
+    } catch { document.getElementById('tableBody').innerHTML = '<tr><td colspan="7">เกิดข้อผิดพลาด</td></tr>'; }
+  }
+  document.addEventListener('DOMContentLoaded', loadData);
+  </script>
+</body>
+</html>
