@@ -1,6 +1,24 @@
 const NotificationService = require('../services/notificationService');
 const { pool } = require('../config/db');
 
+function getStatusLabel(attendanceStatus, authResult, direction) {
+  if (authResult === 'Failed') {
+    return '❌ สแกนไม่ผ่าน';
+  }
+  
+  const status = (attendanceStatus || direction || '').toLowerCase();
+  switch (status) {
+    case 'i':
+    case 'in':
+      return '✅ สแกนเข้างาน (Check-in)';
+    case 'o':
+    case 'out':
+      return '📤 สแกนออกงาน (Check-out)';
+    default:
+      return 'ไม่ระบุสถานะ';
+  }
+}
+
 /**
  * Controller to handle manual or automated attendance logging
  */
@@ -101,7 +119,7 @@ exports.updateMapping = (req, res) => {
 };
 
 exports.logAttendance = async (req, res) => {
-  const { employeeId, status, deviceName } = req.body;
+  const { employeeId, status, deviceName, attendanceStatus, authResult, authenticationResult } = req.body;
   const now = new Date();
   
   // Format current date and time in Thai timezone/format
@@ -144,6 +162,19 @@ exports.logAttendance = async (req, res) => {
       [fullname, normalizedStatus, now, isLate]
     );
 
+    // Resolve attendance status and authentication result
+    let resolvedAttendanceStatus = attendanceStatus;
+    if (!resolvedAttendanceStatus) {
+      if (status === 'check-in' || status === 'in' || direction === 'in') {
+        resolvedAttendanceStatus = 'i';
+      } else if (status === 'check-out' || status === 'out' || direction === 'out') {
+        resolvedAttendanceStatus = 'o';
+      } else {
+        resolvedAttendanceStatus = '';
+      }
+    }
+    const resolvedAuthResult = authResult || authenticationResult || 'Success';
+
     // 3. Save to HOSoffice hikvision table
     const resolvedDeviceName = deviceName || 'Web/Manual';
     await hosofficePool.query(`
@@ -157,23 +188,25 @@ exports.logAttendance = async (req, res) => {
         DeviceName, 
         PersonName, 
         Direction, 
+        AttendanceStatus,
         is_notified
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       employeeId,
       `${today}T${time}`,
       today,
       time,
-      'Success',
+      resolvedAuthResult,
       'API',
       resolvedDeviceName,
       fullname,
       direction,
+      resolvedAttendanceStatus,
       3 // Mark as notified immediately since we send it below
     ]);
 
     // 4. Send Flex Message to LINE (and fallback/parallel Telegram to central group)
-    const directionThai = normalizedStatus === 'check-in' ? '✅ เข้างาน (Check-in)' : '🚪 ออกงาน (Check-out)';
+    const directionThai = getStatusLabel(resolvedAttendanceStatus, resolvedAuthResult, direction);
 
     // Plain text message fallback
     const plainMessage = `🕒 *บันทึกเวลาปฏิบัติงาน*\n\n` +

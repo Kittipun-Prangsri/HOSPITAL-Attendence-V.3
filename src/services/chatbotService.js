@@ -8,6 +8,19 @@ class ChatbotService {
     if (!text) return null;
     const cleanText = text.trim();
 
+    // Command: "ขอไอดี" / "ขอ id" / "ขอ ID" / "id" / "my id" / "ไอดี"
+    const idKeywords = ['ขอไอดี', 'ขอ id', 'ขอ id', 'id', 'my id', 'ไอดี', 'ขอไอดีหน่อย', 'ขอไอดีหน่อยครับ', 'ขอไอดีหน่อยค่ะ'];
+    if (idKeywords.includes(cleanText.toLowerCase())) {
+      const isTelegram = /^-?\d+$/.test(userId);
+      if (isTelegram) {
+        return `Telegram Chat ID ของคุณคือ:\n${userId}\n\n` +
+          `คัดลอกไอดีด้านบนเพื่อนำไปวางในช่อง 'Telegram ID' ในฟอร์มลงทะเบียนพนักงานเพื่อรับข้อความแจ้งเตือนครับ`;
+      } else {
+        return `LINE User ID ของคุณคือ:\n${userId}\n\n` +
+          ``;
+      }
+    }
+
     // Command: "ขอรหัสemployeeid"
     if (cleanText.toLowerCase() === 'ขอรหัสemployeeid') {
       console.log(`[Chatbot] Looking up EmployeeID for platform ID: ${userId}...`);
@@ -93,8 +106,8 @@ class ChatbotService {
 
     // 3. Fallback for invalid format or other messages starting with chatbot keywords
     if (
-      cleanText.toLowerCase().includes('สแกน') || 
-      cleanText.toLowerCase().includes('แสกน') || 
+      cleanText.toLowerCase().includes('สแกน') ||
+      cleanText.toLowerCase().includes('แสกน') ||
       cleanText.includes('การแจ้ง')
     ) {
       return 'ขออภัยครับ ไม่พบข้อมูลในวันที่ระบุ กรุณาตรวจสอบรูปแบบวันที่อีกครั้ง';
@@ -261,7 +274,7 @@ class ChatbotService {
     const bangkokDate = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }));
     const yesterday = new Date(bangkokDate);
     yesterday.setDate(yesterday.getDate() - 1);
-    
+
     const year = yesterday.getFullYear();
     const month = String(yesterday.getMonth() + 1).padStart(2, '0');
     const day = String(yesterday.getDate()).padStart(2, '0');
@@ -380,7 +393,7 @@ class ChatbotService {
   async handleRangeScans(days, nameFilter = null) {
     const dates = [];
     const bangkokDate = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }));
-    
+
     for (let i = 0; i < days; i++) {
       const d = new Date(bangkokDate);
       d.setDate(d.getDate() - i);

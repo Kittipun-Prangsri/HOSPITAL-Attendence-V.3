@@ -5,6 +5,24 @@ let intervalId = null;
 const processedScans = new Set();
 let currentTodayStr = null;
 
+function getStatusLabel(attendanceStatus, authResult, direction) {
+  if (authResult === 'Failed') {
+    return '❌ สแกนไม่ผ่าน';
+  }
+  
+  const status = (attendanceStatus || direction || '').toLowerCase();
+  switch (status) {
+    case 'i':
+    case 'in':
+      return '✅ สแกนเข้างาน (Check-in)';
+    case 'o':
+    case 'out':
+      return '📤 สแกนออกงาน (Check-out)';
+    default:
+      return 'ไม่ระบุสถานะ';
+  }
+}
+
 async function checkNewScans() {
   try {
     // Sv-SE locale returns YYYY-MM-DD format, which matches the varchar date in HOSoffice
@@ -26,6 +44,8 @@ async function checkNewScans() {
         h.DeviceName,
         h.ReaderName,
         h.SkinSurfaceTemperature,
+        h.AttendanceStatus,
+        h.AuthenticationResult,
         p.LINE_YOUR_USER_ID as line_user_id,
         CONCAT(p.HR_FNAME, ' ', p.HR_LNAME) as fullname
       FROM hikvision h
@@ -51,7 +71,7 @@ async function checkNewScans() {
     console.log(`[RealtimeNotifier] Found ${scans.length} unprocessed scans to notify.`);
 
     for (const scan of scans) {
-      const { EmployeeID, AccessDate, AccessTime, Direction, DeviceName, ReaderName, SkinSurfaceTemperature, line_user_id, fullname } = scan;
+      const { EmployeeID, AccessDate, AccessTime, Direction, DeviceName, ReaderName, SkinSurfaceTemperature, AttendanceStatus, AuthenticationResult, line_user_id, fullname } = scan;
 
       // Prevent duplicate notifications in the same run/session using in-memory cache
       const scanKey = `${EmployeeID}_${AccessDate}_${AccessTime}`;
@@ -73,9 +93,7 @@ async function checkNewScans() {
         continue;
       }
 
-      let directionThai = 'สแกนผ่านเครื่อง';
-      if (Direction === 'in' || Direction === 'i') directionThai = '✅ เข้างาน (Check-in)';
-      if (Direction === 'out' || Direction === 'o') directionThai = '🚪 ออกงาน (Check-out)';
+      const directionThai = getStatusLabel(AttendanceStatus, AuthenticationResult, Direction);
 
       const location = DeviceName || 'ไม่ระบุจุดสแกน';
       const dateThai = new Date(AccessDate).toLocaleDateString('th-TH', {
