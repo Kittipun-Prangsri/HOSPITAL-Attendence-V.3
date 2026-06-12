@@ -177,6 +177,43 @@ exports.reviewExcuse = async (req, res) => {
 };
 
 /**
+ * Delete an excuse (User can only delete their own PENDING excuses)
+ */
+exports.deleteExcuse = async (req, res) => {
+  const { id } = req.params;
+  const user = req.session.user;
+  const isPrivileged = user.role === 'admin' || user.role === 'super';
+
+  try {
+    // 1. Check if the excuse exists and its status
+    const [rows] = await pool.query('SELECT username, status FROM attendance_excuses WHERE id = ?', [id]);
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'ไม่พบรายการที่ต้องการลบ' });
+    }
+
+    const excuse = rows[0];
+
+    // 2. Security Check: Only allow deletion of PENDING excuses by owner, or any by admin
+    if (!isPrivileged) {
+      if (excuse.username !== user.username) {
+        return res.status(403).json({ success: false, error: 'ไม่มีสิทธิ์ลบรายการของผู้อื่น' });
+      }
+      if (excuse.status !== 'pending') {
+        return res.status(400).json({ success: false, error: 'ไม่สามารถลบรายการที่ผ่านการพิจารณาแล้วได้' });
+      }
+    }
+
+    // 3. Execute Deletion
+    await pool.query('DELETE FROM attendance_excuses WHERE id = ?', [id]);
+    
+    res.json({ success: true, message: 'ลบรายการเรียบร้อยแล้ว' });
+  } catch (error) {
+    console.error('Error deleting excuse:', error);
+    res.status(500).json({ success: false, error: 'เกิดข้อผิดพลาดในการลบข้อมูล' });
+  }
+};
+
+/**
  * Scan last 7 days of schedules and find users with exceptions who have NOT submitted approved excuses.
  */
 exports.getRemindersList = async (req, res) => {

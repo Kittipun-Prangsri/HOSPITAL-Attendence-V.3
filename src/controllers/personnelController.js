@@ -35,7 +35,19 @@ exports.updateStaff = async (req, res) => {
   const { id, nickname, phone, email, line_user_id, telegram_chat_id, work_shift, time_in, time_out } = req.body;
   if (!id) return res.status(400).json({ success: false, message: 'Missing staff ID' });
 
+  const currentUser = req.session.user;
+  const isPrivileged = currentUser && (currentUser.role === 'admin' || currentUser.role === 'super');
+
   try {
+    // Security Check: If not admin/super, the 'id' (FINGLE_ID) must belong to the logged-in user
+    if (!isPrivileged) {
+      const [userRows] = await hosofficePool.query('SELECT FINGLE_ID FROM hr_person WHERE ID = ?', [currentUser.id]);
+      const userFingleId = userRows.length > 0 ? userRows[0].FINGLE_ID : null;
+      if (String(id) !== String(userFingleId)) {
+        return res.status(403).json({ success: false, message: 'ไม่มีสิทธิ์แก้ไขข้อมูลผู้อื่น' });
+      }
+    }
+
     const [result] = await hosofficePool.query(
       `UPDATE hr_person SET NICKNAME = ?, HR_PHONE = ?, HR_EMAIL = ?, LINE_YOUR_USER_ID = ?, TELEGRAM_CHAT_ID = ?, WORK_SHIFT = ?, TIME_IN = ?, TIME_OUT = ? WHERE FINGLE_ID = ?`,
       [nickname || null, phone || null, email || null, line_user_id || null, telegram_chat_id || null, work_shift || null, time_in || null, time_out || null, id]
@@ -114,15 +126,7 @@ exports.getPersonByFingleId = async (req, res) => {
     const { fingleId } = req.params;
     const currentUser = req.session.user;
     const isPrivileged = currentUser && (currentUser.role === 'admin' || currentUser.role === 'super');
-
-    if (!isPrivileged) {
-      // Find the user's FINGLE_ID
-      const [userRows] = await hosofficePool.query('SELECT FINGLE_ID FROM hr_person WHERE ID = ?', [currentUser.id]);
-      const userFingleId = userRows.length > 0 ? userRows[0].FINGLE_ID : null;
-      if (String(fingleId) !== String(userFingleId)) {
-        return res.status(403).json({ success: false, error: 'เข้าถึงไม่ได้: สิทธิ์การเข้าถึงข้อมูลเฉพาะของตนเองเท่านั้น' });
-      }
-    }
+    const isOwner = currentUser && (String(fingleId) === String(currentUser.username));
 
     const [rows] = await hosofficePool.query(`
       SELECT
@@ -143,7 +147,15 @@ exports.getPersonByFingleId = async (req, res) => {
     `, [fingleId]);
 
     if (rows.length === 0) return res.status(404).json({ person: null, message: 'Not found' });
-    res.json({ person: rows[0] });
+    
+    const person = rows[0];
+    
+    // Security check moved to after query to allow owners to see their own data
+    if (!isPrivileged && !isOwner) {
+        return res.status(403).json({ success: false, error: 'เข้าถึงไม่ได้: สิทธิ์การเข้าถึงข้อมูลเฉพาะของตนเองเท่านั้น' });
+    }
+
+    res.json({ person });
   } catch (error) {
     console.error('GET /api/personnel/:fingleId error:', error);
     res.status(500).json({ person: null });

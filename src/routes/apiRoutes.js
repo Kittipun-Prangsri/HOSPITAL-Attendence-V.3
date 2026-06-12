@@ -44,6 +44,7 @@ router.get('/schedule/staff/:id/:yearMonth', checkAuth, scheduleController.getSt
 // Excuses & Reminders (3-7 Days)
 router.get('/excuses', checkAuth, excuseController.getExcuses);
 router.post('/excuses', checkAuth, excuseController.createExcuse);
+router.delete('/excuses/:id', checkAuth, excuseController.deleteExcuse);
 router.post('/excuses/review', checkAuth, checkAdmin, excuseController.reviewExcuse);
 router.get('/excuses/reminders', checkAuth, checkAdmin, excuseController.getRemindersList);
 router.post('/excuses/send-reminders', checkAuth, checkAdmin, excuseController.sendReminders);

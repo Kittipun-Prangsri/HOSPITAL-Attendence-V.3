@@ -188,16 +188,48 @@
                                         <th>สถานะ</th>
                                         <th>ความเห็นผู้ตรวจ</th>
                                         <th>วันที่ยื่นคำร้อง</th>
+                                        <th>จัดการ</th>
                                     </tr>
                                 </thead>
                                 <tbody id="user-excuse-list">
-                                    <tr><td colspan="6" style="text-align:center; padding:20px; color:var(--muted);">กำลังโหลดข้อมูล...</td></tr>
+                                    <tr><td colspan="7" style="text-align:center; padding:20px; color:var(--muted);">กำลังโหลดข้อมูล...</td></tr>
                                 </tbody>
                             </table>
                         </div>
                     </div>
                 </div>
             <% } %>
+        </div>
+    </div>
+
+    <!-- Edit Excuse Modal (For Users) -->
+    <div class="modal-overlay" id="editExcuseModal">
+        <div class="modal-box">
+            <h3>แก้ไขคำร้องแก้ต่าง</h3>
+            <form id="editExcuseForm">
+                <input type="hidden" id="edit-id">
+                <div class="form-group">
+                    <label>วันที่เกิดปัญหา</label>
+                    <input type="date" id="edit-date" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label>ประเภทปัญหา</label>
+                    <select id="edit-issue_type" class="form-select" required>
+                        <option value="scan-failed">แสกนใบหน้าไม่ผ่าน / ไม่ติด</option>
+                        <option value="absent">ไม่ได้สแกนบัตร / ขาดงาน</option>
+                        <option value="leave">ไม่ได้บันทึก ลา / ไปราชการ</option>
+                        <option value="late">ลืมเช็คอิน หรือเข้างานสาย</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>เหตุผล / ข้อชี้แจง</label>
+                    <textarea id="edit-reason" class="form-control" rows="4" required></textarea>
+                </div>
+                <div class="actions" style="border:none; margin:0; padding:0; display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+                    <button type="button" class="btn btn-outline-dark" onclick="closeEditModal()"><i class="bi bi-x-circle"></i> ยกเลิก</button>
+                    <button type="submit" class="btn btn-teal"><i class="bi bi-floppy-fill"></i> บันทึกการแก้ไข</button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -296,21 +328,90 @@
                     const data = await res.json();
                     const list = document.getElementById('user-excuse-list');
                     if (data.success && data.excuses.length > 0) {
-                        list.innerHTML = data.excuses.map(ex => `
-                            <tr>
-                                <td><strong>${formatDate(ex.date)}</strong></td>
-                                <td>${ISSUE_LABELS[ex.issue_type] || ex.issue_type}</td>
-                                <td>${ex.reason}</td>
-                                <td>${STATUS_LABELS[ex.status] || ex.status}</td>
-                                <td><span style="font-size:12.5px; color:#475569;">${ex.admin_comment || '—'}</span></td>
-                                <td><small style="color:var(--muted);">${new Date(ex.submitted_at).toLocaleString('th-TH')}</small></td>
-                            </tr>
-                        `).join('');
+                        list.innerHTML = data.excuses.map(ex => {
+                            let actions = '—';
+                            if (ex.status === 'pending') {
+                                actions = `
+                                    <div style="display:flex; gap:5px;">
+                                        <button class="btn btn-outline-teal btn-sm" onclick="openEditModal(${JSON.stringify(ex).replace(/"/g, '&quot;')})"><i class="bi bi-pencil-square"></i></button>
+                                        <button class="btn btn-outline-danger btn-sm" onclick="deleteExcuse(${ex.id})"><i class="bi bi-trash"></i></button>
+                                    </div>
+                                `;
+                            }
+                            return `
+                                <tr>
+                                    <td><strong>${formatDate(ex.date)}</strong></td>
+                                    <td>${ISSUE_LABELS[ex.issue_type] || ex.issue_type}</td>
+                                    <td>${ex.reason}</td>
+                                    <td>${STATUS_LABELS[ex.status] || ex.status}</td>
+                                    <td><span style="font-size:12.5px; color:#475569;">${ex.admin_comment || '—'}</span></td>
+                                    <td><small style="color:var(--muted);">${new Date(ex.submitted_at).toLocaleString('th-TH')}</small></td>
+                                    <td>${actions}</td>
+                                </tr>
+                            `;
+                        }).join('');
                     } else {
-                        list.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:20px; color:var(--muted);">คุณยังไม่มีประวัติการยื่นคำร้องแก้ต่าง</td></tr>`;
+                        list.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:20px; color:var(--muted);">คุณยังไม่มีประวัติการยื่นคำร้องแก้ต่าง</td></tr>`;
                     }
                 } catch (err) {
                     console.error(err);
+                }
+            }
+
+            function openEditModal(ex) {
+                document.getElementById('editExcuseModal').classList.add('active');
+                document.getElementById('edit-id').value = ex.id;
+                document.getElementById('edit-date').value = ex.date.split('T')[0];
+                document.getElementById('edit-issue_type').value = ex.issue_type;
+                document.getElementById('edit-reason').value = ex.reason;
+            }
+
+            function closeEditModal() {
+                document.getElementById('editExcuseModal').classList.remove('active');
+            }
+
+            document.getElementById('editExcuseForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const data = {
+                    date: document.getElementById('edit-date').value,
+                    issue_type: document.getElementById('edit-issue_type').value,
+                    reason: document.getElementById('edit-reason').value
+                };
+
+                try {
+                    const res = await fetch('/api/excuses', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    });
+                    const result = await res.json();
+                    if (result.success) {
+                        alert('✅ แก้ไขข้อมูลเรียบร้อยแล้ว');
+                        closeEditModal();
+                        fetchUserExcuses();
+                    } else {
+                        alert('❌ แก้ไขล้มเหลว: ' + result.error);
+                    }
+                } catch (err) {
+                    alert('❌ เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์');
+                }
+            });
+
+            async function deleteExcuse(id) {
+                if (!confirm('ยืนยันการลบรายการคำร้องนี้หรือไม่?')) return;
+                try {
+                    const res = await fetch('/api/excuses/' + id, {
+                        method: 'DELETE'
+                    });
+                    const result = await res.json();
+                    if (result.success) {
+                        alert('✅ ลบรายการเรียบร้อยแล้ว');
+                        fetchUserExcuses();
+                    } else {
+                        alert('❌ ลบล้มเหลว: ' + result.error);
+                    }
+                } catch (err) {
+                    alert('❌ เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์');
                 }
             }
 
