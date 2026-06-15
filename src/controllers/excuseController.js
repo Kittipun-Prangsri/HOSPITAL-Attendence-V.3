@@ -131,6 +131,46 @@ exports.createExcuse = async (req, res) => {
 };
 
 /**
+ * Update an existing excuse (User can only update their own PENDING excuses)
+ */
+exports.updateExcuse = async (req, res) => {
+  const { id } = req.params;
+  const { date, issue_type, reason } = req.body;
+  const user = req.session.user;
+
+  if (!date || !issue_type || !reason) {
+    return res.status(400).json({ success: false, error: 'กรุณากรอกข้อมูลให้ครบถ้วน' });
+  }
+
+  try {
+    // 1. Check if excuse exists and is pending
+    const [rows] = await pool.query('SELECT username, status FROM attendance_excuses WHERE id = ?', [id]);
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'ไม่พบรายการที่ต้องการแก้ไข' });
+    }
+
+    const excuse = rows[0];
+    if (excuse.username !== user.username) {
+      return res.status(403).json({ success: false, error: 'ไม่มีสิทธิ์แก้ไขรายการของผู้อื่น' });
+    }
+    if (excuse.status !== 'pending') {
+      return res.status(400).json({ success: false, error: 'ไม่สามารถแก้ไขรายการที่ผ่านการพิจารณาแล้วได้' });
+    }
+
+    // 2. Execute Update
+    await pool.query(
+      'UPDATE attendance_excuses SET date = ?, issue_type = ?, reason = ?, submitted_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [date, issue_type, reason, id]
+    );
+
+    res.json({ success: true, message: 'แก้ไขข้อมูลเรียบร้อยแล้ว' });
+  } catch (error) {
+    console.error('Error updating excuse:', error);
+    res.status(500).json({ success: false, error: 'เกิดข้อผิดพลาดในการแก้ไขข้อมูล' });
+  }
+};
+
+/**
  * Approve or Reject an excuse (Admin only)
  */
 exports.reviewExcuse = async (req, res) => {

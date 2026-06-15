@@ -372,6 +372,7 @@
 
             document.getElementById('editExcuseForm').addEventListener('submit', async (e) => {
                 e.preventDefault();
+                const id = document.getElementById('edit-id').value;
                 const data = {
                     date: document.getElementById('edit-date').value,
                     issue_type: document.getElementById('edit-issue_type').value,
@@ -379,8 +380,8 @@
                 };
 
                 try {
-                    const res = await fetch('/api/excuses', {
-                        method: 'POST',
+                    const res = await fetch('/api/excuses/' + id, {
+                        method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(data)
                     });

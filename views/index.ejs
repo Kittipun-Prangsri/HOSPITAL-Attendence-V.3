@@ -275,6 +275,7 @@
           /* ================================================================
              STATE
           ================================================================ */
+          const currentUserUsername = '<%= locals.user ? user.username : "" %>';
 
           let currentPage = 1;
           const PER_PAGE = 8;
@@ -1157,9 +1158,13 @@ async function renderStaffCalendar(staffId, year, month) {
 
         <!-- Footer buttons -->
         <div style="display:flex;gap:10px;justify-content:space-between;margin-top:18px;flex-wrap:wrap;">
+          <% if (locals.user && (user.role === 'admin' || user.role === 'super')) { %>
           <button onclick="if(confirm('ยืนยันการลบบุคลากร ' + _currentStaffId + ' ?')) deleteStaff(_currentStaffId);" class="sdm-foot-btn sdm-foot-danger">
             <i class="bi bi-trash3-fill"></i> ลบ
           </button>
+          <% } else { %>
+          <div></div> <!-- Spacer -->
+          <% } %>
           <div style="display:flex;gap:10px;">
             <button onclick="closeStaffDetail()" class="sdm-foot-btn sdm-foot-ghost">ปิด</button>
             <button onclick="closeStaffDetail(); viewStaff(_currentStaffId);" class="sdm-foot-btn sdm-foot-primary">
@@ -1517,7 +1522,8 @@ async function openStaffDetail(staffId) {
   /* Check Permission for Edit Button */
   const editBtn = document.getElementById('sdmEditBtn');
   if (editBtn) {
-    editBtn.style.display = checkPermission('edit_staff') ? '' : 'none';
+    const isOwner = (staffId === currentUserUsername);
+    editBtn.style.display = (checkPermission('edit_staff') || isOwner) ? '' : 'none';
   }
 
   /* Show modal */
