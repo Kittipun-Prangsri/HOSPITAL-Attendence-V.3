@@ -1,11 +1,11 @@
 @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700;800&family=Prompt:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
 
 :root {
-  --primary: #C67B9E;       /* Luxurious Mauve Pink-Purple */
-  --primary-light: #E2AEC5; /* Soft Pink-Purple Accent */
-  --accent: #9F73AB;        /* Luxurious Soft Purple */
-  --accent-light: rgba(159, 115, 171, 0.1);
-  --accent2: #BD7F9F;       /* Dusty Plum */
+  --primary: #056839;       /* MOPH Green */
+  --primary-light: #148F54; /* Fresh Green Accent */
+  --accent: #10B981;        /* Vivid Emerald Accent */
+  --accent-light: rgba(5, 104, 57, 0.1);
+  --accent2: #024D29;       /* Dark Forest Green */
   --morning: #C69A55;
   --morning-bg: #FCF8F2;
   --morning-border: #F0E2CD;
@@ -15,7 +15,7 @@
   --night: #8E7CA3;
   --night-bg: #F8F6FA;
   --night-border: #E5DFEB;
-  --success: #799A82;
+  --success: #056839;
   --error: #BD7F7F;
   --warning: #C69A55;
   --in-color: var(--success);
@@ -25,11 +25,11 @@
   --surface: #EDF2F7; /* Soft Silver */
   --card: #FFFFFF;
   --border: #E2E8F0;
-  --border-focus: #C67B9E;
+  --border-focus: #056839;
   --text: #2D3748; /* Deep Charcoal */
   --muted: #A0AEC0; /* Medium Gray */
   --sidebar-w: 260px;
-  --gradient: linear-gradient(135deg, #3A2E39 0%, #1D151C 100%); /* Deep slate-plum/purple gradient */
+  --gradient: linear-gradient(135deg, #056839 0%, #02361D 100%); /* Elegant Dark Green Gradient */
   
   /* Modern styling variables */
   --radius-sm: 8px;
@@ -38,7 +38,7 @@
   --shadow-sm: 0 2px 4px rgba(45, 55, 72, 0.02);
   --shadow-md: 0 4px 10px rgba(45, 55, 72, 0.04), 0 2px 4px rgba(45, 55, 72, 0.02);
   --shadow-lg: 0 12px 30px rgba(45, 55, 72, 0.08), 0 4px 12px rgba(45, 55, 72, 0.03);
-  --shadow-glow: 0 0 20px rgba(159, 115, 171, 0.2);
+  --shadow-glow: 0 0 20px rgba(5, 104, 57, 0.2);
   --transition-smooth: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 *{box-sizing:border-box;margin:0;padding:0;}
