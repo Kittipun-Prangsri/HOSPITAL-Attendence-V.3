@@ -13,77 +13,82 @@ const lineClient = new line.messagingApi.MessagingApiClient({
 // Telegram Config
 const botToken = process.env.TELEGRAM_BOT_TOKEN;
 const isTelegramConfigured = botToken && botToken !== 'dummy_token';
-const telegramBot = new TelegramBot(botToken || 'dummy_token', isTelegramConfigured ? { polling: true } : {});
+const isPollingEnabled = isTelegramConfigured && process.env.ENABLE_TELEGRAM_POLLING === 'true';
+const telegramBot = new TelegramBot(botToken || 'dummy_token', isPollingEnabled ? { polling: true } : {});
 
 if (isTelegramConfigured) {
-  telegramBot.on('message', async (msg) => {
-    try {
-      const chatId = msg.chat.id;
-      const text = msg.text;
-      if (!text) return;
+  if (isPollingEnabled) {
+    telegramBot.on('message', async (msg) => {
+      try {
+        const chatId = msg.chat.id;
+        const text = msg.text;
+        if (!text) return;
 
-      // Import inside to prevent circular dependency
-      const chatbotService = require('./chatbotService');
-      const replyText = await chatbotService.handleMessage(text, chatId.toString());
-      if (replyText) {
-        if (replyText.length <= 4000) {
-          await telegramBot.sendMessage(chatId, replyText, { parse_mode: 'Markdown' });
-        } else {
-          // Split message by lines to fit within Telegram's 4096 character limit
-          const lines = replyText.split('\n');
-          let chunk = '';
-          for (const line of lines) {
-            if (chunk.length + line.length + 1 > 4000) {
-              if (chunk) await telegramBot.sendMessage(chatId, chunk, { parse_mode: 'Markdown' });
-              chunk = line;
-            } else {
-              chunk = chunk ? chunk + '\n' + line : line;
+        // Import inside to prevent circular dependency
+        const chatbotService = require('./chatbotService');
+        const replyText = await chatbotService.handleMessage(text, chatId.toString());
+        if (replyText) {
+          if (replyText.length <= 4000) {
+            await telegramBot.sendMessage(chatId, replyText, { parse_mode: 'Markdown' });
+          } else {
+            // Split message by lines to fit within Telegram's 4096 character limit
+            const lines = replyText.split('\n');
+            let chunk = '';
+            for (const line of lines) {
+              if (chunk.length + line.length + 1 > 4000) {
+                if (chunk) await telegramBot.sendMessage(chatId, chunk, { parse_mode: 'Markdown' });
+                chunk = line;
+              } else {
+                chunk = chunk ? chunk + '\n' + line : line;
+              }
             }
+            if (chunk) await telegramBot.sendMessage(chatId, chunk, { parse_mode: 'Markdown' });
           }
-          if (chunk) await telegramBot.sendMessage(chatId, chunk, { parse_mode: 'Markdown' });
         }
+      } catch (err) {
+        console.error('[TelegramBot] Error handling message:', err.message);
       }
-    } catch (err) {
-      console.error('[TelegramBot] Error handling message:', err.message);
-    }
-  });
+    });
 
-  telegramBot.on('callback_query', async (callbackQuery) => {
-    try {
-      const message = callbackQuery.message;
-      const data = callbackQuery.data;
-      const user = callbackQuery.from;
-      const username = user.username ? `@${user.username}` : `${user.first_name || ''} ${user.last_name || ''}`.trim();
+    telegramBot.on('callback_query', async (callbackQuery) => {
+      try {
+        const message = callbackQuery.message;
+        const data = callbackQuery.data;
+        const user = callbackQuery.from;
+        const username = user.username ? `@${user.username}` : `${user.first_name || ''} ${user.last_name || ''}`.trim();
 
-      if (data && data.startsWith('confirm_job_')) {
-        const jobId = data.replace('confirm_job_', '');
+        if (data && data.startsWith('confirm_job_')) {
+          const jobId = data.replace('confirm_job_', '');
 
-        // 1. Answer callback query to acknowledge click in Telegram UI
-        await telegramBot.answerCallbackQuery(callbackQuery.id, {
-          text: 'รับทราบงานแล้ว'
-        });
+          // 1. Answer callback query to acknowledge click in Telegram UI
+          await telegramBot.answerCallbackQuery(callbackQuery.id, {
+            text: 'รับทราบงานแล้ว'
+          });
 
-        // 2. Edit the message to show confirmation status
-        const originalText = message.text || '';
-        const updatedText = `${originalText}\n\n✅ *รับทราบแล้วโดย:* ${username}`;
+          // 2. Edit the message to show confirmation status
+          const originalText = message.text || '';
+          const updatedText = `${originalText}\n\n✅ *รับทราบแล้วโดย:* ${username}`;
 
-        await telegramBot.editMessageText(updatedText, {
-          chat_id: message.chat.id,
-          message_id: message.message_id,
-          parse_mode: 'Markdown',
-          reply_markup: {
-            inline_keyboard: []
-          }
-        });
+          await telegramBot.editMessageText(updatedText, {
+            chat_id: message.chat.id,
+            message_id: message.message_id,
+            parse_mode: 'Markdown',
+            reply_markup: {
+              inline_keyboard: []
+            }
+          });
 
-        console.log(`[TelegramBot] Job ${jobId} confirmed by user ${username}`);
+          console.log(`[TelegramBot] Job ${jobId} confirmed by user ${username}`);
+        }
+      } catch (err) {
+        console.error('[TelegramBot] Error handling callback query:', err.message);
       }
-    } catch (err) {
-      console.error('[TelegramBot] Error handling callback query:', err.message);
-    }
-  });
+    });
 
-  console.log('[TelegramBot] Polling listener initialized successfully.');
+    console.log('[TelegramBot] Polling listener initialized successfully.');
+  } else {
+    console.log('[TelegramBot] Running in sender-only mode (Polling disabled).');
+  }
 }
 
 // Mapping path
