@@ -11,14 +11,14 @@
   /* Color Palette */
   --ds-bg: #EDF2F7;                 /* Soft silver background */
   --ds-surface: #FFFFFF;            /* Surface card background */
-  --ds-surface-hover: rgba(198, 123, 158, 0.05); /* Hover states */
-  --ds-primary: #C67B9E;            /* Warm primary pink-purple */
-  --ds-primary-glow: rgba(198, 123, 158, 0.15);
-  --ds-success: #799A82;            /* Sage success green */
+  --ds-surface-hover: rgba(5, 104, 57, 0.05); /* Hover states */
+  --ds-primary: #056839;            /* MOPH Green */
+  --ds-primary-glow: rgba(5, 104, 57, 0.15);
+  --ds-success: #056839;            /* MOPH Green success state */
   --ds-text: #2D3748;               /* Deep Charcoal */
   --ds-text-muted: #A0AEC0;         /* Medium Gray */
   --ds-border: #E2E8F0;
-  --ds-border-active: rgba(198, 123, 158, 0.3);
+  --ds-border-active: rgba(5, 104, 57, 0.3);
 
   /* Layout & Spacing */
   --ds-safety-margin: clamp(16px, 4vw, 40px); /* Responsive safety margin */
@@ -117,7 +117,7 @@ p  { font-size: var(--ds-font-body); font-weight: 400; color: var(--ds-text-mute
   font-weight: 800;
   letter-spacing: -0.02em;
   color: var(--ds-text);
-  text-shadow: 0 0 20px rgba(198, 123, 158, 0.2);
+  text-shadow: 0 0 20px rgba(5, 104, 57, 0.2);
   width: 100%;
 }
 

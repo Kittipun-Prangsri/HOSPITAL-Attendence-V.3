@@ -25,7 +25,7 @@
       --deep-blue: #0f172a;
       --emerald: #10b981;
       --amber: #f59e0b;
-      --indigo: #6366f1;
+      --indigo: #056839;
     }
 
     body {
@@ -333,7 +333,7 @@
       <div class="charts-row">
         <div class="glass-card mb-0">
           <div class="chart-header">
-            <h6 class="chart-title"><i class="bi bi-graph-up text-indigo"></i> แนวโน้มการมาสายในช่วง 30 วัน</h6>
+            <h6 class="chart-title"><i class="bi bi-graph-up" style="color:var(--primary);"></i> แนวโน้มการมาสายในช่วง 30 วัน</h6>
           </div>
           <canvas id="trendChart" height="260"></canvas>
         </div>
@@ -557,8 +557,8 @@
           datasets: [{
             label: 'สถิติการมาสาย',
             data: [],
-            borderColor: '#6366F1',
-            backgroundColor: 'rgba(99, 102, 241, 0.1)',
+            borderColor: '#056839',
+            backgroundColor: 'rgba(5, 104, 57, 0.1)',
             fill: true, tension: 0.4
           }]
         },
@@ -621,7 +621,7 @@
             <td>
               <div class="d-flex align-items-center gap-3">
                 <div class="rounded-circle d-flex align-items-center justify-content-center" 
-                     style="width:34px;height:34px;background:#EEF2FF;color:#4F46E5;font-weight:800;font-size:12px;">
+                     style="width:34px;height:34px;background:#E6F4EA;color:#056839;font-weight:800;font-size:12px;">
                   ${e.name.charAt(0)}
                 </div>
                 <div>
