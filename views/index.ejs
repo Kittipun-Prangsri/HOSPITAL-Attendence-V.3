@@ -25,8 +25,19 @@
         <!-- PAGE -->
         <div class="page">
 
-          <!-- PAGE -->
-          <div class="page">
+          <section class="dashboard-hero" aria-labelledby="dashboard-heading">
+            <div>
+              <div class="dashboard-eyebrow"><i class="bi bi-activity" aria-hidden="true"></i> ภาพรวมการปฏิบัติงาน</div>
+              <h1 id="dashboard-heading">สถานะบุคลากรประจำวัน</h1>
+              <p>ติดตามการลงเวลา สถานะเวร และเหตุขัดข้องของบุคลากรแบบเรียลไทม์</p>
+            </div>
+            <div class="dashboard-hero-actions">
+              <button type="button" class="btn-outline-dark" onclick="exportCSV()"><i class="bi bi-file-earmark-spreadsheet" aria-hidden="true"></i> ส่งออกข้อมูล</button>
+              <button type="button" class="btn-teal" onclick="refreshData(this)"><i class="bi bi-arrow-clockwise" aria-hidden="true"></i> อัปเดตข้อมูล</button>
+            </div>
+          </section>
+
+          <div class="dashboard-content">
 
             <!-- STAT ROW -->
             <div class="stat-row" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
@@ -217,8 +228,9 @@
               </div>
             </div>
 
-          </div><!-- /page -->
-        </div><!-- /main -->
+          </div><!-- /dashboard-content -->
+        </div><!-- /page -->
+      </div><!-- /main -->
 
         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
         <script>

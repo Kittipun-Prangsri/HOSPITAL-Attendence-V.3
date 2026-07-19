@@ -32,9 +32,9 @@
 %>
 
 <!-- TOPBAR -->
-<div class="topbar">
+<header class="topbar" role="banner">
   <div class="d-flex align-items-center gap-3">
-    <button class="icon-btn me-2 topbar-toggle-btn" onclick="toggleGlobalSidebar()">
+    <button type="button" class="icon-btn me-2 topbar-toggle-btn" onclick="toggleGlobalSidebar()" aria-label="เปิดหรือปิดเมนูนำทาง" aria-controls="sidebar">
       <i class="bi bi-list"></i>
     </button>
 
@@ -54,8 +54,8 @@
       }
     </script>
     <div class="topbar-left">
-      <h6 style="font-weight: 700; color: var(--primary, #0D9488); margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px;"><%= pageTitle %><span class="d-none d-md-inline"> - KHH (<%= locals.user ? user.role.toUpperCase() : 'USER' %>)</span></h6>
-      <small id="currentDate" class="text-muted" style="white-space: nowrap;">กำลังโหลด...</small>
+      <h6 id="page-title" style="font-weight: 700; color: var(--primary, #0D9488); margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px;"><%= pageTitle %><span class="d-none d-md-inline"> - KHH (<%= locals.user ? user.role.toUpperCase() : 'USER' %>)</span></h6>
+      <small id="currentDate" class="text-muted" style="white-space: nowrap;" aria-live="polite">กำลังโหลด...</small>
     </div>
   </div>
 
@@ -70,12 +70,12 @@
     }
   </style>
   <div class="d-flex align-items:center gap-2" style="display:flex;align-items:center;gap:8px;">
-    <div class="live-pill" style="white-space: nowrap;"><span class="live-dot"></span> <span class="d-none d-sm-inline">ระบบออนไลน์</span></div>
-    <div class="icon-btn" title="แจ้งเตือน"><i class="bi bi-bell"></i></div>
-    <div class="icon-btn" title="รีเฟรช" onclick="refreshData(this)"><i class="bi bi-arrow-clockwise"></i></div>
-    <div class="icon-btn" title="ตั้งค่า" onclick="openSettings()"><i class="bi bi-gear"></i></div>
+    <div class="live-pill" style="white-space: nowrap;" role="status"><span class="live-dot"></span> <span class="d-none d-sm-inline">ระบบออนไลน์</span></div>
+    <button type="button" class="icon-btn" title="แจ้งเตือน" aria-label="แจ้งเตือน"><i class="bi bi-bell" aria-hidden="true"></i></button>
+    <button type="button" class="icon-btn" title="รีเฟรชข้อมูล" aria-label="รีเฟรชข้อมูล" onclick="refreshData(this)"><i class="bi bi-arrow-clockwise" aria-hidden="true"></i></button>
+    <button type="button" class="icon-btn" title="ตั้งค่า" aria-label="ตั้งค่า" onclick="openSettings()"><i class="bi bi-gear" aria-hidden="true"></i></button>
   </div>
-</div>
+</header>
 
 <script>
   // Live ticking clock for topbar
