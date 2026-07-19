@@ -27,6 +27,18 @@
         <!-- PAGE -->
         <div class="page">
 
+          <section class="workspace-hero" aria-labelledby="daily-report-heading">
+            <div>
+              <div class="workspace-eyebrow"><i class="bi bi-calendar-day" aria-hidden="true"></i> รายงานประจำวัน</div>
+              <h1 id="daily-report-heading">สรุปการปฏิบัติงานรายวัน</h1>
+              <p>ตรวจสถานะการเข้างาน ชั่วโมงปฏิบัติงาน และข้อยกเว้นตามวันที่เลือก</p>
+            </div>
+            <div class="workspace-hero-actions">
+              <button type="button" class="btn-outline-dark" onclick="exportExcel()"><i class="bi bi-file-earmark-spreadsheet" aria-hidden="true"></i> ส่งออก Excel</button>
+              <button type="button" class="btn-teal" onclick="window.print()"><i class="bi bi-printer" aria-hidden="true"></i> พิมพ์รายงาน</button>
+            </div>
+          </section>
+
           <!-- STAT ROW -->
           <div class="stat-row"
             style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); margin-bottom: 24px;">
@@ -104,12 +116,6 @@
                   style="border-radius:100px; padding-left:35px;" id="searchInput" oninput="applyFilters()" />
               </div>
             </div>
-            <div style="display:flex;gap:10px;">
-              <button class="btn-outline-dark" style="border-radius:100px;" onclick="exportExcel()"><i
-                  class="bi bi-file-earmark-excel"></i> Excel</button>
-              <button class="btn-teal" style="border-radius:100px;" onclick="window.print()"><i
-                  class="bi bi-printer"></i> พิมพ์รายงาน</button>
-            </div>
           </div>
 
           <!-- REPORT TABLE -->
@@ -159,7 +165,7 @@
             'in': '<span class="status-chip chip-in">เข้างาน</span>',
             'out': '<span class="status-chip chip-out">ออกงาน</span>',
             'late': '<span class="status-chip chip-late">มาสาย</span>',
-            'leave': '<span class="status-chip" style="background:#FEF3C7; color:#D97706; border-color:#FCD34D;">ลา/ไปราชการ</span>',
+            'leave': '<span class="status-chip" style="background:#FEF3C7; color:#92400E; border-color:#FCD34D;">ลา/ไปราชการ</span>',
             'none': '<span class="status-chip chip-absent">ยังไม่มา</span>',
             'absent': '<span class="status-chip chip-absent">ขาดงาน</span>'
           };

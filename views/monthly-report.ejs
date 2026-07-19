@@ -295,20 +295,19 @@
       <%- include("components/topbar") %>
 
         <div class="page-container">
-          <div class="d-flex justify-content-between align-items-center mb-4">
+          <section class="workspace-hero" aria-labelledby="monthly-report-heading">
             <div>
-              <h2 style="font-weight: 700; margin: 0; display:flex; align-items:center; gap:10px;">
-                <i class="bi bi-calendar3" style="color:var(--primary)"></i> รายงานสรุปการทำงานรายเดือน
-              </h2>
-              <p class="text-muted mb-0 mt-1">ข้อมูลบุคลากรและสถิติตลอดทั้งเดือน</p>
+              <div class="workspace-eyebrow"><i class="bi bi-calendar3" aria-hidden="true"></i> รายงานประจำเดือน</div>
+              <h1 id="monthly-report-heading">สรุปการปฏิบัติงานรายเดือน</h1>
+              <p>วิเคราะห์ข้อมูลบุคลากร ชั่วโมงการทำงาน สถานะเวร และแนวโน้มตลอดทั้งเดือน</p>
             </div>
-            <div>
-              <button class="btn btn-outline-dark me-2" onclick="exportToPDF()"><i class="bi bi-printer"></i> พิมพ์
+            <div class="workspace-hero-actions">
+              <button type="button" class="btn btn-outline-dark" onclick="exportToPDF()"><i class="bi bi-printer" aria-hidden="true"></i> พิมพ์
                 PDF</button>
-              <button class="btn btn-teal" onclick="exportData()"><i class="bi bi-file-earmark-excel"></i> ส่งออก
+              <button type="button" class="btn btn-teal" onclick="exportData()"><i class="bi bi-file-earmark-excel" aria-hidden="true"></i> ส่งออก
                 Excel</button>
             </div>
-          </div>
+          </section>
 
           <!-- View Tabs Toggle -->
           <ul class="nav nav-pills mb-4" id="reportViewTabs"

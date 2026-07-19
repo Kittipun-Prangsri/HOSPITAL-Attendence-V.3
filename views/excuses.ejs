@@ -229,13 +229,13 @@
             <%- include('components/topbar') %>
 
                 <div class="page">
-                    <div class="page-header d-flex align-items-center justify-content-between"
-                        style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 24px;">
+                    <section class="workspace-hero" aria-labelledby="excuses-heading">
                         <div>
-                            <h4>แจ้งสาเหตุและแก้ต่างการลงเวลา</h4>
+                            <div class="workspace-eyebrow"><i class="bi bi-file-earmark-medical" aria-hidden="true"></i> คำร้องและข้อยกเว้น</div>
+                            <h1 id="excuses-heading">แจ้งสาเหตุและแก้ต่างการลงเวลา</h1>
                             <p>ส่งใบแก้ต่างเมื่อเกิดปัญหา แสกนไม่ผ่าน / ขาด ลา มาสาย และตรวจสอบสถานะ</p>
                         </div>
-                    </div>
+                    </section>
 
                     <% if (locals.user && (user.role==='admin' || user.role==='super' )) { %>
                         <!-- ================== ADMIN VIEW ================== -->

@@ -27,6 +27,18 @@
         <!-- PAGE -->
         <div class="page">
 
+          <section class="workspace-hero" aria-labelledby="attendance-heading">
+            <div>
+              <div class="workspace-eyebrow"><i class="bi bi-clipboard2-pulse" aria-hidden="true"></i> บันทึกเวลาปฏิบัติงาน</div>
+              <h1 id="attendance-heading">ตรวจสอบการเข้า-ออกงาน</h1>
+              <p>ค้นหา ติดตามสถานะ และจัดการข้อมูลการลงเวลาของบุคลากรในวันทำงาน</p>
+            </div>
+            <div class="workspace-hero-actions">
+              <button type="button" class="btn-outline-dark" onclick="exportRecords()"><i class="bi bi-file-earmark-spreadsheet" aria-hidden="true"></i> ส่งออกข้อมูล</button>
+              <button type="button" class="btn-teal" onclick="refreshLive()"><i class="bi bi-arrow-clockwise" aria-hidden="true"></i> รีเฟรชสถานะ</button>
+            </div>
+          </section>
+
           <!-- MINI STATS -->
           <div class="stat-row"
             style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); margin-bottom: 20px;">

@@ -37,9 +37,20 @@
       <%- include("components/topbar") %>
         <div class="page">
 
+          <section class="workspace-hero" aria-labelledby="personnel-heading">
+            <div>
+              <div class="workspace-eyebrow"><i class="bi bi-people" aria-hidden="true"></i> ทะเบียนบุคลากร</div>
+              <h1 id="personnel-heading">ข้อมูลบุคลากร</h1>
+              <p>ค้นหา ดูข้อมูลติดต่อ และตรวจสอบประวัติการลงเวลาของเจ้าหน้าที่</p>
+            </div>
+            <div class="workspace-hero-actions">
+              <button type="button" class="btn-teal" onclick="loadData()"><i class="bi bi-arrow-clockwise" aria-hidden="true"></i> อัปเดตรายชื่อ</button>
+            </div>
+          </section>
+
           <div class="filter-bar mb-3 d-flex justify-content-between">
             <div class="d-flex align-items-center gap-2">
-              <h5 class="mb-0" style="font-weight: 700;">รายชื่อบุคลากรทั้งหมด</h5>
+              <h5 class="mb-0" style="font-weight: 700;">รายชื่อบุคลากร</h5>
               <span class="badge" style="background:var(--primary); font-size: 14px;" id="totalCountSpan">0</span>
             </div>
             <div>

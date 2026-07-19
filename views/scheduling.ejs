@@ -76,7 +76,7 @@
 
     /* ── Action Buttons ── */
     .btn-auto {
-      background: linear-gradient(135deg, #6366F1, #8B5CF6);
+      background: linear-gradient(135deg, #0369A1, #0284C7);
       color: #fff;
       border: none;
       border-radius: 8px;
@@ -87,7 +87,7 @@
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      box-shadow: 0 4px 12px rgba(99, 102, 241, .30);
+      box-shadow: 0 4px 12px rgba(3, 105, 161, .25);
       transition: filter .2s;
       cursor: pointer;
     }
@@ -171,8 +171,8 @@
     }
 
     .sched-table thead th.today-col {
-      background: #EEF2FF;
-      color: #4F46E5;
+      background: #CCFBF1;
+      color: #115E59;
     }
 
     /* Day column header number */
@@ -193,24 +193,24 @@
     }
 
     .cell-morning {
-      background: #FFFBEB;
+      background: #FEF3C7;
     }
 
     .cell-afternoon {
-      background: #EFF6FF;
+      background: #E0F2FE;
     }
 
     .cell-night {
-      background: #F5F3FF;
+      background: #CCFBF1;
     }
 
     .cell-leave {
-      background: #FEF2F2;
+      background: #FEE2E2;
       cursor: not-allowed;
     }
 
     .cell-today {
-      outline: 2px solid #6366F1;
+      outline: 2px solid #0F766E;
       outline-offset: -1px;
     }
 
@@ -231,7 +231,7 @@
     }
 
     .shift-select:focus {
-      box-shadow: 0 0 0 2px rgba(99, 102, 241, .3);
+      box-shadow: 0 0 0 3px rgba(15, 118, 110, .25);
       background: rgba(255, 255, 255, .8);
     }
 
@@ -246,7 +246,7 @@
     }
 
     .sched-table tbody tr:hover td:first-child {
-      background: #F0F4FF;
+      background: #F0FDFA;
     }
 
     /* Nurse name cell */
@@ -325,15 +325,15 @@
     }
 
     .toast-msg.success {
-      border-left: 4px solid #10B981;
+      border-left: 4px solid #166534;
     }
 
     .toast-msg.error {
-      border-left: 4px solid #EF4444;
+      border-left: 4px solid #B91C1C;
     }
 
     .toast-msg.info {
-      border-left: 4px solid #6366F1;
+      border-left: 4px solid #0369A1;
     }
 
     @keyframes slideIn {
@@ -370,7 +370,7 @@
       width: 40px;
       height: 40px;
       border: 4px solid #E2E8F0;
-      border-top-color: #6366F1;
+      border-top-color: #0F766E;
       border-radius: 50%;
       animation: spin 0.7s linear infinite;
     }
@@ -409,7 +409,7 @@
               <div>
                 <h4 style="display:flex;align-items:center;gap:10px;">
                   <span
-                    style="background:linear-gradient(135deg,#6366F1,#8B5CF6);width:38px;height:38px;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:17px;"><i
+                    style="background:linear-gradient(135deg,#0F766E,#0D9488);width:38px;height:38px;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:17px;"><i
                       class="bi bi-calendar2-week-fill"></i></span>
                   จัดตารางเวรพยาบาล
                 </h4>
@@ -432,7 +432,7 @@
           <!-- SUMMARY STATS -->
           <div class="sched-stat-row" id="summaryStats">
             <div class="sched-stat-box">
-              <div class="sched-stat-ico" style="background:#EEF2FF;color:#4F46E5;"><i class="bi bi-people-fill"></i>
+              <div class="sched-stat-ico" style="background:#CCFBF1;color:#115E59;"><i class="bi bi-people-fill"></i>
               </div>
               <div>
                 <div class="sched-stat-val" id="statNurses">—</div>
@@ -440,7 +440,7 @@
               </div>
             </div>
             <div class="sched-stat-box">
-              <div class="sched-stat-ico" style="background:#FFFBEB;color:#D97706;"><i
+              <div class="sched-stat-ico" style="background:#FEF3C7;color:#92400E;"><i
                   class="bi bi-brightness-high-fill"></i></div>
               <div>
                 <div class="sched-stat-val" id="statMorning">—</div>
@@ -448,7 +448,7 @@
               </div>
             </div>
             <div class="sched-stat-box">
-              <div class="sched-stat-ico" style="background:#EFF6FF;color:#3B82F6;"><i class="bi bi-clouds-fill"></i>
+              <div class="sched-stat-ico" style="background:#E0F2FE;color:#0369A1;"><i class="bi bi-clouds-fill"></i>
               </div>
               <div>
                 <div class="sched-stat-val" id="statAfternoon">—</div>
@@ -456,7 +456,7 @@
               </div>
             </div>
             <div class="sched-stat-box">
-              <div class="sched-stat-ico" style="background:#F5F3FF;color:#7C3AED;"><i
+              <div class="sched-stat-ico" style="background:#CCFBF1;color:#0F766E;"><i
                   class="bi bi-moon-stars-fill"></i></div>
               <div>
                 <div class="sched-stat-val" id="statNight">—</div>
@@ -464,7 +464,7 @@
               </div>
             </div>
             <div class="sched-stat-box">
-              <div class="sched-stat-ico" style="background:#FEE2E2;color:#DC2626;"><i
+              <div class="sched-stat-ico" style="background:#FEE2E2;color:#B91C1C;"><i
                   class="bi bi-calendar-x-fill"></i></div>
               <div>
                 <div class="sched-stat-val" id="statLeave">—</div>
@@ -518,7 +518,7 @@
               </div>
               <div style="display:flex;align-items:center;gap:8px;">
                 <span id="nurseCountBadge"
-                  style="background:#EEF2FF;color:#4F46E5;font-size:11px;font-weight:700;padding:3px 12px;border-radius:20px;border:1px solid #C7D2FE;"></span>
+                  style="background:#CCFBF1;color:#115E59;font-size:11px;font-weight:700;padding:3px 12px;border-radius:20px;border:1px solid #99F6E4;"></span>
               </div>
             </div>
             <div class="sched-scroll" style="max-height:calc(100vh - 380px);">
@@ -540,10 +540,10 @@
             </div>
             <!-- Legend -->
             <div class="legend-bar">
-              <span><span class="legend-dot" style="background:#FFFBEB;border-color:#FDE68A;"></span>เวรเช้า</span>
-              <span><span class="legend-dot" style="background:#EFF6FF;border-color:#BFDBFE;"></span>เวรบ่าย</span>
-              <span><span class="legend-dot" style="background:#F5F3FF;border-color:#DDD6FE;"></span>เวรดึก</span>
-              <span><span class="legend-dot" style="background:#FEF2F2;border-color:#FECACA;"></span>ลา
+              <span><span class="legend-dot" style="background:#FEF3C7;border-color:#FDE68A;"></span>เวรเช้า</span>
+              <span><span class="legend-dot" style="background:#E0F2FE;border-color:#7DD3FC;"></span>เวรบ่าย</span>
+              <span><span class="legend-dot" style="background:#CCFBF1;border-color:#5EEAD4;"></span>เวรดึก</span>
+              <span><span class="legend-dot" style="background:#FEE2E2;border-color:#FCA5A5;"></span>ลา
                 (ระบบบล็อค)</span>
               <span><span class="legend-dot" style="background:#F8FAFC;border-color:#E2E8F0;"></span>OFF วันหยุด</span>
               <span style="margin-left:auto;font-size:10.5px;">เงื่อนไข Auto-Gen: หยุดอย่างน้อย 1 วัน/สัปดาห์ &bull;
@@ -570,16 +570,16 @@
          SETTINGS & CONSTANTS
       ================================================================ */
       const SETTINGS_KEY = 'hospital_settings';
-      const AV_COLORS = ['#4F46E5', '#059669', '#D97706', '#DC2626', '#7C3AED', '#0891B2', '#DB2777', '#16A34A', '#F59E0B', '#0E7490'];
+      const AV_COLORS = ['#0F766E', '#0369A1', '#92400E', '#B91C1C', '#115E59', '#0E7490', '#166534', '#9F1239'];
 
       const DAY_NAMES_TH = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
       const MONTH_NAMES_TH = ['', 'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
 
       const DEFAULT_SETTINGS = {
         shifts: [
-          { name: 'เช้า', start: '08:00', end: '16:00', color: '#F59E0B' },
-          { name: 'บ่าย', start: '16:00', end: '24:00', color: '#3B82F6' },
-          { name: 'ดึก', start: '00:00', end: '08:00', color: '#7C3AED' }
+          { name: 'เช้า', start: '08:00', end: '16:00', color: '#92400E' },
+          { name: 'บ่าย', start: '16:00', end: '24:00', color: '#0369A1' },
+          { name: 'ดึก', start: '00:00', end: '08:00', color: '#0F766E' }
         ]
       };
 
