@@ -301,15 +301,17 @@
             <%- include('components/topbar') %>
 
                 <div class="page">
-                    <div class="page-header d-flex align-items-center justify-content-between"
-                        style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
+                    <section class="workspace-hero" aria-labelledby="users-heading">
                         <div>
-                            <h4>จัดการสิทธิ์ผู้ใช้งาน</h4>
+                            <div class="workspace-eyebrow"><i class="bi bi-shield-lock" aria-hidden="true"></i> การดูแลระบบ</div>
+                            <h1 id="users-heading">จัดการผู้เข้าใช้งาน</h1>
                             <p>กำหนดสิทธิ์การเข้าถึงข้อมูลและจัดการบัญชีผู้ใช้งานในระบบ</p>
                         </div>
-                        <button class="btn-teal" onclick="openModal()"><i class="bi bi-person-plus-fill"></i>
+                        <div class="workspace-hero-actions">
+                        <button type="button" class="btn-teal" onclick="openModal()"><i class="bi bi-person-plus-fill" aria-hidden="true"></i>
                             เพิ่มผู้ใช้งาน</button>
-                    </div>
+                        </div>
+                    </section>
 
                     <!-- FILTER BAR -->
                     <div class="filter-bar"

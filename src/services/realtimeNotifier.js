@@ -5,6 +5,24 @@ let intervalId = null;
 const processingScans = new Set();
 let currentTodayStr = null;
 
+function getStatusLabel(attendanceStatus, authResult, direction) {
+  if (authResult === 'Failed') {
+    return '❌ สแกนไม่ผ่าน';
+  }
+
+  const status = (attendanceStatus || direction || '').toLowerCase();
+  switch (status) {
+    case 'i':
+    case 'in':
+      return '✅ สแกนเข้างาน (Check-in)';
+    case 'o':
+    case 'out':
+      return '📤 สแกนออกงาน (Check-out)';
+    default:
+      return 'ไม่ระบุสถานะ';
+  }
+}
+
 async function checkNewScans() {
   try {
     // Sv-SE locale returns YYYY-MM-DD format, which matches the varchar date in HOSoffice
@@ -16,7 +34,7 @@ async function checkNewScans() {
       processingScans.clear();
     }
     
-    // 1. Fetch unprocessed scans for today (is_notified = 1 or 2) that have a registered LINE ID or Telegram Chat ID in hr_person
+    // 1. Fetch unprocessed scans for today (is_notified = 1 or 2)
     const [scans] = await hosofficePool.query(`
       SELECT 
         h.EmployeeID, 
@@ -26,6 +44,8 @@ async function checkNewScans() {
         h.DeviceName,
         h.ReaderName,
         h.SkinSurfaceTemperature,
+        h.AttendanceStatus,
+        h.AuthenticationResult,
         p.LINE_YOUR_USER_ID as line_user_id,
         p.TELEGRAM_CHAT_ID as telegram_chat_id,
         CONCAT(p.HR_FNAME, ' ', p.HR_LNAME) as fullname
@@ -33,30 +53,19 @@ async function checkNewScans() {
       INNER JOIN hr_person p ON h.EmployeeID = p.FINGLE_ID
       WHERE h.AccessDate = ? 
         AND h.is_notified IN (1, 2)
-        AND (
-          (p.LINE_YOUR_USER_ID IS NOT NULL AND p.LINE_YOUR_USER_ID != '')
-          OR
-          (p.TELEGRAM_CHAT_ID IS NOT NULL AND p.TELEGRAM_CHAT_ID != '')
-        )
+        AND (NULLIF(TRIM(p.LINE_YOUR_USER_ID), '') IS NOT NULL OR NULLIF(TRIM(p.TELEGRAM_CHAT_ID), '') IS NOT NULL)
       ORDER BY h.AccessTime ASC
       LIMIT 10
     `, [today]);
 
-    // 2. Automatically mark other scans for employees without notification IDs as notified (value 3) to keep database clean
+    // 2. Do not retry scans that cannot be associated with a notification channel.
     await hosofficePool.query(`
       UPDATE hikvision h
       LEFT JOIN hr_person p ON h.EmployeeID = p.FINGLE_ID
       SET h.is_notified = 3
       WHERE h.AccessDate = ? 
         AND h.is_notified IN (1, 2)
-        AND (
-          p.FINGLE_ID IS NULL
-          OR (
-            (p.LINE_YOUR_USER_ID IS NULL OR p.LINE_YOUR_USER_ID = '')
-            AND
-            (p.TELEGRAM_CHAT_ID IS NULL OR p.TELEGRAM_CHAT_ID = '')
-          )
-        )
+        AND (p.FINGLE_ID IS NULL OR (NULLIF(TRIM(p.LINE_YOUR_USER_ID), '') IS NULL AND NULLIF(TRIM(p.TELEGRAM_CHAT_ID), '') IS NULL))
     `, [today]);
 
     if (scans.length === 0) return;
@@ -64,7 +73,7 @@ async function checkNewScans() {
     console.log(`[RealtimeNotifier] Found ${scans.length} unprocessed scans to notify.`);
 
     for (const scan of scans) {
-      const { EmployeeID, AccessDate, AccessTime, Direction, DeviceName, ReaderName, SkinSurfaceTemperature, line_user_id, telegram_chat_id, fullname } = scan;
+      const { EmployeeID, AccessDate, AccessTime, Direction, DeviceName, ReaderName, SkinSurfaceTemperature, AttendanceStatus, AuthenticationResult, line_user_id, telegram_chat_id, fullname } = scan;
 
       // Keep concurrent poll iterations from handling the same scan at once. Durable state
       // and retry timing are stored in notification_deliveries, not this in-memory set.
@@ -94,7 +103,7 @@ async function checkNewScans() {
 
         // Bypass actual sending if disabled in configuration
         if (process.env.ENABLE_REALTIME_NOTIFICATIONS === 'false') {
-          console.log(`[RealtimeNotifier] Real-time notifications are disabled in .env. Skipping push to ${fullname} (${EmployeeID}).`);
+          console.log(`[RealtimeNotifier] Real-time notifications are disabled in .env. Skipping push to ${fullname || EmployeeID} (${EmployeeID}).`);
           await pool.query(
             `UPDATE notification_deliveries SET status = 'sent', attempts = attempts + 1, sent_at = NOW(), last_error = NULL WHERE employee_id = ? AND access_date = ? AND access_time = ?`,
             [EmployeeID, AccessDate, AccessTime]
@@ -103,9 +112,7 @@ async function checkNewScans() {
           continue;
         }
 
-        let directionThai = 'สแกนผ่านเครื่อง';
-        if (Direction === 'in') directionThai = 'เข้างาน (Check-in)';
-        if (Direction === 'out') directionThai = 'ออกงาน (Check-out)';
+        const directionThai = getStatusLabel(AttendanceStatus, AuthenticationResult, Direction);
 
         const location = DeviceName || 'ไม่ระบุจุดสแกน';
         const dateThai = new Date(AccessDate).toLocaleDateString('th-TH', {
@@ -114,18 +121,17 @@ async function checkNewScans() {
           day: 'numeric'
         });
 
-        let message = `🔔 *บันทึกเวลาทำงานสำเร็จ*\n\n` +
-                      `👤 คุณ: ${fullname}\n` +
-                      `📅 วันที่: ${dateThai}\n` +
+        let message = `🕒 *บันทึกเวลาปฏิบัติงาน*\n\n` +
+                      `👤 พนักงาน: ${fullname || EmployeeID}\n` +
+                      `📋 สถานะ: ${directionThai}\n` +
                       `⏰ เวลา: ${AccessTime} น.\n` +
-                      `📍 สถานะ: ${directionThai}\n` +
+                      `📅 วันที่: ${dateThai}\n` +
                       `🚪 จุดบันทึก: ${location}`;
 
         if (SkinSurfaceTemperature && SkinSurfaceTemperature.trim() !== '') {
           message += `\n🌡️ อุณหภูมิ: ${SkinSurfaceTemperature} °C`;
         }
 
-        // Send parallel / fallback notifications
         const result = await NotificationService.sendDirectNotification(line_user_id, telegram_chat_id, message);
         if (result.success) {
           await pool.query(
@@ -134,7 +140,7 @@ async function checkNewScans() {
             [EmployeeID, AccessDate, AccessTime]
           );
           await hosofficePool.query('UPDATE hikvision SET is_notified = 3 WHERE EmployeeID = ? AND AccessDate = ? AND AccessTime = ?', [EmployeeID, AccessDate, AccessTime]);
-          console.log(`[RealtimeNotifier] Successfully sent notification to ${fullname} (${EmployeeID}). LINE: ${result.line}, Telegram: ${result.telegram}`);
+          console.log(`[RealtimeNotifier] Successfully sent notification to ${fullname || EmployeeID} (${EmployeeID}). LINE: ${result.line}, Telegram: ${result.telegram}`);
         } else {
           const attempts = Number(delivery.attempts) + 1;
           const terminal = attempts >= 5;
@@ -150,7 +156,7 @@ async function checkNewScans() {
           if (terminal) {
             await hosofficePool.query('UPDATE hikvision SET is_notified = 4 WHERE EmployeeID = ? AND AccessDate = ? AND AccessTime = ?', [EmployeeID, AccessDate, AccessTime]);
           }
-          console.error(`[RealtimeNotifier] Delivery failed for ${fullname} (${EmployeeID}); attempt ${attempts}/5.`);
+          console.error(`[RealtimeNotifier] Delivery failed for ${fullname || EmployeeID} (${EmployeeID}); attempt ${attempts}/5.`);
         }
       } finally {
         processingScans.delete(scanKey);

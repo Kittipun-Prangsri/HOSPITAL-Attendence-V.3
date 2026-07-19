@@ -226,7 +226,7 @@
     <!-- Header -->
     <div style="display:flex;align-items:center;justify-content:space-between;padding:22px 28px 16px;border-bottom:1px solid var(--border,#E2E8F0);">
       <div style="display:flex;align-items:center;gap:12px;">
-        <div style="background:linear-gradient(135deg,#6366F1,#8B5CF6);border-radius:10px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;">
+        <div style="background:linear-gradient(135deg,#056839,#148F54);border-radius:10px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;">
           <i class="bi bi-gear-fill" style="color:#fff;font-size:18px;"></i>
         </div>
         <div>
@@ -304,7 +304,7 @@
         <% staffTypes.forEach(function(st){ %>
         <div style="background:var(--surface,#F8FAFC);border-radius:12px;padding:14px 16px;margin-bottom:10px;border:1px solid var(--border,#E2E8F0);">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-            <i class="bi <%= st.icon %>" style="color:#6366F1;font-size:16px;"></i>
+            <i class="bi <%= st.icon %>" style="color:#056839;font-size:16px;"></i>
             <span style="font-size:13px;font-weight:600;"><%= st.label %></span>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
@@ -334,8 +334,8 @@
         </div>
 
         <button onclick="addShift()" style="
-          margin-top:8px; width:100%; padding:10px; border:2px dashed #C4B5FD;
-          border-radius:10px; background:none; color:#7C3AED; font-size:13px;
+          margin-top:8px; width:100%; padding:10px; border:2px dashed #A7F3D0;
+          border-radius:10px; background:none; color:#056839; font-size:13px;
           font-weight:600; cursor:pointer; transition:all .2s;">
           <i class="bi bi-plus-circle"></i> เพิ่มประเภทเวร
         </button>
@@ -346,7 +346,7 @@
     <!-- Footer -->
     <div style="display:flex;justify-content:flex-end;gap:10px;padding:16px 28px;border-top:1px solid var(--border,#E2E8F0);">
       <button onclick="closeSettings()" style="padding:9px 20px;border-radius:9px;border:1px solid var(--border,#E2E8F0);background:none;cursor:pointer;font-size:13px;font-weight:600;color:var(--muted,#94A3B8);">ยกเลิก</button>
-      <button onclick="saveSettings()" style="padding:9px 22px;border-radius:9px;border:none;background:linear-gradient(135deg,#6366F1,#8B5CF6);color:#fff;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 4px 12px rgba(99,102,241,.35);">
+      <button onclick="saveSettings()" style="padding:9px 22px;border-radius:9px;border:none;background:linear-gradient(135deg,#056839,#148F54);color:#fff;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 4px 12px rgba(5,104,57,.35);">
         <i class="bi bi-check2-circle"></i> บันทึกการตั้งค่า
       </button>
     </div>
@@ -365,7 +365,7 @@
   transition:all .2s;
 }
 .stab.active {
-  color:#6366F1; border-bottom-color:#6366F1; background:rgba(99,102,241,.07);
+  color:#056839; border-bottom-color:#056839; background:rgba(5,104,57,.07);
 }
 .stab:hover:not(.active) { background:var(--surface,#F8FAFC); }
 .sgroup { margin-bottom:18px; }
@@ -379,7 +379,7 @@
   color:var(--text,#1E293B); outline:none; font-family:inherit;
   transition:border-color .2s;
 }
-.sinput:focus { border-color:#6366F1; box-shadow:0 0 0 3px rgba(99,102,241,.15); }
+.sinput:focus { border-color:#056839; box-shadow:0 0 0 3px rgba(5,104,57,.15); }
 .shift-row {
   display:grid; grid-template-columns:1fr 130px 130px 36px;
   gap:8px; align-items:center; background:var(--surface,#F8FAFC);
@@ -521,7 +521,7 @@
     setTimeout(() => {
       if (btn) {
         btn.innerHTML = orig;
-        btn.style.background = 'linear-gradient(135deg,#6366F1,#8B5CF6)';
+        btn.style.background = 'linear-gradient(135deg,#056839,#148F54)';
       }
       window.closeSettings();
       

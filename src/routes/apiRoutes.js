@@ -13,6 +13,7 @@ router.get('/data', checkAuth, apiController.getData);
 router.get('/report/monthly', checkAuth, apiController.getMonthlyReport);
 
 // Attendance & Notifications
+router.post('/attendance', attendanceController.logAttendance);
 router.post('/attendance/check-in', checkAuth, attendanceController.checkIn);
 router.post('/attendance/check-out', checkAuth, attendanceController.checkOut);
 router.get('/notifications/mappings', checkAuth, checkAdmin, attendanceController.getMappings);
@@ -43,6 +44,8 @@ router.get('/schedule/staff/:id/:yearMonth', checkAuth, scheduleController.getSt
 // Excuses & Reminders (3-7 Days)
 router.get('/excuses', checkAuth, excuseController.getExcuses);
 router.post('/excuses', checkAuth, excuseController.createExcuse);
+router.put('/excuses/:id', checkAuth, excuseController.updateExcuse);
+router.delete('/excuses/:id', checkAuth, excuseController.deleteExcuse);
 router.post('/excuses/review', checkAuth, checkAdmin, excuseController.reviewExcuse);
 router.get('/excuses/reminders', checkAuth, checkAdmin, excuseController.getRemindersList);
 router.post('/excuses/send-reminders', checkAuth, checkAdmin, excuseController.sendReminders);

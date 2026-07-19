@@ -1,0 +1,2018 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ระบบสแกนหน้าบุคลากรโรงพยาบาล</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&subset=thai&display=swap"
+    rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+
+<body>
+
+  <%- include("components/sidebar") %>
+
+    <!-- MAIN -->
+    <div class="main">
+
+      <%- include("components/topbar") %>
+
+        <!-- PAGE -->
+        <div class="page">
+
+          <!-- PAGE -->
+          <div class="page">
+
+            <!-- STAT ROW -->
+            <div class="stat-row" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
+              <div class="stat-box">
+                <div class="stat-ico s1"><i class="bi bi-people-fill"></i></div>
+                <div>
+                  <div class="stat-val" id="totalStaff">0</div>
+                  <div class="stat-lbl">บุคลากรทั้งหมด</div>
+                </div>
+              </div>
+              <div class="stat-box">
+                <div class="stat-ico s2" style="background:var(--success-bg); color:var(--success);"><i
+                    class="bi bi-door-open-fill"></i></div>
+                <div>
+                  <div class="stat-val" id="totalIn">0</div>
+                  <div class="stat-lbl">เข้างาน</div>
+                </div>
+              </div>
+              <div class="stat-box">
+                <div class="stat-ico s2"><i class="bi bi-box-arrow-right"></i></div>
+                <div>
+                  <div class="stat-val" id="totalOut">0</div>
+                  <div class="stat-lbl">ออกงาน</div>
+                </div>
+              </div>
+              <div class="stat-box">
+                <div class="stat-ico s3"><i class="bi bi-clock-fill"></i></div>
+                <div>
+                  <div class="stat-val" id="totalLate">0</div>
+                  <div class="stat-lbl">มาสาย</div>
+                </div>
+              </div>
+              <div class="stat-box">
+                <div class="stat-ico s1" style="background:#FEF3C7; color:#D97706;"><i
+                    class="bi bi-calendar-event-fill"></i></div>
+                <div>
+                  <div class="stat-val" id="totalLeave">0</div>
+                  <div class="stat-lbl">ลา</div>
+                </div>
+              </div>
+              <div class="stat-box">
+                <div class="stat-ico s4"><i class="bi bi-x-circle-fill"></i></div>
+                <div>
+                  <div class="stat-val" id="totalAbsent">0</div>
+                  <div class="stat-lbl">ขาด / ยังไม่มา</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- FILTER BAR -->
+            <div class="filter-bar-container">
+              <div class="search-header-row">
+                <div class="search-input-wrapper">
+                  <span class="search-icon"><i class="bi bi-search"></i></span>
+                  <input type="text" class="form-control" placeholder="ค้นหาชื่อ / แผนก / รหัส..." id="searchInput" oninput="applyFilter()" />
+                </div>
+                <button class="filter-toggle-btn" onclick="toggleFilterDrawer()" id="filterToggleBtn" title="ตัวกรองขั้นสูง">
+                  <i class="bi bi-sliders"></i> <span class="btn-text">ตัวกรอง</span>
+                </button>
+              </div>
+
+              <div id="filterDrawerContent" class="filter-drawer-content">
+                <div class="filter-inputs-grid">
+                  <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-calendar3"></i></span>
+                    <input type="date" class="form-control" id="dateInput" />
+                  </div>
+                  <select class="form-select" id="shiftFilter" onchange="applyFilter()">
+                    <option value="all">ทุกกะ</option>
+                    <option value="morning">เช้า</option>
+                    <option value="afternoon">บ่าย</option>
+                    <option value="night">ดึก</option>
+                  </select>
+                  <select class="form-select" id="deptFilter" onchange="applyFilter()">
+                    <option value="">ทุกกลุ่มงาน</option>
+                    <option>กลุ่มงานประกันสุขภาพยุทธศาสตร์</option>
+                    <option>กลุ่มงานบริหารทั่วไป</option>
+                    <option>กลุ่มงานบริการด้านปฐมภูมิและองค์รวม</option>
+                    <option>กลุ่มงานเภสัชกรรมและคุ้มครองผู้บริโภค</option>
+                    <option>กลุ่มงานสุขภาพดิจิทัล</option>
+                    <option>กลุ่มงานการพยาบาล</option>
+                    <option>กลุ่มงานทันตกรรม</option>
+                    <option>กลุ่มงานเทคนิคการแพทย์</option>
+                    <option>กลุ่มงานเวชกรรมฟื้นฟู</option>
+                    <option>กลุ่มงานการแพทย์แผนไทยและการแพทย์ทางเลือก</option>
+                    <option>กลุ่มงานรังสีวิทยา</option>
+                    <option>กลุ่มงานจิตเวชและยาเสพติด</option>
+                    <option>กลุ่มงานการแพทย์</option>
+                  </select>
+                </div>
+                <div class="filter-actions-group">
+                  <button class="btn-outline-dark mobile-full-btn" onclick="exportCSV()"><i class="bi bi-download"></i> ส่งออก Excel</button>
+                  <button class="btn-teal mobile-full-btn" onclick="applyFilter(); toggleFilterDrawer();"><i class="bi bi-funnel-fill"></i> ใช้ตัวกรอง</button>
+                </div>
+              </div>
+            </div>
+
+
+            <div style="font-size:12px;color:var(--muted);text-align:right;margin-bottom:10px;">แสดง <span
+                id="rowCountSpan">0</span> รายการ</div>
+
+            <!-- TABLE -->
+            <div class="table-card" id="attendanceTableCard">
+              <div class="card-top" style="user-select: none;">
+                <div onclick="toggleTableCard()" style="cursor: pointer; display: flex; flex-direction: column; flex-grow: 1;">
+                  <div class="card-title" style="display: flex; align-items: center; gap: 8px;">
+                    บันทึกการเข้า-ออกงานบุคลากร
+                    <i id="tableCollapseIcon" class="bi bi-chevron-up" style="transition: transform 0.3s; font-size: 14px; opacity: 0.7;"></i>
+                  </div>
+                  <div class="card-sub" id="tableSubtitle">กะเช้า 08:00–16:00 | กะบ่าย 16:00–24:00 | กะดึก 00:00–08:00</div>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <button class="btn-outline-dark" onclick="exportCSV()"><i class="bi bi-file-earmark-excel"></i>
+                    Excel</button>
+                  <button class="btn-outline-dark" onclick="window.print()"><i class="bi bi-printer"></i> พิมพ์</button>
+                  <button class="btn-outline-dark" onclick="toggleTableCard()" title="ย่อ/ขยายตาราง" style="width:34px; height:34px; display:flex; align-items:center; justify-content:center; padding:0;"><i id="tableCollapseIconBtn" class="bi bi-chevron-up" style="font-size:14px; transition: transform 0.3s;"></i></button>
+                </div>
+              </div>
+              <div id="tableCardContent" class="table-card-content">
+                <div style="overflow-x:auto;">
+                  <table class="att-tbl">
+                    <thead>
+                      <tr>
+                        <th>#</th>
+                        <th>บุคลากร</th>
+                        <th>แผนก / ตำแหน่ง</th>
+                        <th>กะ</th>
+                        <th>สถานะ</th>
+                        <th>เวลาเข้า</th>
+                        <th>เวลาออก</th>
+                        <th>ชั่วโมงทำงาน</th>
+                        <th>OT</th>
+                        <th class="admin-col">ความแม่นยำ</th>
+                        <th class="admin-col">จัดการ</th>
+                      </tr>
+                    </thead>
+                    <tbody id="tableBody"></tbody>
+                  </table>
+                </div>
+                <div class="pager">
+                  <div class="pager-info" id="pagerInfo">แสดง 0 รายการ</div>
+                  <nav>
+                    <ul class="pagination pagination-sm mb-0 gap-1" id="pagination"></ul>
+                  </nav>
+                </div>
+              </div>
+            </div>
+
+            <!-- BOTTOM GRID -->
+            <div class="bottom-grid">
+
+              <!-- TIMELINE -->
+              <div class="panel">
+                <div class="panel-head">
+                  <div>
+                    <div class="panel-title">ประวัติสแกนล่าสุด</div>
+                    <div class="panel-sub">การเคลื่อนไหวแบบเรียลไทม์</div>
+                  </div>
+                  <div class="live-pill"><span class="live-dot"></span> สด</div>
+                </div>
+                <div class="tl-list" id="timeline"></div>
+              </div>
+
+              <!-- SERVICE WORK / LEAVE TABLE -->
+              <div class="panel" style="flex:1;">
+                <div class="panel-head">
+                  <div>
+                    <div class="panel-title">แจ้งสถานะ ไปราชการ / ลา</div>
+                    <div class="panel-sub">ข้อมูลประจำวันนี้ (Service Work & Leave)</div>
+                  </div>
+                  <div style="font-size:12px; font-weight:700; color:var(--primary);">วันปัจจุบัน</div>
+                </div>
+                <div style="overflow-x:auto; padding:12px;">
+                  <table class="att-tbl" style="margin:0; border:none; box-shadow:none;">
+                    <thead>
+                      <tr style="background:#F8FAFC;">
+                        <th style="font-size:11px;">บุคลากร</th>
+                        <th style="font-size:11px;">ช่วงเช้า</th>
+                        <th style="font-size:11px;">ช่วงบ่าย</th>
+                      </tr>
+                    </thead>
+                    <tbody id="serviceWorkBody" style="font-size:12px;">
+                      <!-- Data -->
+                    </tbody>
+                  </table>
+                  <div id="serviceWorkEmpty" style="display:none; text-align:center; padding:20px; color:var(--muted); font-size:12px;">ไม่มีข้อมูลการแจ้งลา/ไปราชการในวันนี้</div>
+                </div>
+              </div>
+            </div>
+
+          </div><!-- /page -->
+        </div><!-- /main -->
+
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+        <script>
+          /* ================================================================
+             DATA
+          ================================================================ */
+          const AV_COLORS = ['#4F46E5', '#059669', '#D97706', '#DC2626', '#7C3AED', '#0891B2', '#DB2777', '#16A34A'];
+          const PROFESSIONS = ['พยาบาลวิชาชีพ', 'แพทย์', 'เภสัชกร', 'นักกายภาพ', 'เจ้าหน้าที่X-ray', 'นักเทคนิคการแพทย์'];
+          const DEPTS = [
+            'กลุ่มงานประกันสุขภาพยุทธศาสตร์', 'กลุ่มงานบริหารทั่วไป', 'กลุ่มงานบริการด้านปฐมภูมิและองค์รวม',
+            'กลุ่มงานเภสัชกรรมและคุ้มครองผู้บริโภค', 'กลุ่มงานสุขภาพดิจิทัล', 'กลุ่มงานการพยาบาล',
+            'กลุ่มงานทันตกรรม', 'กลุ่มงานเทคนิคการแพทย์', 'กลุ่มงานเวชกรรมฟื้นฟู',
+            'กลุ่มงานการแพทย์แผนไทยและการแพทย์ทางเลือก', 'กลุ่มงานรังสีวิทยา', 'กลุ่มงานจิตเวชและยาเสพติด',
+            'กลุ่มงานการแพทย์'
+          ];
+          const DEPT_COLORS = [
+            '#EF4444', '#7C3AED', '#3B82F6', '#059669', '#F59E0B', '#0891B2', '#EC4899',
+            '#14B8A6', '#6366F1', '#F43F5E', '#10B981', '#8B5CF6', '#D946EF'
+          ];
+
+          const SHIFTS = {
+            morning: { label: 'กะเช้า', emoji: '🌅', time: '08:00–16:00', cls: 'morning', start: '08:00', end: '16:00' },
+            afternoon: { label: 'กะบ่าย', emoji: '🌤️', time: '16:00–24:00', cls: 'afternoon', start: '16:00', end: '24:00' },
+            night: { label: 'กะดึก', emoji: '🌙', time: '00:00–08:00', cls: 'night', start: '00:00', end: '08:00' },
+          };
+
+          let employees = [];
+          let timelineData = [];
+          let scanQueue = [];
+          let serviceWorkData = [];
+
+          /* ================================================================
+             STATE
+          ================================================================ */
+
+          let currentPage = 1;
+          const PER_PAGE = 8;
+          let filteredData = [];
+
+          /* ================================================================
+             DEPT OVERVIEW
+          ================================================================ */
+          function computeDeptStats(dept) {
+            const data = employees.filter(e => e.dept === dept);
+            const total = data.length;
+            const present = data.filter(e => e.status === 'in' || e.status === 'out' || e.status === 'late').length;
+            const late = data.filter(e => e.status === 'late').length;
+            const absent = data.filter(e => e.status === 'none' || e.status === '').length;
+            const leave = data.filter(e => e.status === 'leave').length;
+            const pct = total > 0 ? Math.round(present / total * 100) : 0;
+            return { total, present, late, absent, leave, pct };
+          }
+
+
+          /* ================================================================
+             STAT ROW
+          ================================================================ */
+          function renderStats() {
+            document.getElementById('totalStaff').textContent = employees.length;
+            document.getElementById('totalIn').textContent = employees.filter(e => e.status === 'in' || e.status === 'late').length;
+            document.getElementById('totalOut').textContent = employees.filter(e => e.status === 'out').length;
+            document.getElementById('totalLate').textContent = employees.filter(e => e.status === 'late').length;
+            document.getElementById('totalLeave').textContent = employees.filter(e => e.status === 'leave').length;
+            document.getElementById('totalAbsent').textContent = employees.filter(e => e.status === 'none' || e.status === '').length;
+          }
+
+          /* ================================================================
+             TAB BADGES
+          ================================================================ */
+          function renderBadges() {
+            // Logic for department tabs removed
+          }
+
+
+
+          /* ================================================================
+             FILTER & TABLE
+          ================================================================ */
+          function applyFilter() {
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const dept = document.getElementById('deptFilter').value;
+            // const status = document.getElementById('statusFilter').value; // removed
+            const shift = document.getElementById('shiftFilter').value;
+
+            filteredData = employees.filter(e => {
+              const matchDept = !dept || e.dept === dept;
+              // const matchStatus = !status || e.status === status; // removed
+              const matchShift = shift === 'all' || e.shift === shift;
+              const matchSearch = !search || 
+                e.name.toLowerCase().includes(search) || 
+                (e.id && e.id.toLowerCase().includes(search)) ||
+                (e.dept && e.dept.toLowerCase().includes(search));
+              return matchDept && matchShift && matchSearch;
+            });
+            currentPage = 1;
+            renderTable();
+          }
+
+          /* ================================================================
+             RENDER TABLE
+          ================================================================ */
+          const SHIFT_PILL = {
+            morning: '<span class="shift-pill pill-m">🌅 เช้า</span>',
+            afternoon: '<span class="shift-pill pill-a">🌤️ บ่าย</span>',
+            night: '<span class="shift-pill pill-n">🌙 ดึก</span>',
+          };
+          const STATUS_CHIP = {
+            'in': '<span class="status-chip chip-in">เข้างาน</span>',
+            'out': '<span class="status-chip chip-out">ออกงาน</span>',
+            'late': '<span class="status-chip chip-late">มาสาย</span>',
+            'leave': '<span class="status-chip" style="background:#FEF3C7; color:#D97706; border-color:#FCD34D;">ลา</span>',
+            'none': '<span class="status-chip chip-absent">ยังไม่มา</span>',
+            '': '<span style="color:var(--muted)">-</span>'
+          };
+
+          function renderTable() {
+            const start = (currentPage - 1) * PER_PAGE;
+            const pageData = filteredData.slice(start, start + PER_PAGE);
+            const tbody = document.getElementById('tableBody');
+
+            tbody.innerHTML = pageData.map((e, i) => {
+              const color = AV_COLORS[(employees.indexOf(e)) % AV_COLORS.length];
+              const init = e.name && e.name.length > 0 ? e.name.charAt(0) : 'A';
+              const outCls = e.out && e.out !== '' && e.out !== '-' ? 'out' : 'none';
+
+              // Fallback status if empty
+              const stat = e.status || '';
+              const shiftDisplay = (e.shift && SHIFTS[e.shift.toLowerCase()]) ? SHIFTS[e.shift.toLowerCase()].label : (e.shift || '-');
+
+              let statusHtml = STATUS_CHIP[stat] || stat;
+              if (stat === 'leave' && e.leave_status) {
+                statusHtml = `<span class="status-chip" style="background:#FEF3C7; color:#D97706; border-color:#FCD34D;">${e.leave_status}</span>`;
+              }
+
+              const confHtml = e.conf > 0
+                ? `<div><div class="conf-bar"><div class="conf-fill" style="width:${e.conf}%;background:${e.conf >= 97 ? '#10B981' : e.conf >= 93 ? '#F59E0B' : '#EF4444'}"></div></div><span style="font-size:11px;font-weight:700;">${e.conf}%</span></div>`
+                : `<span style="font-size:12px;color:var(--muted)">-</span>`;
+              const otHtml = e.ot ? `<span class="status-chip chip-ot">${e.ot}</span>` : `<span style="font-size:12px;color:var(--muted)">-</span>`;
+
+              const hasAdminAccess = checkPermission('edit_staff');
+              const adminCols = hasAdminAccess ? `
+      <td>${confHtml}</td>
+      <td>
+        <div style="display:flex;gap:4px;">
+          <div class="act-btn" title="ดูข้อมูล" onclick="openStaffDetail('${e.id}')"><i class="bi bi-person-vcard"></i></div>
+          <div class="act-btn" title="ตารางเวร" onclick="viewStaff('${e.id}')"><i class="bi bi-calendar2-week"></i></div>
+        </div>
+      </td>` : '';
+
+              return `<tr>
+      <td style="color:var(--muted);font-size:11.5px;">${start + i + 1}</td>
+      <td onclick="if(${hasAdminAccess}){openStaffDetail('${e.id}')}" style="cursor:${hasAdminAccess ? 'pointer' : 'default'};">
+        <div style="display:flex;align-items:center;gap:9px;">
+          <div class="av" style="background:${color}">${init}</div>
+          <div>
+            <div style="font-size:13px;font-weight:600;color:var(--primary);${hasAdminAccess ? 'text-decoration:underline dotted;text-underline-offset:3px;' : ''}">${maskSensitiveData(e.name || 'ไม่มีชื่อ', 'view_name', e.id)}</div>
+            <div style="font-size:11px;color:var(--muted);">${maskSensitiveData(e.id || '', 'view_id', e.id)} ${e.role || ''}</div>
+          </div>
+        </div>
+      </td>
+      <td><span style="font-size:12px;background:var(--surface);padding:2px 9px;border-radius:6px;font-weight:600;">${e.dept}</span></td>
+      <td><span style="font-weight:500; color:var(--muted);">${shiftDisplay}</span></td>
+      <td>${statusHtml}</td>
+      <td><span class="time-tag">${e.in || '-'}</span></td>
+      <td><span class="time-tag ${outCls}">${e.out || '-'}</span></td>
+      <td style="font-size:13px;font-weight:700;color:var(--primary);">${e.hours || '0'}</td>
+      <td>${otHtml}</td>
+      ${adminCols}
+    </tr>`;
+            }).join('');
+
+            document.getElementById('rowCountSpan').textContent = filteredData.length;
+            document.getElementById('pagerInfo').textContent = `แสดง ${start + 1}–${Math.min(start + PER_PAGE, filteredData.length)} จาก ${filteredData.length} รายการ`;
+            
+            // Hide admin headers if staff and RBAC is enabled
+            if(!checkPermission('edit_staff')) {
+              document.querySelectorAll('.admin-col').forEach(el => el.style.display = 'none');
+            } else {
+              document.querySelectorAll('.admin-col').forEach(el => el.style.display = '');
+            }
+            
+            renderPagination();
+          }
+
+          function renderPagination() {
+            const totalPages = Math.ceil(filteredData.length / PER_PAGE);
+            const ul = document.getElementById('pagination');
+            ul.innerHTML = '';
+            const prev = document.createElement('li');
+            prev.className = 'page-item' + (currentPage === 1 ? ' disabled' : '');
+            prev.innerHTML = `<a class="page-link" href="#" onclick="goPage(${currentPage - 1})">&laquo;</a>`;
+            ul.appendChild(prev);
+            // Show maximum 5 pages around current page
+            let maxShow = 5;
+            let startPage = Math.max(1, currentPage - Math.floor(maxShow / 2));
+            let endPage = Math.min(totalPages, startPage + maxShow - 1);
+            if (endPage - startPage + 1 < maxShow) {
+              startPage = Math.max(1, endPage - maxShow + 1);
+            }
+
+            for (let p = startPage; p <= endPage; p++) {
+              const li = document.createElement('li');
+              li.className = 'page-item' + (p === currentPage ? ' active' : '');
+              li.innerHTML = `<a class="page-link" href="#" onclick="goPage(${p})">${p}</a>`;
+              ul.appendChild(li);
+            }
+            const next = document.createElement('li');
+            next.className = 'page-item' + (currentPage === totalPages || totalPages === 0 ? ' disabled' : '');
+            next.innerHTML = `<a class="page-link" href="#" onclick="goPage(${currentPage + 1})">&raquo;</a>`;
+            ul.appendChild(next);
+          }
+
+          function goPage(p) {
+            const totalPages = Math.ceil(filteredData.length / PER_PAGE);
+            if (p < 1 || p > totalPages) return;
+            currentPage = p;
+            renderTable();
+            event.preventDefault();
+          }
+
+          /* ================================================================
+             TIMELINE
+          ================================================================ */
+          function renderTimeline() {
+            const SHIFT_COLOR = { morning: '#F59E0B', afternoon: '#3B82F6', night: '#7C3AED' };
+            const el = document.getElementById('timeline');
+            el.innerHTML = timelineData.map(t => {
+              const cls = t.type === 'in' ? 'in' : t.type === 'out' ? 'out' : 'late';
+              const ic = t.type === 'in' ? 'bi-box-arrow-in-right' : t.type === 'out' ? 'bi-box-arrow-right' : 'bi-clock-history';
+              const sc = SHIFT_COLOR[t.shift] || '#999';
+              const shiftLabel = (t.shift && SHIFTS[t.shift]) ? ` · <span style="color:${sc};font-weight:600;">${SHIFTS[t.shift].label}</span>` : '';
+              const locationLabel = t.location ? ` · <span style="color:var(--primary);"><i class="bi bi-geo-alt-fill"></i> ${t.location}</span>` : '';
+              const tempLabel = t.temp ? ` · <span class="badge ${t.tempStatus === 'Normal' ? 'bg-success' : 'bg-danger'}" style="font-size:10px;"><i class="bi bi-thermometer-half"></i> ${t.temp}°C</span>` : '';
+              return `<div class="tl-item">
+      <div class="tl-icon ${cls}"><i class="bi ${ic}"></i></div>
+      <div class="tl-body">
+        <div class="tl-name">${maskSensitiveData(t.name, 'view_name', t.id)}</div>
+        <div class="tl-meta">${t.dept}${shiftLabel}${locationLabel}${tempLabel} · ${t.action}</div>
+      </div>
+      <div class="tl-time">${t.time}</div>
+    </div>`;
+            }).join('');
+          }
+
+          /* ================================================================
+             SERVICE WORK / LEAVE
+          ================================================================ */
+          function renderServiceWork() {
+            const tbody = document.getElementById('serviceWorkBody');
+            const empty = document.getElementById('serviceWorkEmpty');
+            if (!serviceWorkData || serviceWorkData.length === 0) {
+              tbody.innerHTML = '';
+              empty.style.display = 'block';
+              return;
+            }
+            empty.style.display = 'none';
+            tbody.innerHTML = serviceWorkData.map(s => {
+              return `<tr>
+                <td>
+                  <div style="font-weight:600;">${maskSensitiveData(s.name, 'view_name', s.id)}</div>
+                  <div style="font-size:10px; color:var(--muted);">${s.dept}</div>
+                </td>
+                <td><span class="status-chip" style="background:#E0F2FE; color:#0369A1; border-color:#BAE6FD;">${s.morning || '-'}</span></td>
+                <td><span class="status-chip" style="background:#F0F9FF; color:#0369A1; border-color:#BAE6FD;">${s.afternoon || '-'}</span></td>
+              </tr>`;
+            }).join('');
+          }
+
+          /* ================================================================
+             EXPORT
+          ================================================================ */
+          function exportCSV() {
+            let csv = 'ลำดับ,รหัส,ชื่อ,แผนก,กะ,สถานะ,เวลาเข้า,เวลาออก,ชั่วโมงทำงาน,OT,ความแม่นยำ\n';
+            filteredData.forEach((e, index) => {
+              const shiftStr = (e.shift && SHIFTS[e.shift.toLowerCase()]) ? SHIFTS[e.shift.toLowerCase()].label : (e.shift || '-');
+              const statusMap = { 'in': 'เข้างาน', 'out': 'ออกงาน', 'late': 'มาสาย', 'leave': e.leave_status || 'ลา', 'none': 'ยังไม่มา', '': '-' };
+              const statStr = statusMap[e.status || ''] || e.status || '-';
+              csv += `${index + 1},"${e.id || '-'}","${e.name || '-'}","${e.dept || '-'}","${shiftStr}","${statStr}","${e.in || '-'}","${e.out || '-'}","${e.hours || '0'}","${e.ot || '-'}","${e.conf > 0 ? e.conf + '%' : '-'}"\n`;
+            });
+            const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'hospital_attendance_' + new Date().toISOString().split('T')[0] + '.csv';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+          }
+
+          /* ================================================================
+             DATE / INIT
+          ================================================================ */
+          function setDate() {
+            const now = new Date();
+            const dateInput = document.getElementById('dateInput');
+            if (!dateInput.value) {
+              dateInput.value = now.toISOString().split('T')[0];
+            }
+            if (window.updateTopbarClock) {
+              window.updateTopbarClock();
+            }
+          }
+
+          document.getElementById('dateInput').addEventListener('change', function(e) {
+            const selectedDate = e.target.value;
+            fetchData(selectedDate);
+          });
+
+          async function fetchData(date) {
+            try {
+              const s = loadSettings();
+              const lateMin = s.lateMin || 31;
+              const workStart = s.workStart || '08:00';
+              
+              let url = `/api/data?date=${date || ''}&lateMin=${lateMin}&workStart=${workStart}`;
+              const res = await fetch(url, { headers: { 'Accept-Charset': 'utf-8' } });
+              if (res.ok) {
+                const db = await res.json();
+                employees = db.employees || [];
+                timelineData = db.timelineData || [];
+                scanQueue = db.scanQueue || [];
+                serviceWorkData = db.serviceWorkData || [];
+                
+                // If date was provided, update the header subtitle or state
+                if (date) {
+                  if (window.updateTopbarClock) {
+                    window.updateTopbarClock();
+                  }
+                }
+              }
+            } catch (err) {
+              console.error('API Error:', err);
+            }
+
+            renderStats();
+            renderBadges();
+            applyFilter();
+            renderTimeline();
+            renderServiceWork();
+          }
+
+          async function init() {
+            setDate();
+            const initialDate = document.getElementById('dateInput').value;
+            await fetchData(initialDate);
+          }
+
+          async function refreshData(btn) {
+            const icon = btn ? btn.querySelector('i') : null;
+            if (icon) icon.style.animation = 'spin 0.7s linear infinite';
+            if (btn) btn.style.pointerEvents = 'none';
+            const date = document.getElementById('dateInput').value;
+            await fetchData(date);
+            if (icon) icon.style.animation = '';
+            if (btn) btn.style.pointerEvents = '';
+          }
+
+
+          // init() moved to the end of the file to ensure all settings functions are loaded
+        </script>
+<!-- ========================================================
+     SETTINGS MODAL
+     ======================================================== -->
+
+<div id="settingsModal" style="
+  display:none; position:fixed; inset:0; z-index:9999;
+  background:rgba(0,0,0,0.45); backdrop-filter:blur(4px);
+  align-items:center; justify-content:center;">
+  <div style="
+    background:var(--card,#fff); border-radius:18px; width:660px; max-width:96vw;
+    max-height:90vh; overflow:hidden; box-shadow:0 24px 64px rgba(0,0,0,0.22);
+    display:flex; flex-direction:column; animation:slideUp .25s ease;">
+
+    <!-- Header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:22px 28px 16px;border-bottom:1px solid var(--border,#E2E8F0);">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div style="background:linear-gradient(135deg,#6366F1,#8B5CF6);border-radius:10px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;">
+          <i class="bi bi-gear-fill" style="color:#fff;font-size:18px;"></i>
+        </div>
+        <div>
+          <div style="font-size:17px;font-weight:700;color:var(--text,#1E293B);">ตั้งค่าระบบ</div>
+          <div style="font-size:12px;color:var(--muted,#94A3B8);">System Settings</div>
+        </div>
+      </div>
+      <button onclick="closeSettings()" style="border:none;background:var(--surface,#F8FAFC);border-radius:8px;width:36px;height:36px;cursor:pointer;font-size:18px;color:var(--muted,#94A3B8);">✕</button>
+    </div>
+
+    <!-- Tabs -->
+    <div style="display:flex;gap:4px;padding:14px 28px 0;border-bottom:1px solid var(--border,#E2E8F0);">
+      <button class="stab active" id="stab-1" onclick="switchSettingsTab(1)">
+        <i class="bi bi-sliders"></i> ตั้งค่าทำงาน
+      </button>
+      <button class="stab" id="stab-2" onclick="switchSettingsTab(2)">
+        <i class="bi bi-clock"></i> ตั้งเวลาทำงานบุคลากร
+      </button>
+      <button class="stab" id="stab-3" onclick="switchSettingsTab(3)">
+        <i class="bi bi-calendar3"></i> ตั้งค่าประเภทเวร
+      </button>
+    </div>
+
+    <!-- Body (scrollable) -->
+    <div style="flex:1;overflow-y:auto;padding:24px 28px;">
+
+      <!-- TAB 1: Work Settings -->
+      <div id="spanel-1" class="spanel">
+        <div class="sgroup">
+          <label class="slabel">เวลาเริ่มงาน (เช้า)</label>
+          <input type="time" id="s-work-start" class="sinput" value="08:00">
+        </div>
+        <div class="sgroup">
+          <label class="slabel">เวลาเลิกงาน (เช้า)</label>
+          <input type="time" id="s-work-end" class="sinput" value="16:00">
+        </div>
+        <div class="sgroup">
+          <label class="slabel">เกณฑ์มาสาย (นาที หลังเวลาเริ่มงาน)</label>
+          <input type="number" id="s-late-min" class="sinput" value="31" min="1" max="120">
+        </div>
+        <div class="sgroup">
+          <label class="slabel">วันทำงาน</label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;">
+            <% const days = ['อา','จ','อ','พ','พฤ','ศ','ส']; %>
+            <% const dayIds = ['sun','mon','tue','wed','thu','fri','sat']; %>
+            <% for(let d=0;d<7;d++){ %>
+            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;">
+              <input type="checkbox" id="s-day-<%= dayIds[d] %>" <%= (d>=1&&d<=5)?'checked':'' %>>
+              <span style="font-size:13px;"><%= days[d] %></span>
+            </label>
+            <% } %>
+          </div>
+        </div>
+        <div class="sgroup">
+          <label class="slabel">ระบบส่งรายงานอัตโนมัติ</label>
+          <select id="s-auto-report" class="sinput">
+            <option value="none">ไม่ส่ง</option>
+            <option value="daily" selected>รายวัน</option>
+            <option value="weekly">รายสัปดาห์</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- TAB 2: Staff Work Hours -->
+      <div id="spanel-2" class="spanel" style="display:none;">
+        <div style="margin-bottom:14px;font-size:13px;color:var(--muted,#94A3B8);">กำหนดเวลาเริ่ม–สิ้นสุดงานตามประเภทบุคลากร</div>
+
+        <% const staffTypes = [
+          { id:'doctor', label:'แพทย์', icon:'bi-person-badge' },
+          { id:'nurse', label:'พยาบาล', icon:'bi-heart-pulse' },
+          { id:'staff', label:'เจ้าหน้าที่ทั่วไป', icon:'bi-people' },
+          { id:'support', label:'บุคลากรสนับสนุน', icon:'bi-tools' }
+        ]; %>
+
+        <% staffTypes.forEach(function(st){ %>
+        <div style="background:var(--surface,#F8FAFC);border-radius:12px;padding:14px 16px;margin-bottom:10px;border:1px solid var(--border,#E2E8F0);">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+            <i class="bi <%= st.icon %>" style="color:#6366F1;font-size:16px;"></i>
+            <span style="font-size:13px;font-weight:600;"><%= st.label %></span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+            <div>
+              <label style="font-size:11px;color:var(--muted,#94A3B8);display:block;margin-bottom:4px;">เวลาเริ่ม</label>
+              <input type="time" id="s-<%= st.id %>-start" class="sinput" value="08:00">
+            </div>
+            <div>
+              <label style="font-size:11px;color:var(--muted,#94A3B8);display:block;margin-bottom:4px;">เวลาสิ้นสุด</label>
+              <input type="time" id="s-<%= st.id %>-end" class="sinput" value="16:00">
+            </div>
+            <div>
+              <label style="font-size:11px;color:var(--muted,#94A3B8);display:block;margin-bottom:4px;">OT เริ่มหลัง (ชม.)</label>
+              <input type="number" id="s-<%= st.id %>-ot" class="sinput" value="8" min="1" max="24">
+            </div>
+          </div>
+        </div>
+        <% }); %>
+      </div>
+
+      <!-- TAB 3: Shift Types -->
+      <div id="spanel-3" class="spanel" style="display:none;">
+        <div style="margin-bottom:14px;font-size:13px;color:var(--muted,#94A3B8);">กำหนดช่วงเวลาและชื่อของแต่ละเวร</div>
+
+        <div id="shiftList">
+          <!-- rendered by JS -->
+        </div>
+
+        <button onclick="addShift()" style="
+          margin-top:8px; width:100%; padding:10px; border:2px dashed #C4B5FD;
+          border-radius:10px; background:none; color:#7C3AED; font-size:13px;
+          font-weight:600; cursor:pointer; transition:all .2s;">
+          <i class="bi bi-plus-circle"></i> เพิ่มประเภทเวร
+        </button>
+      </div>
+
+    </div>
+
+    <!-- Footer -->
+    <div style="display:flex;justify-content:flex-end;gap:10px;padding:16px 28px;border-top:1px solid var(--border,#E2E8F0);">
+      <button onclick="closeSettings()" style="padding:9px 20px;border-radius:9px;border:1px solid var(--border,#E2E8F0);background:none;cursor:pointer;font-size:13px;font-weight:600;color:var(--muted,#94A3B8);">ยกเลิก</button>
+      <button onclick="saveSettings()" style="padding:9px 22px;border-radius:9px;border:none;background:linear-gradient(135deg,#6366F1,#8B5CF6);color:#fff;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 4px 12px rgba(99,102,241,.35);">
+        <i class="bi bi-check2-circle"></i> บันทึกการตั้งค่า
+      </button>
+    </div>
+  </div>
+</div>
+
+<style>
+@keyframes slideUp {
+  from { opacity:0; transform:translateY(20px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+.stab {
+  padding:8px 16px; border:none; background:none; border-radius:8px 8px 0 0;
+  font-size:13px; font-weight:500; color:var(--muted,#94A3B8); cursor:pointer;
+  display:flex; align-items:center; gap:6px; border-bottom:3px solid transparent;
+  transition:all .2s;
+}
+.stab.active {
+  color:#6366F1; border-bottom-color:#6366F1; background:rgba(99,102,241,.07);
+}
+.stab:hover:not(.active) { background:var(--surface,#F8FAFC); }
+.sgroup { margin-bottom:18px; }
+.slabel {
+  display:block; font-size:13px; font-weight:600; color:var(--text,#1E293B);
+  margin-bottom:6px;
+}
+.sinput {
+  width:100%; padding:9px 12px; border:1px solid var(--border,#E2E8F0);
+  border-radius:9px; font-size:13px; background:var(--surface,#F8FAFC);
+  color:var(--text,#1E293B); outline:none; font-family:inherit;
+  transition:border-color .2s;
+}
+.sinput:focus { border-color:#6366F1; box-shadow:0 0 0 3px rgba(99,102,241,.15); }
+.shift-row {
+  display:grid; grid-template-columns:1fr 130px 130px 36px;
+  gap:8px; align-items:center; background:var(--surface,#F8FAFC);
+  border-radius:10px; padding:12px 14px; margin-bottom:8px;
+  border:1px solid var(--border,#E2E8F0);
+}
+</style>
+
+<script>
+  /* =====================================================
+     SETTINGS  —  state & helpers
+     ===================================================== */
+  const SETTINGS_KEY = 'hospital_settings';
+
+  const DEFAULT_SETTINGS = {
+    workStart: '08:00', workEnd: '16:00', lateMin: 31,
+    workDays: ['mon','tue','wed','thu','fri'],
+    autoReport: 'daily',
+    staffHours: {
+      doctor:  { start:'08:00', end:'16:00', ot:8 },
+      nurse:   { start:'07:00', end:'15:00', ot:8 },
+      staff:   { start:'08:00', end:'16:00', ot:8 },
+      support: { start:'08:00', end:'16:00', ot:8 }
+    },
+    shifts: [
+      { name:'เช้า',  start:'08:00', end:'16:00', color:'#F59E0B' },
+      { name:'บ่าย',  start:'16:00', end:'24:00', color:'#3B82F6' },
+      { name:'ดึก',   start:'00:00', end:'08:00', color:'#7C3AED' }
+    ]
+  };
+
+  function loadSettings() {
+    try { return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || DEFAULT_SETTINGS; }
+    catch { return DEFAULT_SETTINGS; }
+  }
+
+  function openSettings() {
+    const s = loadSettings();
+    // Tab 1
+    document.getElementById('s-work-start').value  = s.workStart;
+    document.getElementById('s-work-end').value    = s.workEnd;
+    document.getElementById('s-late-min').value    = s.lateMin;
+    document.getElementById('s-auto-report').value = s.autoReport;
+    ['sun','mon','tue','wed','thu','fri','sat'].forEach(d => {
+      const el = document.getElementById('s-day-' + d);
+      if (el) el.checked = s.workDays.includes(d);
+    });
+    // Tab 2
+    ['doctor','nurse','staff','support'].forEach(t => {
+      const h = s.staffHours[t] || {};
+      if (document.getElementById('s-' + t + '-start'))
+        document.getElementById('s-' + t + '-start').value = h.start || '08:00';
+      if (document.getElementById('s-' + t + '-end'))
+        document.getElementById('s-' + t + '-end').value = h.end || '16:00';
+      if (document.getElementById('s-' + t + '-ot'))
+        document.getElementById('s-' + t + '-ot').value = h.ot || 8;
+    });
+    // Tab 3 — render shift rows
+    renderShiftList(s.shifts);
+    switchSettingsTab(1);
+    const modal = document.getElementById('settingsModal');
+    modal.style.display = 'flex';
+  }
+
+  function closeSettings() {
+    document.getElementById('settingsModal').style.display = 'none';
+  }
+
+  function switchSettingsTab(n) {
+    [1,2,3].forEach(i => {
+      document.getElementById('stab-' + i).classList.toggle('active', i === n);
+      document.getElementById('spanel-' + i).style.display = i === n ? 'block' : 'none';
+    });
+  }
+
+  /* --- Shift rows --- */
+  let _shifts = [];
+
+  function renderShiftList(shifts) {
+    _shifts = shifts ? JSON.parse(JSON.stringify(shifts)) : [];
+    const el = document.getElementById('shiftList');
+    el.innerHTML = _shifts.map((sh, i) => `
+      <div class="shift-row">
+        <input type="text" class="sinput" value="${sh.name}" placeholder="ชื่อเวร"
+          onchange="_shifts[${i}].name=this.value" style="min-width:0;">
+        <input type="time" class="sinput" value="${sh.start}"
+          onchange="_shifts[${i}].start=this.value">
+        <input type="time" class="sinput" value="${sh.end}"
+          onchange="_shifts[${i}].end=this.value">
+        <button onclick="removeShift(${i})" style="border:none;background:#FEE2E2;color:#EF4444;border-radius:7px;width:34px;height:34px;cursor:pointer;font-size:16px;">✕</button>
+      </div>
+    `).join('');
+  }
+
+  function addShift() {
+    _shifts.push({ name:'เวรใหม่', start:'00:00', end:'08:00', color:'#6366F1' });
+    renderShiftList(_shifts);
+  }
+
+  function removeShift(i) {
+    _shifts.splice(i, 1);
+    renderShiftList(_shifts);
+  }
+
+  function saveSettings() {
+    const days = ['sun','mon','tue','wed','thu','fri','sat'].filter(d => {
+      const el = document.getElementById('s-day-' + d);
+      return el && el.checked;
+    });
+    const staffHours = {};
+    ['doctor','nurse','staff','support'].forEach(t => {
+      staffHours[t] = {
+        start: document.getElementById('s-' + t + '-start')?.value || '08:00',
+        end:   document.getElementById('s-' + t + '-end')?.value   || '16:00',
+        ot:    parseInt(document.getElementById('s-' + t + '-ot')?.value || 8)
+      };
+    });
+    const settings = {
+      workStart:   document.getElementById('s-work-start').value,
+      workEnd:     document.getElementById('s-work-end').value,
+      lateMin:     parseInt(document.getElementById('s-late-min').value),
+      workDays:    days,
+      autoReport:  document.getElementById('s-auto-report').value,
+      staffHours,
+      shifts:      _shifts
+    };
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+
+    // Flash save button
+    const btn = event.currentTarget;
+    const orig = btn.innerHTML;
+    btn.innerHTML = '<i class="bi bi-check-lg"></i> บันทึกแล้ว!';
+    btn.style.background = 'linear-gradient(135deg,#10B981,#059669)';
+    setTimeout(() => {
+      btn.innerHTML = orig;
+      btn.style.background = 'linear-gradient(135deg,#6366F1,#8B5CF6)';
+      closeSettings();
+    }, 1200);
+  }
+
+  // Close on backdrop click
+  document.getElementById('settingsModal').addEventListener('click', function(e) {
+    if (e.target === this) closeSettings();
+  });
+
+  // Accordion Toggle for Personnel Attendance Log
+  function toggleTableCard() {
+    const content = document.getElementById('tableCardContent');
+    const icons = [document.getElementById('tableCollapseIcon'), document.getElementById('tableCollapseIconBtn')];
+    
+    if (!content) return;
+    
+    const isCollapsed = content.classList.toggle('collapsed');
+    
+    // Update both icons (the title chevron and the action button chevron)
+    icons.forEach(icon => {
+      if (icon) {
+        if (isCollapsed) {
+          icon.style.transform = 'rotate(-180deg)';
+        } else {
+          icon.style.transform = 'rotate(0deg)';
+        }
+      }
+    });
+    
+    localStorage.setItem('tableCardCollapsed', isCollapsed ? 'true' : 'false');
+  }
+
+  // Restore Accordion state on load
+  function initTableCollapseState() {
+    const content = document.getElementById('tableCardContent');
+    const icons = [document.getElementById('tableCollapseIcon'), document.getElementById('tableCollapseIconBtn')];
+    const isCollapsed = localStorage.getItem('tableCardCollapsed') === 'true';
+    
+    if (content && isCollapsed) {
+      content.classList.add('collapsed');
+      icons.forEach(icon => {
+        if (icon) {
+          icon.style.transform = 'rotate(-180deg)';
+        }
+      });
+    }
+  }
+
+  // Toggle Advanced Filters Drawer on Mobile
+  function toggleFilterDrawer() {
+    if (window.innerWidth < 768) {
+      const drawer = document.getElementById('filterDrawerContent');
+      const btn = document.getElementById('filterToggleBtn');
+      if (drawer) {
+        const isCollapsed = drawer.classList.toggle('collapsed');
+        if (btn) btn.classList.toggle('active', !isCollapsed);
+      }
+    }
+  }
+
+  // Initialize Filter Drawer State
+  function initFilterDrawer() {
+    if (window.innerWidth < 768) {
+      const drawer = document.getElementById('filterDrawerContent');
+      if (drawer) {
+        drawer.classList.add('collapsed');
+      }
+    }
+  }
+
+  // Restore state before initial fetch
+  initFilterDrawer();
+  initTableCollapseState();
+
+  init();
+</script>
+
+<!-- ============================================================
+     STAFF DETAIL MODAL
+     ============================================================ -->
+<div id="staffModal" style="
+  display:none; position:fixed; inset:0; z-index:9998;
+  background:rgba(0,0,0,0.48); backdrop-filter:blur(5px);
+  align-items:center; justify-content:center; padding:16px;">
+  <div style="
+    background:#fff; border-radius:20px; width:860px; max-width:98vw;
+    max-height:92vh; overflow:hidden; display:flex; flex-direction:column;
+    box-shadow:0 28px 72px rgba(0,0,0,.28); animation:staffModalIn .28s ease;">
+
+    <!-- Modal Header -->
+    <div id="staffModalHeader" style="
+      padding:0 28px; height:88px; display:flex; align-items:center;
+      justify-content:space-between; flex-shrink:0;
+      background:var(--gradient); border-radius:20px 20px 0 0;">
+      <div style="display:flex;align-items:center;gap:14px;">
+        <div id="smAv" style="width:52px;height:52px;border-radius:50%;background:rgba(255,255,255,.25);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;color:#fff;border:2px solid rgba(255,255,255,.4);"></div>
+        <div>
+          <div id="smName" style="font-size:18px;font-weight:800;color:#fff;"></div>
+          <div id="smMeta" style="font-size:12px;color:rgba(255,255,255,.7);margin-top:2px;"></div>
+        </div>
+      </div>
+      <button onclick="closeStaffModal()" style="border:none;background:rgba(255,255,255,.18);border-radius:10px;width:36px;height:36px;cursor:pointer;font-size:18px;color:#fff;display:flex;align-items:center;justify-content:center;">✕</button>
+    </div>
+
+    <!-- Info Chips row -->
+    <div id="smChips" style="padding:14px 28px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#F8FAFC;flex-shrink:0;"></div>
+
+    <!-- Scrollable body -->
+    <div style="flex:1;overflow-y:auto;padding:22px 28px 28px;">
+
+      <!-- Calendar section heading -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+        <div>
+          <div style="font-size:15px;font-weight:800;color:var(--primary);">
+            <i class="bi bi-calendar2-week" style="margin-right:7px;"></i>
+            ตารางเวรประจำเดือน <span id="smCalTitle"></span>
+          </div>
+          <div style="font-size:11.5px;color:var(--muted);margin-top:3px;">แสดงกะงาน + เวลาเข้า-ออก + สถานะลา</div>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button onclick="smChangeMonth(-1)" style="border:1px solid var(--border);background:#fff;border-radius:8px;width:32px;height:32px;cursor:pointer;font-size:14px;color:var(--primary);"><i class="bi bi-chevron-left"></i></button>
+          <button onclick="smChangeMonth(1)"  style="border:1px solid var(--border);background:#fff;border-radius:8px;width:32px;height:32px;cursor:pointer;font-size:14px;color:var(--primary);"><i class="bi bi-chevron-right"></i></button>
+        </div>
+      </div>
+
+      <!-- Calendar Grid -->
+      <div id="smCalendar" style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;"></div>
+
+      <!-- Legend -->
+      <div style="margin-top:16px;display:flex;gap:16px;flex-wrap:wrap;font-size:11.5px;color:var(--muted);">
+        <span><span style="display:inline-block;width:10px;height:10px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:2px;margin-right:4px;"></span>เวรเช้า</span>
+        <span><span style="display:inline-block;width:10px;height:10px;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:2px;margin-right:4px;"></span>เวรบ่าย</span>
+        <span><span style="display:inline-block;width:10px;height:10px;background:#F5F3FF;border:1px solid #DDD6FE;border-radius:2px;margin-right:4px;"></span>เวรดึก</span>
+        <span><span style="display:inline-block;width:10px;height:10px;background:#FEF3C7;border:1px solid #FDE68A;border-radius:2px;margin-right:4px;"></span>ลา</span>
+        <span><span style="display:inline-block;width:10px;height:10px;background:#F1F5F9;border:1px solid #E2E8F0;border-radius:2px;margin-right:4px;"></span>OFF</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+@keyframes staffModalIn {
+  from { opacity:0; transform:translateY(22px) scale(.98); }
+  to   { opacity:1; transform:translateY(0)    scale(1); }
+}
+.sm-day {
+  border-radius: 10px;
+  padding: 7px 6px;
+  border: 1px solid var(--border);
+  background: #F8FAFC;
+  min-height: 72px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  position: relative;
+  transition: transform .15s;
+}
+.sm-day:hover { transform: scale(1.03); z-index: 2; }
+.sm-day-num {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--muted);
+}
+.sm-day.today .sm-day-num {
+  background: var(--primary);
+  color: #fff;
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+}
+.sm-day.morning  { background:#FFFBEB; border-color:#FDE68A; }
+.sm-day.afternoon{ background:#EFF6FF; border-color:#BFDBFE; }
+.sm-day.night    { background:#F5F3FF; border-color:#DDD6FE; }
+.sm-day.leave    { background:#FEF3C7; border-color:#FCD34D; }
+.sm-day.weekend  { background:#FAFAFA; }
+.sm-shift-tag {
+  font-size: 9.5px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 6px;
+  display: inline-block;
+  line-height: 1.5;
+}
+.sm-time {
+  font-size: 9px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.sm-dow-header {
+  text-align: center;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 4px 0;
+}
+</style>
+
+<script>
+/* =============================================================
+   STAFF MODAL — State
+   ============================================================= */
+let _smStaffId  = null;
+let _smYear     = null;
+let _smMonth    = null;
+let _smEmployee = null;
+
+const DAY_NAMES = ['อา','จ','อ','พ','พฤ','ศ','ส'];
+const MONTH_TH  = ['','มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+
+/* Open modal for a given staff ID */
+function viewStaff(id) {
+  const emp = employees.find(e => e.id === id);
+  if (!emp) return;
+
+  _smEmployee = emp;
+  _smStaffId  = id;
+  const now   = new Date();
+  _smYear  = now.getFullYear();
+  _smMonth = now.getMonth() + 1;
+
+  // Header
+  const colorIdx = employees.indexOf(emp) % AV_COLORS.length;
+  const color    = AV_COLORS[colorIdx];
+  const init     = emp.name ? emp.name.charAt(0) : '?';
+
+  document.getElementById('smAv').textContent   = init;
+  document.getElementById('smAv').style.background = color;
+  document.getElementById('smName').textContent = emp.name || '—';
+  document.getElementById('smMeta').textContent = `${emp.id || ''} • ${emp.dept || ''}`;
+
+  // Status chips
+  const stat = emp.status || '';
+  const statMap = {
+    'in':    '<span class="status-chip chip-in">เข้างาน</span>',
+    'out':   '<span class="status-chip chip-out">ออกงาน</span>',
+    'late':  '<span class="status-chip chip-late">มาสาย</span>',
+    'leave': '<span class="status-chip" style="background:#FEF3C7;color:#D97706;border:1px solid #FCD34D;">ลา</span>',
+    'none':  '<span class="status-chip chip-absent">ยังไม่มา</span>',
+    '':      '<span style="color:var(--muted);font-size:12px;">—</span>'
+  };
+  const shiftKey = emp.shift?.toLowerCase();
+  const shiftLabel = (shiftKey && SHIFTS[shiftKey]) ? SHIFTS[shiftKey].label : (emp.shift || '—');
+
+  document.getElementById('smChips').innerHTML = `
+    <span style="font-size:12px;font-weight:600;color:var(--muted);"><i class="bi bi-person-badge"></i> ${emp.role || '—'}</span>
+    <span style="color:var(--border);">|</span>
+    <span style="font-size:12px;color:var(--muted);"><i class="bi bi-building"></i> ${emp.dept || '—'}</span>
+    <span style="color:var(--border);">|</span>
+    <span style="font-size:12px;color:var(--muted);"><i class="bi bi-clock"></i> ${shiftLabel}</span>
+    <span style="color:var(--border);">|</span>
+    ${statMap[stat] || stat}
+    ${ emp.in  ? `<span class="time-tag" style="margin-left:4px;"><i class="bi bi-box-arrow-in-right"></i> ${emp.in}</span>`  : '' }
+    ${ emp.out ? `<span class="time-tag out"><i class="bi bi-box-arrow-right"></i> ${emp.out}</span>` : '' }
+    ${ emp.hours && emp.hours !== '0' ? `<span class="status-chip chip-in" style="margin-left:4px;"><i class="bi bi-hourglass-split"></i> ${emp.hours} ชม.</span>` : '' }
+  `;
+
+  // Show modal
+  const modal = document.getElementById('staffModal');
+  modal.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+
+  // Render calendar
+  renderStaffCalendar(_smStaffId, _smYear, _smMonth);
+}
+
+function closeStaffModal() {
+  document.getElementById('staffModal').style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+// Close on backdrop
+document.getElementById('staffModal').addEventListener('click', function(e) {
+  if (e.target === this) closeStaffModal();
+});
+
+/* Navigate month inside modal */
+function smChangeMonth(delta) {
+  _smMonth += delta;
+  if (_smMonth > 12) { _smMonth = 1;  _smYear++; }
+  if (_smMonth < 1)  { _smMonth = 12; _smYear--; }
+  renderStaffCalendar(_smStaffId, _smYear, _smMonth);
+}
+
+/* =============================================================
+   RENDER STAFF CALENDAR
+   ============================================================= */
+async function renderStaffCalendar(staffId, year, month) {
+  const cal  = document.getElementById('smCalendar');
+  const title = document.getElementById('smCalTitle');
+  if (!cal) return;
+
+  title.textContent = `${MONTH_TH[month]} ${year + 543}`;
+  cal.innerHTML = `
+    <div style="grid-column:1/-1;display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:4px;">
+      ${DAY_NAMES.map(d => `<div class="sm-dow-header">${d}</div>`).join('')}
+    </div>`;
+
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const firstDow    = new Date(year, month - 1, 1).getDay(); // 0=Sun
+  const todayStr    = new Date().toISOString().split('T')[0];
+  const settings    = loadSettings();
+
+  // ── Fetch shift schedule for this staff member & month ──
+  let shiftMap  = {}; // { day: shiftName }
+  let leaveDays = {}; // { day: true }
+  let timesMap  = {}; // { day: { in, out } }
+
+  try {
+    const yearMonth = `${year}-${String(month).padStart(2,'0')}`;
+    const res = await fetch(`/api/schedule/staff/${encodeURIComponent(staffId)}/${yearMonth}`, { headers: { 'Accept-Charset': 'utf-8' } });
+    if (res.ok) {
+      const data = await res.json();
+      (data.shifts  || []).forEach(s => { shiftMap[s.day]  = s.shift; });
+      (data.leaves  || []).forEach(l => { leaveDays[l.day] = true; });
+      (data.times   || []).forEach(t => { timesMap[t.day]  = { in: t.time_in, out: t.time_out }; });
+    }
+  } catch (err) {
+    // Fallback: use data we already have in-memory
+    // Check serviceWorkData for today
+    const todayDay = new Date().getDate();
+    if (month === (new Date().getMonth() + 1) && year === new Date().getFullYear()) {
+      const sw = serviceWorkData.find(s => s.name === _smEmployee?.name);
+      if (sw) {
+        const isLeave = (sw.morning  && !/^\d{2}:\d{2}/.test(sw.morning))
+                     || (sw.afternoon && !/^\d{2}:\d{2}/.test(sw.afternoon));
+        if (isLeave) leaveDays[todayDay] = true;
+      }
+      // Time from employee object
+      if (_smEmployee?.in) timesMap[todayDay] = { in: _smEmployee.in, out: _smEmployee.out };
+    }
+  }
+
+  // Shift display config (from settings)
+  const shiftStyleMap = {};
+  (settings.shifts || []).forEach(sh => {
+    if (sh.name === 'เช้า')  shiftStyleMap[sh.name] = { cls: 'morning',   tag: 'morning-tag',   color: sh.color || '#F59E0B', bg: '#FFFBEB', tc: '#92400E' };
+    else if (sh.name === 'บ่าย') shiftStyleMap[sh.name] = { cls: 'afternoon', tag: 'afternoon-tag', color: sh.color || '#3B82F6', bg: '#EFF6FF', tc: '#1E40AF' };
+    else if (sh.name === 'ดึก')  shiftStyleMap[sh.name] = { cls: 'night',     tag: 'night-tag',     color: sh.color || '#7C3AED', bg: '#F5F3FF', tc: '#5B21B6' };
+    else shiftStyleMap[sh.name] = { cls: '', color: sh.color || '#6366F1', bg: '#EEF2FF', tc: '#4F46E5' };
+  });
+
+  // ── Build inner grid ──
+  let html = '';
+
+  // Blank cells before 1st of month
+  for (let b = 0; b < firstDow; b++) {
+    html += `<div style="min-height:72px;"></div>`;
+  }
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const date    = new Date(year, month - 1, d);
+    const dow     = date.getDay();
+    const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const isToday   = dateStr === todayStr;
+    const isWeekend = (dow === 0 || dow === 6);
+    const isLeave   = leaveDays[d];
+    const shift     = shiftMap[d];
+    const times     = timesMap[d];
+
+    // Determine cell style
+    let cellCls = isLeave ? 'leave' : (shift && shiftStyleMap[shift] ? shiftStyleMap[shift].cls : (isWeekend ? 'weekend' : ''));
+    if (isToday) cellCls += ' today';
+
+    // Shift tag
+    let shiftHtml = '';
+    if (isLeave) {
+      shiftHtml = `<span class="sm-shift-tag" style="background:#FEF3C7;color:#D97706;">ลา</span>`;
+    } else if (shift && shiftStyleMap[shift]) {
+      const st = shiftStyleMap[shift];
+      shiftHtml = `<span class="sm-shift-tag" style="background:${st.bg};color:${st.tc};">${shift}</span>`;
+    } else if (shift) {
+      shiftHtml = `<span class="sm-shift-tag" style="background:#EEF2FF;color:#4F46E5;">${shift}</span>`;
+    } else {
+      shiftHtml = `<span style="font-size:9px;color:#CBD5E1;">OFF</span>`;
+    }
+
+    // Time tags
+    let timeHtml = '';
+    if (times?.in) {
+      timeHtml += `<div class="sm-time"><i class="bi bi-box-arrow-in-right" style="color:#10B981;"></i>${times.in.substring(0,5)}</div>`;
+    }
+    if (times?.out && times.out !== times.in) {
+      timeHtml += `<div class="sm-time"><i class="bi bi-box-arrow-right" style="color:#EF4444;"></i>${times.out.substring(0,5)}</div>`;
+    }
+
+    html += `<div class="sm-day ${cellCls}">
+      <div class="sm-day-num">${d}</div>
+      ${shiftHtml}
+      ${timeHtml}
+    </div>`;
+  }
+
+  // Append to inner container
+  cal.innerHTML += `<div style="display:contents;">${html}</div>`;
+}
+</script>
+
+<!-- ============================================================
+     STAFF DETAIL MODAL v2  –  Tabbed Professional Dashboard
+     ============================================================ -->
+<div id="staffDetailModal" style="
+  display:none; position:fixed; inset:0; z-index:10000;
+  background:rgba(15,23,42,0.55); backdrop-filter:blur(7px);
+  align-items:center; justify-content:center; padding:16px;">
+
+  <div class="sdm-card">
+
+    <!-- ── HEADER ── -->
+    <div class="sdm-header">
+      <div style="display:flex;align-items:center;gap:16px;">
+        <div id="sdmAv" class="sdm-av"></div>
+        <div>
+          <div id="sdmName"     class="sdm-h-name"></div>
+          <div id="sdmNickname" class="sdm-h-sub"></div>
+        </div>
+      </div>
+      <!-- Header action buttons -->
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button id="sdmEditBtn"   class="sdm-hbtn" onclick="toggleEditMode(true)"
+          title="แก้ไขข้อมูล"><i class="bi bi-pencil-square"></i></button>
+        <button id="sdmSaveBtn"   class="sdm-hbtn sdm-hbtn-save" onclick="saveStaffEdit()"
+          style="display:none;" title="บันทึก"><i class="bi bi-check2-circle"></i> บันทึก</button>
+        <button id="sdmCancelBtn" class="sdm-hbtn" onclick="toggleEditMode(false)"
+          style="display:none;" title="ยกเลิก"><i class="bi bi-x-circle"></i></button>
+        <button onclick="closeStaffDetail()" class="sdm-hbtn" title="ปิด">&times;</button>
+      </div>
+    </div>
+
+    <!-- ── STATUS STRIP ── -->
+    <div id="sdmStatusBar" class="sdm-status-strip"></div>
+
+    <!-- ── NAV TABS ── -->
+    <div class="sdm-tabs-bar">
+      <button class="sdm-tab active" id="sdmTab1" onclick="sdmSwitchTab(1)">
+        <i class="bi bi-person-lines-fill"></i> ข้อมูลทั่วไป
+      </button>
+      <button class="sdm-tab" id="sdmTab2" onclick="sdmSwitchTab(2)">
+        <i class="bi bi-clock-history"></i> ประวัติการเข้างาน
+      </button>
+    </div>
+
+    <!-- ── TAB BODY ── -->
+    <div style="flex:1;overflow-y:auto;background:#f8fafc;">
+
+      <!-- TAB 1: General Info -->
+      <div id="sdmPanel1" class="sdm-panel">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+
+          <!-- Employee ID -->
+          <div class="sdm-field-card">
+            <div class="sdm-field-icon" style="background:#F5F3FF;color:#7C3AED;"><i class="bi bi-fingerprint"></i></div>
+            <div style="flex:1;">
+              <div class="sdm-field-label">รหัสพนักงาน</div>
+              <div class="sdm-field-val" id="sdmId"></div>
+            </div>
+          </div>
+
+          <!-- Work Status -->
+          <div class="sdm-field-card">
+            <div class="sdm-field-icon" style="background:#ECFDF5;color:#059669;"><i class="bi bi-activity"></i></div>
+            <div style="flex:1;">
+              <div class="sdm-field-label">สถานะงาน</div>
+              <div id="sdmStatusBadge"></div>
+            </div>
+          </div>
+
+          <!-- Phone (editable) -->
+          <div class="sdm-field-card">
+            <div class="sdm-field-icon" style="background:#EFF6FF;color:#3B82F6;"><i class="bi bi-telephone-fill"></i></div>
+            <div style="flex:1;">
+              <div class="sdm-field-label">โทรศัพท์</div>
+              <div class="sdm-field-val sdm-view-field" id="sdmPhone"></div>
+              <input class="sdm-input sdm-edit-field" id="sdmPhoneInput" type="tel" placeholder="เบอร์โทรศัพท์" style="display:none;">
+            </div>
+          </div>
+
+          <!-- Email (editable) -->
+          <div class="sdm-field-card">
+            <div class="sdm-field-icon" style="background:#ECFDF5;color:#059669;"><i class="bi bi-envelope-at-fill"></i></div>
+            <div style="flex:1;">
+              <div class="sdm-field-label">อีเมล</div>
+              <div class="sdm-field-val sdm-view-field" id="sdmEmail"></div>
+              <input class="sdm-input sdm-edit-field" id="sdmEmailInput" type="email" placeholder="อีเมล" style="display:none;">
+            </div>
+          </div>
+
+          <!-- Department -->
+          <div class="sdm-field-card">
+            <div class="sdm-field-icon" style="background:#EEF2FF;color:#6366F1;"><i class="bi bi-diagram-3-fill"></i></div>
+            <div>
+              <div class="sdm-field-label">กลุ่มงาน</div>
+              <div class="sdm-field-val" id="sdmDept"></div>
+            </div>
+          </div>
+
+          <!-- Role -->
+          <div class="sdm-field-card">
+            <div class="sdm-field-icon" style="background:#FEF3C7;color:#D97706;"><i class="bi bi-award-fill"></i></div>
+            <div>
+              <div class="sdm-field-label">ตำแหน่ง / วิชาชีพ</div>
+              <div class="sdm-field-val" id="sdmRole"></div>
+            </div>
+          </div>
+
+          <!-- Start Date -->
+          <div class="sdm-field-card">
+            <div class="sdm-field-icon" style="background:#FEE2E2;color:#DC2626;"><i class="bi bi-calendar2-check-fill"></i></div>
+            <div>
+              <div class="sdm-field-label">วันเริ่มงาน</div>
+              <div class="sdm-field-val" id="sdmStartDate"></div>
+            </div>
+          </div>
+
+          <!-- Nickname (editable) -->
+          <div class="sdm-field-card">
+            <div class="sdm-field-icon" style="background:#FFF7ED;color:#EA580C;"><i class="bi bi-emoji-smile-fill"></i></div>
+            <div style="flex:1;">
+              <div class="sdm-field-label">ชื่อเล่น</div>
+              <div class="sdm-field-val sdm-view-field" id="sdmNicknameField"></div>
+              <input class="sdm-input sdm-edit-field" id="sdmNicknameInput" type="text" placeholder="ชื่อเล่น" style="display:none;">
+            </div>
+          </div>
+
+          <!-- Today section -->
+          <div style="grid-column:1/-1;">
+            <div class="sdm-section-title"><i class="bi bi-sun-fill"></i>สถานะวันนี้</div>
+          </div>
+
+          <div class="sdm-field-card">
+            <div class="sdm-field-icon" style="background:#F0FDF4;color:#16A34A;"><i class="bi bi-box-arrow-in-right"></i></div>
+            <div>
+              <div class="sdm-field-label">เวลาเข้างาน</div>
+              <div class="sdm-field-val" id="sdmTimeIn"></div>
+            </div>
+          </div>
+          <div class="sdm-field-card">
+            <div class="sdm-field-icon" style="background:#FEF2F2;color:#EF4444;"><i class="bi bi-box-arrow-right"></i></div>
+            <div>
+              <div class="sdm-field-label">เวลาออกงาน</div>
+              <div class="sdm-field-val" id="sdmTimeOut"></div>
+            </div>
+          </div>
+          <div class="sdm-field-card">
+            <div class="sdm-field-icon" style="background:#ECFDF5;color:#10B981;"><i class="bi bi-hourglass-split"></i></div>
+            <div>
+              <div class="sdm-field-label">ชั่วโมงทำงาน</div>
+              <div class="sdm-field-val" id="sdmHours"></div>
+            </div>
+          </div>
+          <div class="sdm-field-card">
+            <div class="sdm-field-icon" style="background:#FFF7ED;color:#EA580C;"><i class="bi bi-lightning-fill"></i></div>
+            <div>
+              <div class="sdm-field-label">ความแม่นยำสแกน</div>
+              <div class="sdm-field-val" id="sdmConf"></div>
+            </div>
+          </div>
+
+        </div><!-- /grid -->
+
+        <!-- Footer buttons -->
+        <div style="display:flex;gap:10px;justify-content:space-between;margin-top:18px;flex-wrap:wrap;">
+          <button onclick="if(confirm('ยืนยันการลบบุคลากร ' + _currentStaffId + ' ?')) deleteStaff(_currentStaffId);" class="sdm-foot-btn sdm-foot-danger">
+            <i class="bi bi-trash3-fill"></i> ลบ
+          </button>
+          <div style="display:flex;gap:10px;">
+            <button onclick="closeStaffDetail()" class="sdm-foot-btn sdm-foot-ghost">ปิด</button>
+            <button onclick="closeStaffDetail(); viewStaff(_currentStaffId);" class="sdm-foot-btn sdm-foot-primary">
+              <i class="bi bi-calendar2-week"></i> ดูตารางเวร
+            </button>
+          </div>
+        </div>
+      </div><!-- /panel 1 -->
+
+      <!-- TAB 2: Attendance History -->
+      <div id="sdmPanel2" class="sdm-panel" style="display:none;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+          <div style="font-size:13px;color:var(--muted);">ประวัติการเข้า-ออกงาน 7 วันล่าสุด</div>
+          <div id="sdmHistoryLoading" style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:5px;">
+            <span class="sdm-spinner"></span> กำลังโหลด...
+          </div>
+        </div>
+        <div style="overflow-x:auto;">
+          <table class="sdm-hist-table">
+            <thead>
+              <tr>
+                <th>วันที่</th>
+                <th>วัน</th>
+                <th>เวลาเข้า</th>
+                <th>เวลาออก</th>
+                <th>ชม.</th>
+                <th>สถานะ</th>
+              </tr>
+            </thead>
+            <tbody id="sdmHistBody">
+              <tr><td colspan="6" style="text-align:center;padding:28px;color:var(--muted);">กำลังโหลดข้อมูล...</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div style="margin-top:14px;display:flex;gap:16px;font-size:11.5px;color:var(--muted);">
+          <span>✅ ปกติ</span><span>⚠️ มาสาย</span><span>📅 ลา</span><span>❌ ขาด</span>
+        </div>
+      </div><!-- /panel 2 -->
+
+    </div><!-- /body -->
+  </div><!-- /card -->
+</div>
+
+<style>
+/* ── SDM Card & Layout ── */
+.sdm-card {
+  background:#fff; border-radius:20px;
+  width:680px; max-width:98vw; max-height:93vh;
+  overflow:hidden; display:flex; flex-direction:column;
+  box-shadow:0 32px 88px rgba(0,0,0,.32);
+  animation:sdmIn .26s cubic-bezier(.22,1,.36,1);
+}
+@keyframes sdmIn {
+  from { opacity:0; transform:translateY(22px) scale(.97); }
+  to   { opacity:1; transform:none; }
+}
+
+/* ── Header ── */
+.sdm-header {
+  background:linear-gradient(135deg,#6366f1,#4f46e5);
+  padding:22px 24px 18px;
+  display:flex; align-items:center; justify-content:space-between;
+  flex-shrink:0;
+}
+.sdm-av {
+  width:58px; height:58px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-size:24px; font-weight:800; color:#fff;
+  border:3px solid rgba(255,255,255,.45); flex-shrink:0;
+}
+.sdm-h-name { font-size:20px; font-weight:800; color:#fff; line-height:1.2; }
+.sdm-h-sub  { font-size:12px; color:rgba(255,255,255,.72); margin-top:4px; }
+
+/* ── Header buttons ── */
+.sdm-hbtn {
+  border:none; background:rgba(255,255,255,.18);
+  border-radius:9px; padding:6px 11px;
+  color:#fff; font-size:13px; font-weight:600;
+  cursor:pointer; display:inline-flex; align-items:center; gap:5px;
+  transition:background .15s; font-family:inherit;
+}
+.sdm-hbtn:hover { background:rgba(255,255,255,.28); }
+.sdm-hbtn-save { background:rgba(16,185,129,.7); }
+.sdm-hbtn-save:hover { background:rgba(16,185,129,.9); }
+
+/* ── Status strip ── */
+.sdm-status-strip {
+  padding:11px 24px; background:#f1f5f9;
+  border-bottom:1px solid #E2E8F0;
+  display:flex; align-items:center; gap:9px; flex-wrap:wrap;
+  flex-shrink:0;
+}
+
+/* ── Tabs bar ── */
+.sdm-tabs-bar {
+  display:flex; gap:2px; padding:10px 16px 0;
+  background:#fff; border-bottom:2px solid #E2E8F0;
+  flex-shrink:0;
+}
+.sdm-tab {
+  padding:8px 18px; border:none; background:none;
+  border-radius:8px 8px 0 0; font-size:13px; font-weight:600;
+  color:#94A3B8; cursor:pointer; font-family:inherit;
+  display:inline-flex; align-items:center; gap:7px;
+  border-bottom:3px solid transparent; margin-bottom:-2px;
+  transition:all .18s;
+}
+.sdm-tab.active { color:#6366f1; border-bottom-color:#6366f1; background:#EEF2FF; }
+.sdm-tab:hover:not(.active) { background:#F8FAFC; }
+
+/* ── Tab panel ── */
+.sdm-panel { padding:20px 22px 24px; }
+
+/* ── Field cards ── */
+.sdm-field-card {
+  background:#fff; border:1px solid #E2E8F0;
+  border-radius:13px; padding:13px 14px;
+  display:flex; align-items:flex-start; gap:12px;
+  transition:box-shadow .15s, transform .15s;
+}
+.sdm-field-card:hover { box-shadow:0 3px 14px rgba(99,102,241,.1); transform:translateY(-1px); }
+.sdm-field-icon {
+  width:36px; height:36px; border-radius:9px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:15px; flex-shrink:0;
+}
+.sdm-field-label {
+  font-size:10px; color:#94A3B8; font-weight:700;
+  text-transform:uppercase; letter-spacing:.7px; margin-bottom:4px;
+}
+.sdm-field-val {
+  font-size:13px; font-weight:700; color:#0F172A;
+  word-break:break-all;
+}
+.sdm-input {
+  width:100%; border:1.5px solid #C7D2FE; border-radius:8px;
+  padding:6px 10px; font-size:13px; font-family:inherit;
+  color:#0F172A; font-weight:600; outline:none; background:#EEF2FF;
+  transition:border-color .18s;
+}
+.sdm-input:focus { border-color:#6366f1; box-shadow:0 0 0 3px rgba(99,102,241,.15); }
+
+/* ── Section label ── */
+.sdm-section-title {
+  font-size:10.5px; font-weight:800; letter-spacing:1.2px;
+  text-transform:uppercase; color:#6366f1;
+  margin-bottom:10px; display:flex; align-items:center; gap:7px;
+  padding-bottom:8px; border-bottom:2px solid #E0E7FF;
+}
+
+/* ── History table ── */
+.sdm-hist-table { width:100%; border-collapse:collapse; font-size:12.5px; }
+.sdm-hist-table thead th {
+  background:#F8FAFC; padding:9px 12px;
+  font-size:10px; font-weight:700; letter-spacing:.7px;
+  text-transform:uppercase; color:#94A3B8;
+  border-bottom:1px solid #E2E8F0; text-align:center;
+}
+.sdm-hist-table tbody td {
+  padding:11px 12px; border-bottom:1px solid #F1F5F9;
+  text-align:center; vertical-align:middle;
+}
+.sdm-hist-table tbody tr:hover { background:#F8FAFC; }
+.sdm-hist-table tbody tr:last-child td { border-bottom:none; }
+
+/* ── Spinner ── */
+.sdm-spinner {
+  width:14px; height:14px; border-radius:50%;
+  border:2px solid #E2E8F0; border-top-color:#6366f1;
+  display:inline-block; animation:sdmSpin .6s linear infinite;
+}
+@keyframes sdmSpin { to { transform:rotate(360deg); } }
+
+/* ── Footer buttons ── */
+.sdm-foot-btn {
+  padding:9px 20px; border-radius:9px;
+  font-size:13px; font-weight:600; cursor:pointer; font-family:inherit;
+  display:inline-flex; align-items:center; gap:7px; border:none;
+}
+.sdm-foot-ghost { background:none; border:1px solid #E2E8F0; color:#64748B; }
+.sdm-foot-ghost:hover { background:#F8FAFC; }
+.sdm-foot-primary {
+  background:linear-gradient(135deg,#6366f1,#4f46e5);
+  color:#fff; box-shadow:0 4px 12px rgba(99,102,241,.3);
+}
+.sdm-foot-primary:hover { filter:brightness(1.08); }
+.sdm-foot-danger {
+  background:linear-gradient(135deg,#EF4444,#DC2626);
+  color:#fff; box-shadow:0 4px 12px rgba(239,68,68,.3);
+}
+.sdm-foot-danger:hover { filter:brightness(1.08); }
+</style>
+
+<script>
+/* =============================================================
+   STAFF DETAIL MODAL v2  –  State & Helpers
+   ============================================================= */
+let _currentStaffId = null;
+let _currentEmp     = null;
+let _sdmEditMode    = false;
+const _NA = '<span style="color:#94A3B8;font-size:12px;font-weight:400;">– ไม่ระบุ –</span>';
+
+/* ── Tab switcher ── */
+function sdmSwitchTab(n) {
+  [1, 2].forEach(i => {
+    document.getElementById(`sdmTab${i}`).classList.toggle('active', i === n);
+    document.getElementById(`sdmPanel${i}`).style.display = i === n ? 'block' : 'none';
+  });
+  if (n === 2 && _currentStaffId) loadAttendanceHistory(_currentStaffId);
+}
+
+/* ── Edit mode toggle ── */
+function toggleEditMode(isEdit) {
+  _sdmEditMode = isEdit;
+  if (isEdit) {
+    document.getElementById('sdmEditBtn').style.display   = 'none';
+    document.getElementById('sdmSaveBtn').style.display   = '';
+    document.getElementById('sdmCancelBtn').style.display = '';
+  } else {
+    document.getElementById('sdmEditBtn').style.display   = checkPermission('edit_staff') ? '' : 'none';
+    document.getElementById('sdmSaveBtn').style.display   = 'none';
+    document.getElementById('sdmCancelBtn').style.display = 'none';
+  }
+
+  // Toggle view ↔ input for editable fields
+  document.querySelectorAll('.sdm-view-field').forEach(el => {
+    el.style.display = isEdit ? 'none' : '';
+  });
+  document.querySelectorAll('.sdm-edit-field').forEach(el => {
+    el.style.display = isEdit ? 'block' : 'none';
+  });
+
+  if (isEdit && _currentEmp) {
+    // Pre-fill inputs (values might have been enriched by API)
+    document.getElementById('sdmPhoneInput').value    = document.getElementById('sdmPhone').textContent.replace('– ไม่ระบุ –','').trim();
+    document.getElementById('sdmEmailInput').value    = document.getElementById('sdmEmail').textContent.replace('– ไม่ระบุ –','').trim();
+    document.getElementById('sdmNicknameInput').value = document.getElementById('sdmNicknameField').textContent.replace('– ไม่ระบุ –','').trim();
+  }
+}
+
+/* ── Save edits → POST /api/staff/update ── */
+async function saveStaffEdit() {
+  const payload = {
+    id:       _currentStaffId,
+    phone:    document.getElementById('sdmPhoneInput').value.trim(),
+    email:    document.getElementById('sdmEmailInput').value.trim(),
+    nickname: document.getElementById('sdmNicknameInput').value.trim()
+  };
+
+  const saveBtn = document.getElementById('sdmSaveBtn');
+  saveBtn.innerHTML = '<span class="sdm-spinner"></span> กำลังบันทึก...';
+  saveBtn.disabled  = true;
+
+  try {
+    const res = await fetch('/api/staff/update', {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Accept-Charset': 'utf-8'
+      },
+      body: JSON.stringify(payload)
+    });
+
+    // Update UI regardless of server response (optimistic)
+    const phone    = payload.phone    || '– ไม่ระบุ –';
+    const email    = payload.email    || '– ไม่ระบุ –';
+    const nickname = payload.nickname || '– ไม่ระบุ –';
+
+    document.getElementById('sdmPhone').textContent         = phone;
+    document.getElementById('sdmEmail').textContent         = email;
+    document.getElementById('sdmNicknameField').textContent = nickname;
+    document.getElementById('sdmNickname').textContent      = payload.nickname
+      ? `(ชื่อเล่น: ${payload.nickname}) · ${maskSensitiveData(_currentStaffId, 'view_id', _currentStaffId)}`
+      : maskSensitiveData(_currentStaffId, 'view_id', _currentStaffId);
+
+    toggleEditMode(false);
+
+    if (!res.ok) {
+      console.warn('POST /api/staff/update returned', res.status, '(offline save only)');
+    }
+  } catch (err) {
+    console.warn('saveStaffEdit fetch failed (offline mode):', err);
+    toggleEditMode(false);
+  } finally {
+    saveBtn.innerHTML = '<i class="bi bi-check2-circle"></i> บันทึก';
+    saveBtn.disabled  = false;
+  }
+}
+
+/* ── Open modal ── */
+async function openStaffDetail(staffId) {
+  _currentStaffId = staffId;
+  _sdmEditMode    = false;
+
+  const emp = employees.find(e => e.id === staffId);
+  if (!emp) { console.warn('openStaffDetail: not found', staffId); return; }
+  _currentEmp = emp;
+
+  // Reset tabs to Tab 1
+  sdmSwitchTab(1);
+  toggleEditMode(false);
+
+  /* Avatar */
+  const colorIdx = employees.indexOf(emp) % AV_COLORS.length;
+  const color    = AV_COLORS[colorIdx];
+  document.getElementById('sdmAv').textContent      = emp.name ? emp.name.charAt(0) : '?';
+  document.getElementById('sdmAv').style.background = color;
+  document.getElementById('sdmName').textContent    = emp.name || '—';
+  document.getElementById('sdmNickname').textContent = emp.id || '—';
+
+  /* Status strip */
+  const statChips = {
+    'in':   '<span class="status-chip chip-in">● เข้างาน</span>',
+    'out':  '<span class="status-chip chip-out">● ออกงาน</span>',
+    'late': '<span class="status-chip chip-late">● มาสาย</span>',
+    'leave':'<span class="status-chip" style="background:#FEF3C7;color:#D97706;border:1px solid #FCD34D;">📅 ลา</span>',
+    'none': '<span class="status-chip chip-absent">● ยังไม่มา</span>',
+    '':     '<span style="color:#94A3B8;font-size:12px;">—</span>'
+  };
+  const shiftKey   = emp.shift?.toLowerCase();
+  const shiftLabel = (shiftKey && SHIFTS[shiftKey]) ? SHIFTS[shiftKey].label : (emp.shift || '—');
+  const sc = { morning:'#F59E0B', afternoon:'#3B82F6', night:'#7C3AED' }[shiftKey] || '#6366F1';
+
+  document.getElementById('sdmStatusBar').innerHTML = `
+    ${statChips[emp.status || ''] || ''}
+    <span style="background:${sc}1A;color:${sc};font-size:11.5px;font-weight:700;
+      padding:3px 12px;border-radius:20px;border:1px solid ${sc}40;gap:5px;
+      display:inline-flex;align-items:center;">
+      <i class="bi bi-clock"></i> ${shiftLabel}
+    </span>
+    ${emp.leave_status ? `<span style="background:#FEF3C7;color:#D97706;font-size:11.5px;
+      font-weight:600;padding:3px 12px;border-radius:20px;border:1px solid #FCD34D;">
+      ${emp.leave_status}</span>` : ''}
+  `;
+
+  /* Static chip for tab1 */
+  document.getElementById('sdmStatusBadge').innerHTML = statChips[emp.status || ''] || _NA;
+
+  /* Known fields */
+  document.getElementById('sdmId').innerHTML            = emp.id   || _NA;
+  document.getElementById('sdmDept').innerHTML          = emp.dept || _NA;
+  document.getElementById('sdmRole').innerHTML          = emp.role || _NA;
+  document.getElementById('sdmTimeIn').innerHTML        = emp.in  ? `<span class="time-tag">${emp.in}</span>`       : _NA;
+  document.getElementById('sdmTimeOut').innerHTML       = emp.out ? `<span class="time-tag out">${emp.out}</span>`   : _NA;
+  document.getElementById('sdmHours').innerHTML         = (emp.hours && emp.hours !== '0')
+    ? `<span style="color:#10B981;font-size:15px;">${emp.hours}</span> ชม.` : _NA;
+  document.getElementById('sdmConf').innerHTML          = emp.conf > 0
+    ? `<span style="color:${emp.conf>=97?'#10B981':emp.conf>=93?'#F59E0B':'#EF4444'};font-size:15px;">${emp.conf}%</span>` : _NA;
+
+  /* Extended fields - loading state */
+  ['sdmPhone','sdmEmail','sdmNicknameField','sdmStartDate'].forEach(id => {
+    document.getElementById(id).innerHTML = '<span style="color:#94A3B8;font-size:11px;"><span class="sdm-spinner" style="width:10px;height:10px;"></span></span>';
+  });
+
+  /* Check Permission for Edit Button */
+  const editBtn = document.getElementById('sdmEditBtn');
+  if (editBtn) {
+    editBtn.style.display = checkPermission('edit_staff') ? '' : 'none';
+  }
+
+  /* Show modal */
+  document.getElementById('staffDetailModal').style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+
+  /* Async: fetch extended profile */
+  try {
+    const res = await fetch(`/api/personnel/${encodeURIComponent(staffId)}`, { headers: { 'Accept-Charset': 'utf-8' } });
+    if (res.ok) {
+      const { person: p } = await res.json();
+      if (p) {
+        const nn = p.NICKNAME || '';
+        document.getElementById('sdmNickname').textContent       = nn ? `(ชื่อเล่น: ${maskSensitiveData(nn, 'view_name', staffId)}) · ${maskSensitiveData(emp.id, 'view_id', staffId)}` : maskSensitiveData(emp.id, 'view_id', staffId);
+        const maskedPhone = maskSensitiveData(p.HR_PHONE, 'view_phone', staffId);
+        const maskedEmail = maskSensitiveData(p.HR_EMAIL, 'view_email', staffId);
+
+        document.getElementById('sdmPhone').innerHTML            = p.HR_PHONE
+          ? `<a href="tel:${p.HR_PHONE}" style="color:var(--primary);font-weight:700;">${maskedPhone}</a>` : _NA;
+        document.getElementById('sdmEmail').innerHTML            = p.HR_EMAIL
+          ? `<a href="mailto:${p.HR_EMAIL}" style="color:#6366F1;">${maskedEmail}</a>` : _NA;
+        document.getElementById('sdmNicknameField').textContent  = nn || '';
+        document.getElementById('sdmNicknameField').innerHTML    = nn || _NA;
+        document.getElementById('sdmStartDate').innerHTML        = p.HR_STARTWORK_DATE
+          ? new Date(p.HR_STARTWORK_DATE).toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'}) : _NA;
+        return;
+      }
+    }
+    _sdmFallback();
+  } catch { _sdmFallback(); }
+}
+
+function _sdmFallback() {
+  ['sdmPhone','sdmEmail','sdmNicknameField','sdmStartDate'].forEach(id => {
+    document.getElementById(id).innerHTML = _NA;
+  });
+}
+
+/* ── Close ── */
+function closeStaffDetail() {
+  document.getElementById('staffDetailModal').style.display = 'none';
+  document.body.style.overflow = '';
+  _sdmEditMode = false;
+}
+document.getElementById('staffDetailModal').addEventListener('click', function(e) {
+  if (e.target === this) closeStaffDetail();
+});
+
+/* =============================================================
+   ATTENDANCE HISTORY TABLE
+   ============================================================= */
+async function loadAttendanceHistory(staffId) {
+  const tbody   = document.getElementById('sdmHistBody');
+  const loading = document.getElementById('sdmHistoryLoading');
+  loading.style.display = 'flex';
+  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:28px;color:#94A3B8;"><span class="sdm-spinner" style="width:20px;height:20px;"></span></td></tr>';
+
+  try {
+    const res = await fetch(`/api/attendance/history/${encodeURIComponent(staffId)}`, { headers: { 'Accept-Charset': 'utf-8' } });
+    let historyData = null;
+
+    if (res.ok) {
+      const json = await res.json();
+      historyData = json.history || [];
+    } else {
+      historyData = _buildHistoryFromMemory(staffId);
+    }
+
+    renderHistoryTable(historyData);
+  } catch {
+    renderHistoryTable(_buildHistoryFromMemory(staffId));
+  } finally {
+    loading.style.display = 'none';
+  }
+}
+
+/* Build basic history from in-memory data for today only */
+function _buildHistoryFromMemory(staffId) {
+  const emp   = employees.find(e => e.id === staffId);
+  const today = new Date().toISOString().split('T')[0];
+  if (!emp) return [];
+
+  const status = emp.status === 'late'  ? 'late'
+               : emp.status === 'leave' ? 'leave'
+               : emp.status === 'none'  ? 'absent'
+               : (emp.in ? 'normal' : 'absent');
+
+  return [{ date: today, check_in: emp.in || '-', check_out: emp.out || '-', status }];
+}
+
+/* ── renderHistoryTable(data) ── */
+/*  data = [ { date, check_in, check_out, status: 'normal'|'late'|'leave'|'absent' } ]  */
+function renderHistoryTable(data) {
+  const tbody = document.getElementById('sdmHistBody');
+  const DAY_TH = ['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์','เสาร์'];
+
+  const statusCfg = {
+    normal: { icon:'✅', label:'ปกติ',    cls:'chip-in'   },
+    late:   { icon:'⚠️', label:'มาสาย',  cls:'chip-late' },
+    leave:  { icon:'📅', label:'ลา',      cls:'',         style:'background:#FEF3C7;color:#D97706;border:1px solid #FCD34D;' },
+    absent: { icon:'❌', label:'ขาด',     cls:'chip-absent'},
+  };
+
+  if (!data || data.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:28px;color:#94A3B8;">ไม่มีข้อมูลประวัติการเข้างาน</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = data.map(row => {
+    const d    = new Date(row.date);
+    const dow  = isNaN(d) ? '' : DAY_TH[d.getDay()];
+    const cfg  = statusCfg[row.status] || statusCfg.absent;
+    const dateF= isNaN(d) ? row.date
+      : d.toLocaleDateString('th-TH',{ day:'2-digit', month:'short'});
+
+    // calc hours if valid times
+    let hoursHtml = '<span style="color:#94A3B8;">—</span>';
+    if (row.check_in && row.check_in !== '-' && row.check_out && row.check_out !== '-') {
+      const [hi,mi] = row.check_in.split(':').map(Number);
+      const [ho,mo] = row.check_out.split(':').map(Number);
+      const mins    = (ho*60+mo) - (hi*60+mi);
+      if (mins > 0) hoursHtml = `<span style="font-weight:700;color:#0F172A;">${(mins/60).toFixed(1)}</span>`;
+    }
+
+    const inTag  = row.check_in  && row.check_in  !== '-'
+      ? `<span class="time-tag">${row.check_in}</span>`          : '<span style="color:#94A3B8;">—</span>';
+    const outTag = row.check_out && row.check_out !== '-'
+      ? `<span class="time-tag out">${row.check_out}</span>`      : '<span style="color:#94A3B8;">—</span>';
+
+    const badgeStyle = cfg.cls
+      ? `class="status-chip ${cfg.cls}"`
+      : `class="status-chip" style="${cfg.style || ''}"`;
+
+    return `<tr>
+      <td style="font-weight:700;white-space:nowrap;">${dateF}</td>
+      <td style="color:#94A3B8;font-size:11px;">${dow}</td>
+      <td>${inTag}</td>
+      <td>${outTag}</td>
+      <td>${hoursHtml}</td>
+      <td><span ${badgeStyle}>${cfg.icon} ${cfg.label}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+/* ── Delete Staff ── */
+async function deleteStaff(staffId) {
+  try {
+    const res = await fetch(`/api/personnel/${encodeURIComponent(staffId)}`, {
+      method: 'DELETE',
+      headers: { 'Accept-Charset': 'utf-8', 'Content-Type': 'application/json' }
+    });
+    
+    if (res.ok) {
+      alert('ลบบุคลากร ' + staffId + ' สำเร็จ');
+      closeStaffDetail();
+      // Remove from local array and refresh
+      employees = employees.filter(e => e.id !== staffId);
+      applyFilter();
+    } else {
+      alert('เกิดข้อผิดพลาด: ' + res.statusText);
+    }
+  } catch (err) {
+    alert('ไม่สามารถลบได้: ' + err.message);
+  }
+}
+</script>
+
+  <!-- Emergency Admin Access (Developer Mode) -->
+  <% if (!locals.RBAC_ENABLED || (locals.user && locals.user.role === 'super')) { %>
+  <a href="/admin/permissions" style="
+    position: fixed; bottom: 20px; right: 20px; z-index: 10000;
+    padding: 10px 16px; background: rgba(30,41,59,0.7); backdrop-filter: blur(8px);
+    color: white; border-radius: 30px; border: 1px solid rgba(255,255,255,0.2);
+    font-size: 11px; font-weight: 700; text-decoration: none; display: flex; align-items: center; gap: 8px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.2); transition: all 0.2s;
+  " onmouseover="this.style.background='rgba(15,23,42,0.9)';this.style.transform='translateY(-2px)'" onmouseout="this.style.background='rgba(30,41,59,0.7)';this.style.transform='translateY(0)'">
+    <i class="bi bi-shield-lock-fill"></i> Admin Setup
+  </a>
+  <% } %>
+
+  <!-- Scroll to Top Button -->
+  <button id="scrollToTopBtn" class="scroll-to-top" onclick="scrollToTop()" title="กลับไปข้างบน">
+    <i class="bi bi-chevron-up"></i>
+  </button>
+
+  <script>
+    // Scroll to Top behavior
+    window.addEventListener('scroll', () => {
+      const btn = document.getElementById('scrollToTopBtn');
+      if (btn) {
+        if (window.scrollY > 300) {
+          btn.classList.add('show');
+        } else {
+          btn.classList.remove('show');
+        }
+      }
+    });
+
+    function scrollToTop() {
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      });
+    }
+  </script>
+</body>
+</html>
