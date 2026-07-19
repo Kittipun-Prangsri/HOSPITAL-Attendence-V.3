@@ -3,6 +3,7 @@ const mysql = require('mysql2/promise');
 const fs = require('fs');
 const path = require('path');
 const { dbConfig } = require('../src/config/db');
+const { runMigrations } = require('./migrations');
 
 async function initDB() {
   try {
@@ -93,6 +94,7 @@ async function initDB() {
     }
 
     await connection.end();
+    await runMigrations();
     console.log('Database initialization completed.');
   } catch (error) {
     console.error('Error initializing database:', error);

@@ -1,8 +1,8 @@
-const { hosofficePool } = require('../config/db');
+const { pool, hosofficePool } = require('../config/db');
 const NotificationService = require('./notificationService');
 
 let intervalId = null;
-const processedScans = new Set();
+const processingScans = new Set();
 let currentTodayStr = null;
 
 async function checkNewScans() {
@@ -13,7 +13,7 @@ async function checkNewScans() {
     // Reset cache daily to prevent memory growth
     if (today !== currentTodayStr) {
       currentTodayStr = today;
-      processedScans.clear();
+      processingScans.clear();
     }
     
     // 1. Fetch unprocessed scans for today (is_notified = 1 or 2) that have a registered LINE ID or Telegram Chat ID in hr_person
@@ -66,24 +66,40 @@ async function checkNewScans() {
     for (const scan of scans) {
       const { EmployeeID, AccessDate, AccessTime, Direction, DeviceName, ReaderName, SkinSurfaceTemperature, line_user_id, telegram_chat_id, fullname } = scan;
 
-      // Prevent duplicate notifications in the same run/session using in-memory cache
+      // Keep concurrent poll iterations from handling the same scan at once. Durable state
+      // and retry timing are stored in notification_deliveries, not this in-memory set.
       const scanKey = `${EmployeeID}_${AccessDate}_${AccessTime}`;
-      if (processedScans.has(scanKey)) {
+      if (processingScans.has(scanKey)) {
         continue;
       }
-      processedScans.add(scanKey);
+      processingScans.add(scanKey);
 
-      // Update to processed immediately to prevent duplicate runs
-      await hosofficePool.query(`
-        UPDATE hikvision 
-        SET is_notified = 3 
-        WHERE EmployeeID = ? AND AccessDate = ? AND AccessTime = ?
-      `, [EmployeeID, AccessDate, AccessTime]);
+      try {
+        await pool.query(
+          `INSERT IGNORE INTO notification_deliveries (employee_id, access_date, access_time, next_attempt_at)
+           VALUES (?, ?, ?, NOW())`,
+          [EmployeeID, AccessDate, AccessTime]
+        );
+        const [deliveryRows] = await pool.query(
+          'SELECT status, attempts, next_attempt_at FROM notification_deliveries WHERE employee_id = ? AND access_date = ? AND access_time = ?',
+          [EmployeeID, AccessDate, AccessTime]
+        );
+        const delivery = deliveryRows[0];
+        if (!delivery) continue;
+        if (delivery.status === 'sent') {
+          await hosofficePool.query('UPDATE hikvision SET is_notified = 3 WHERE EmployeeID = ? AND AccessDate = ? AND AccessTime = ?', [EmployeeID, AccessDate, AccessTime]);
+          continue;
+        }
+        if (delivery.status === 'failed' || (delivery.next_attempt_at && new Date(delivery.next_attempt_at) > new Date())) continue;
 
-      if (line_user_id || telegram_chat_id) {
         // Bypass actual sending if disabled in configuration
         if (process.env.ENABLE_REALTIME_NOTIFICATIONS === 'false') {
           console.log(`[RealtimeNotifier] Real-time notifications are disabled in .env. Skipping push to ${fullname} (${EmployeeID}).`);
+          await pool.query(
+            `UPDATE notification_deliveries SET status = 'sent', attempts = attempts + 1, sent_at = NOW(), last_error = NULL WHERE employee_id = ? AND access_date = ? AND access_time = ?`,
+            [EmployeeID, AccessDate, AccessTime]
+          );
+          await hosofficePool.query('UPDATE hikvision SET is_notified = 3 WHERE EmployeeID = ? AND AccessDate = ? AND AccessTime = ?', [EmployeeID, AccessDate, AccessTime]);
           continue;
         }
 
@@ -112,12 +128,32 @@ async function checkNewScans() {
         // Send parallel / fallback notifications
         const result = await NotificationService.sendDirectNotification(line_user_id, telegram_chat_id, message);
         if (result.success) {
+          await pool.query(
+            `UPDATE notification_deliveries SET status = 'sent', attempts = attempts + 1, sent_at = NOW(), next_attempt_at = NULL, last_error = NULL
+             WHERE employee_id = ? AND access_date = ? AND access_time = ?`,
+            [EmployeeID, AccessDate, AccessTime]
+          );
+          await hosofficePool.query('UPDATE hikvision SET is_notified = 3 WHERE EmployeeID = ? AND AccessDate = ? AND AccessTime = ?', [EmployeeID, AccessDate, AccessTime]);
           console.log(`[RealtimeNotifier] Successfully sent notification to ${fullname} (${EmployeeID}). LINE: ${result.line}, Telegram: ${result.telegram}`);
         } else {
-          console.error(`[RealtimeNotifier] Failed to send notification to ${fullname} (${EmployeeID}). Both services failed.`);
+          const attempts = Number(delivery.attempts) + 1;
+          const terminal = attempts >= 5;
+          const retryMinutes = Math.min(2 ** attempts, 60);
+          await pool.query(
+            `UPDATE notification_deliveries
+             SET status = ?, attempts = ?, last_error = ?, next_attempt_at = ${terminal ? 'NULL' : 'DATE_ADD(NOW(), INTERVAL ? MINUTE)'}
+             WHERE employee_id = ? AND access_date = ? AND access_time = ?`,
+            terminal
+              ? ['failed', attempts, 'LINE and Telegram delivery failed', EmployeeID, AccessDate, AccessTime]
+              : ['pending', attempts, 'LINE and Telegram delivery failed', retryMinutes, EmployeeID, AccessDate, AccessTime]
+          );
+          if (terminal) {
+            await hosofficePool.query('UPDATE hikvision SET is_notified = 4 WHERE EmployeeID = ? AND AccessDate = ? AND AccessTime = ?', [EmployeeID, AccessDate, AccessTime]);
+          }
+          console.error(`[RealtimeNotifier] Delivery failed for ${fullname} (${EmployeeID}); attempt ${attempts}/5.`);
         }
-      } else {
-        console.log(`[RealtimeNotifier] No notification ID mapped for user ${fullname || EmployeeID}`);
+      } finally {
+        processingScans.delete(scanKey);
       }
     }
   } catch (error) {

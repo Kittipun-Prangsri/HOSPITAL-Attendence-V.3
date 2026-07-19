@@ -1,72 +1,153 @@
-const fs = require('fs');
-const path = require('path');
-const { hosofficePool } = require('../config/db');
+const { pool, hosofficePool } = require('../config/db');
 
-const DATA_DIR = path.join(__dirname, '..', '..', 'data');
-const SCHEDULE_FILE = path.join(DATA_DIR, 'schedule.json');
-const MONTHLY_SCHEDULE_DIR = path.join(DATA_DIR, 'monthly_schedules');
+const OFF_SHIFTS = new Set(['', 'OFF', 'EMPTY']);
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const YEAR_MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
+const scheduleKey = (employeeId, date) => `${employeeId}\u0000${date}`;
 
-exports.getSchedule = (req, res) => {
+function validEmployeeId(value) {
+  return typeof value === 'string' && value.length > 0 && value.length <= 50;
+}
+
+function validShift(value) {
+  return typeof value === 'string' && value.length <= 50;
+}
+
+function isWorkingShift(value) {
+  return validShift(value) && !OFF_SHIFTS.has(value.trim().toUpperCase());
+}
+
+async function auditScheduleChange(connection, employeeId, date, previousShift, newShift, changedBy) {
+  await connection.query(
+    `INSERT INTO schedule_audit_log (employee_id, schedule_date, previous_shift, new_shift, changed_by)
+     VALUES (?, ?, ?, ?, ?)`,
+    [employeeId, date, previousShift || null, newShift || null, changedBy || null]
+  );
+}
+
+exports.getSchedule = async (req, res) => {
   try {
-    if (fs.existsSync(SCHEDULE_FILE)) {
-      const data = fs.readFileSync(SCHEDULE_FILE, 'utf8');
-      res.json(JSON.parse(data));
-    } else {
-      res.json([]);
-    }
+    const [rows] = await pool.query(
+      'SELECT employee_id AS emp_id, shift, DATE_FORMAT(schedule_date, \'%Y-%m-%d\') AS date FROM schedule_entries ORDER BY schedule_date, employee_id'
+    );
+    res.json(rows);
   } catch (err) {
-    console.error('Error reading schedule.json', err);
-    res.status(500).json([]);
+    console.error('Error reading schedules:', err);
+    res.status(500).json({ error: 'Failed to load schedule' });
   }
 };
 
-exports.postSchedule = (req, res) => {
+exports.postSchedule = async (req, res) => {
+  const { emp_id: employeeId, shift, date } = req.body;
+  if (!validEmployeeId(employeeId) || !DATE_RE.test(date || '') || !validShift(shift)) {
+    return res.status(400).json({ error: 'Invalid employee, date, or shift' });
+  }
+
+  const connection = await pool.getConnection();
   try {
-    const { emp_id, shift, date } = req.body;
-    let schedule = [];
-    if (fs.existsSync(SCHEDULE_FILE)) {
-      schedule = JSON.parse(fs.readFileSync(SCHEDULE_FILE, 'utf8'));
+    await connection.beginTransaction();
+    const [existing] = await connection.query(
+      'SELECT shift FROM schedule_entries WHERE employee_id = ? AND schedule_date = ? FOR UPDATE',
+      [employeeId, date]
+    );
+    const previousShift = existing[0]?.shift;
+    if (isWorkingShift(shift)) {
+      await connection.query(
+        `INSERT INTO schedule_entries (employee_id, schedule_date, shift, created_by)
+         VALUES (?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE shift = VALUES(shift), created_by = VALUES(created_by)`,
+        [employeeId, date, shift.trim(), req.session.user.username]
+      );
+    } else {
+      await connection.query('DELETE FROM schedule_entries WHERE employee_id = ? AND schedule_date = ?', [employeeId, date]);
     }
-    schedule = schedule.filter(s => !(s.emp_id === emp_id && s.date === date));
-    if (shift && shift !== 'EMPTY') {
-      schedule.push({ emp_id, shift, date });
-    }
-    if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR);
-    fs.writeFileSync(SCHEDULE_FILE, JSON.stringify(schedule, null, 2), 'utf8');
+    await auditScheduleChange(connection, employeeId, date, previousShift, isWorkingShift(shift) ? shift.trim() : null, req.session.user.username);
+    await connection.commit();
     res.json({ success: true });
   } catch (err) {
-    console.error('Error writing schedule.json', err);
-    res.status(500).json({ error: 'Failed to write' });
+    await connection.rollback();
+    console.error('Error writing schedule:', err);
+    res.status(500).json({ error: 'Failed to save schedule' });
+  } finally {
+    connection.release();
   }
 };
 
-exports.saveMonthlySchedule = (req, res) => {
+exports.saveMonthlySchedule = async (req, res) => {
+  const { year, month, schedule } = req.body;
+  const yearNum = Number(year);
+  const monthNum = Number(month);
+  if (!Number.isInteger(yearNum) || yearNum < 2000 || yearNum > 2100 || !Number.isInteger(monthNum) || monthNum < 1 || monthNum > 12 || !schedule || typeof schedule !== 'object' || Array.isArray(schedule)) {
+    return res.status(400).json({ error: 'Invalid year, month, or schedule payload' });
+  }
+
+  const yearMonth = `${yearNum}-${String(monthNum).padStart(2, '0')}`;
+  const daysInMonth = new Date(yearNum, monthNum, 0).getDate();
+  const entries = [];
+  for (const [employeeId, days] of Object.entries(schedule)) {
+    if (!validEmployeeId(employeeId) || !days || typeof days !== 'object' || Array.isArray(days)) {
+      return res.status(400).json({ error: 'Invalid schedule employee entry' });
+    }
+    for (const [day, shift] of Object.entries(days)) {
+      const dayNum = Number(day);
+      if (!Number.isInteger(dayNum) || dayNum < 1 || dayNum > daysInMonth || !validShift(shift)) {
+        return res.status(400).json({ error: 'Invalid schedule day or shift' });
+      }
+      if (isWorkingShift(shift)) entries.push([employeeId, `${yearMonth}-${String(dayNum).padStart(2, '0')}`, shift.trim(), req.session.user.username]);
+    }
+  }
+
+  const connection = await pool.getConnection();
   try {
-    const { year, month, schedule } = req.body;
-    if (!year || !month || !schedule) return res.status(400).json({ error: 'Missing year, month or schedule payload' });
-    if (!fs.existsSync(MONTHLY_SCHEDULE_DIR)) fs.mkdirSync(MONTHLY_SCHEDULE_DIR, { recursive: true });
-    const filename = path.join(MONTHLY_SCHEDULE_DIR, `schedule_${year}_${String(month).padStart(2,'0')}.json`);
-    const payload  = { year, month, savedAt: new Date().toISOString(), schedule };
-    fs.writeFileSync(filename, JSON.stringify(payload, null, 2), 'utf8');
-    res.json({ success: true, file: filename });
+    await connection.beginTransaction();
+    const [oldEntries] = await connection.query(
+      `SELECT employee_id, DATE_FORMAT(schedule_date, '%Y-%m-%d') AS schedule_date, shift
+       FROM schedule_entries WHERE schedule_date >= ? AND schedule_date < DATE_ADD(?, INTERVAL 1 MONTH) FOR UPDATE`,
+      [`${yearMonth}-01`, `${yearMonth}-01`]
+    );
+    await connection.query('DELETE FROM schedule_entries WHERE schedule_date >= ? AND schedule_date < DATE_ADD(?, INTERVAL 1 MONTH)', [`${yearMonth}-01`, `${yearMonth}-01`]);
+    if (entries.length > 0) {
+      await connection.query('INSERT INTO schedule_entries (employee_id, schedule_date, shift, created_by) VALUES ?', [entries]);
+    }
+    const oldMap = new Map(oldEntries.map(row => [scheduleKey(row.employee_id, row.schedule_date), row.shift]));
+    for (const [employeeId, date, shift] of entries) {
+      const oldShift = oldMap.get(scheduleKey(employeeId, date));
+      if (oldShift !== shift) await auditScheduleChange(connection, employeeId, date, oldShift, shift, req.session.user.username);
+      oldMap.delete(scheduleKey(employeeId, date));
+    }
+    for (const [key, oldShift] of oldMap) {
+      const [employeeId, date] = key.split('\u0000');
+      await auditScheduleChange(connection, employeeId, date, oldShift, null, req.session.user.username);
+    }
+    await connection.commit();
+    res.json({ success: true, entries: entries.length });
   } catch (err) {
+    await connection.rollback();
     console.error('Error saving monthly schedule:', err);
     res.status(500).json({ error: 'Failed to save schedule' });
+  } finally {
+    connection.release();
   }
 };
 
-exports.loadMonthlySchedule = (req, res) => {
+exports.loadMonthlySchedule = async (req, res) => {
+  const { year, month } = req.query;
+  const yearMonth = `${year}-${String(month).padStart(2, '0')}`;
+  if (!YEAR_MONTH_RE.test(yearMonth)) return res.status(400).json({ error: 'Invalid year/month' });
   try {
-    const { year, month } = req.query;
-    if (!year || !month) return res.status(400).json({ error: 'Missing year/month' });
-    const filename = path.join(MONTHLY_SCHEDULE_DIR, `schedule_${year}_${String(month).padStart(2,'0')}.json`);
-    if (fs.existsSync(filename)) {
-      const data = JSON.parse(fs.readFileSync(filename, 'utf8'));
-      res.json({ success: true, data });
-    } else {
-      res.json({ success: true, data: null });
-    }
+    const [rows] = await pool.query(
+      `SELECT employee_id, DAY(schedule_date) AS day, shift
+       FROM schedule_entries WHERE schedule_date >= ? AND schedule_date < DATE_ADD(?, INTERVAL 1 MONTH)`,
+      [`${yearMonth}-01`, `${yearMonth}-01`]
+    );
+    const schedule = {};
+    rows.forEach(row => {
+      if (!schedule[row.employee_id]) schedule[row.employee_id] = {};
+      schedule[row.employee_id][row.day] = row.shift;
+    });
+    res.json({ success: true, data: rows.length ? { year: Number(year), month: Number(month), schedule } : null });
   } catch (err) {
+    console.error('Error loading monthly schedule:', err);
     res.status(500).json({ error: 'Failed to load schedule' });
   }
 };
@@ -74,79 +155,46 @@ exports.loadMonthlySchedule = (req, res) => {
 exports.getStaffSchedule = async (req, res) => {
   try {
     const { id, yearMonth } = req.params;
+    if (!validEmployeeId(id) || !YEAR_MONTH_RE.test(yearMonth)) return res.status(400).json({ error: 'Invalid staff or yearMonth' });
     const currentUser = req.session.user;
     const isPrivileged = currentUser && (currentUser.role === 'admin' || currentUser.role === 'super');
-
     if (!isPrivileged) {
-      // Find the user's FINGLE_ID
       const [userRows] = await hosofficePool.query('SELECT FINGLE_ID FROM hr_person WHERE ID = ?', [currentUser.id]);
-      const userFingleId = userRows.length > 0 ? userRows[0].FINGLE_ID : null;
-      if (String(id) !== String(userFingleId)) {
-        return res.status(403).json({ error: 'Forbidden: You can only access your own schedule' });
-      }
+      if (String(id) !== String(userRows[0]?.FINGLE_ID || '')) return res.status(403).json({ error: 'Forbidden: You can only access your own schedule' });
     }
 
     const [year, month] = yearMonth.split('-').map(Number);
-    if (!year || !month) return res.status(400).json({ error: 'Invalid yearMonth' });
-
-    const targetMonth = yearMonth;
     const daysInMonth = new Date(year, month, 0).getDate();
-
-    const shifts = [];
-    const schedFile = path.join(MONTHLY_SCHEDULE_DIR, `schedule_${year}_${String(month).padStart(2,'0')}.json`);
-    if (fs.existsSync(schedFile)) {
-      const savedSched = JSON.parse(fs.readFileSync(schedFile, 'utf8'));
-      const empSched   = (savedSched.schedule || {})[id] || {};
-      Object.entries(empSched).forEach(([day, shift]) => {
-        if (shift && shift !== 'OFF') shifts.push({ day: parseInt(day), shift });
-      });
-    } else {
-      if (fs.existsSync(SCHEDULE_FILE)) {
-        const old = JSON.parse(fs.readFileSync(SCHEDULE_FILE, 'utf8'));
-        old.filter(s => s.emp_id === id && s.date && s.date.startsWith(targetMonth))
-           .forEach(s => {
-             const day = parseInt(s.date.split('-')[2]);
-             shifts.push({ day, shift: s.shift });
-           });
-      }
-    }
+    const [scheduleRows] = await pool.query(
+      `SELECT DAY(schedule_date) AS day, shift FROM schedule_entries
+       WHERE employee_id = ? AND schedule_date >= ? AND schedule_date < DATE_ADD(?, INTERVAL 1 MONTH) ORDER BY schedule_date`,
+      [id, `${yearMonth}-01`, `${yearMonth}-01`]
+    );
+    const shifts = scheduleRows.map(row => ({ day: row.day, shift: row.shift }));
 
     let times = [];
     try {
-      const [rows] = await hosofficePool.query(`
-        SELECT DAY(AccessDate) AS day, MIN(AccessTime) AS time_in, MAX(AccessTime) AS time_out
-        FROM hikvision WHERE EmployeeID = ? AND AccessDate LIKE ?
-        GROUP BY DAY(AccessDate) ORDER BY day
-      `, [id, `${targetMonth}-%`]);
-      times = rows.map(r => ({ day: r.day, time_in: r.time_in, time_out: r.time_out }));
-    } catch (dbErr) {
-      console.warn('[schedule/staff] hikvision query failed:', dbErr.message);
-    }
+      const [rows] = await hosofficePool.query(
+        `SELECT DAY(AccessDate) AS day, MIN(AccessTime) AS time_in, MAX(AccessTime) AS time_out
+         FROM hikvision WHERE EmployeeID = ? AND AccessDate LIKE ? GROUP BY DAY(AccessDate) ORDER BY day`,
+        [id, `${yearMonth}-%`]
+      );
+      times = rows.map(row => ({ day: row.day, time_in: row.time_in, time_out: row.time_out }));
+    } catch (dbErr) { console.warn('[schedule/staff] hikvision query failed:', dbErr.message); }
 
     let leaves = [];
     try {
-      const [personRows] = await hosofficePool.query(`SELECT p.ID FROM hr_person p WHERE p.FINGLE_ID = ? LIMIT 1`, [id]);
+      const [personRows] = await hosofficePool.query('SELECT ID FROM hr_person WHERE FINGLE_ID = ? LIMIT 1', [id]);
       if (personRows.length > 0) {
-        const personId = personRows[0].ID;
-        const dayNums = Array.from({ length: daysInMonth }, (_, i) => i + 1);
-        const [mRows] = await hosofficePool.query(
-          `SELECT * FROM service_work_scans_morning WHERE hr_person_id = ? AND year_and_month = ? LIMIT 1`,
-          [personId, targetMonth]
-        );
+        const [mRows] = await hosofficePool.query('SELECT * FROM service_work_scans_morning WHERE hr_person_id = ? AND year_and_month = ? LIMIT 1', [personRows[0].ID, yearMonth]);
         if (mRows.length > 0) {
-          const row = mRows[0];
-          dayNums.forEach(d => {
-            const col  = `di${d}`;
-            const val  = row[col];
-            if (val && typeof val === 'string' && val.trim() !== '' && !/^\d{2}:\d{2}/.test(val)) {
-              leaves.push({ day: d, reason: val });
-            }
+          Array.from({ length: daysInMonth }, (_, i) => i + 1).forEach(day => {
+            const value = mRows[0][`di${day}`];
+            if (value && typeof value === 'string' && value.trim() !== '' && !/^\d{2}:\d{2}/.test(value)) leaves.push({ day, reason: value });
           });
         }
       }
-    } catch (leaveErr) {
-      console.warn('[schedule/staff] leave query failed:', leaveErr.message);
-    }
+    } catch (leaveErr) { console.warn('[schedule/staff] leave query failed:', leaveErr.message); }
     res.json({ success: true, staffId: id, yearMonth, shifts, times, leaves });
   } catch (err) {
     console.error('Error in /api/schedule/staff:', err);

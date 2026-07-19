@@ -13,6 +13,7 @@
     <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/ui-refresh.css">
     <style>
         .user-grid {
             display: grid;
@@ -368,7 +369,7 @@
                     </div>
                     <div class="form-group">
                         <label id="passLabel">รหัสผ่าน</label>
-                        <input type="password" id="password" placeholder="อย่างน้อย 6 ตัวอักษร">
+                        <input type="password" id="password" placeholder="อย่างน้อย 8 ตัวอักษร" minlength="8">
                         <small id="passHint"
                             style="display:none; color:var(--muted); font-size:10px;">(เว้นว่างไว้หากไม่ต้องการเปลี่ยน)</small>
                     </div>
@@ -675,7 +676,7 @@
             }
 
             async function resetUserPassword(userId, fullname) {
-                if (!confirm(`คุณต้องการรีเซ็ตรหัสผ่านของ ${fullname} เป็นค่าเริ่มต้น '1234' หรือไม่?`)) return;
+                if (!confirm(`คุณต้องการสร้างรหัสผ่านชั่วคราวแบบสุ่มสำหรับ ${fullname} หรือไม่?`)) return;
                 try {
                     const res = await fetch(`/api/users/${userId}/reset-password`, {
                         method: 'POST',
@@ -683,7 +684,7 @@
                     });
                     const result = await res.json();
                     if (result.success) {
-                        alert('✅ รีเซ็ตรหัสผ่านสำเร็จ: รหัสผ่านใหม่คือ 1234');
+                        alert(`✅ ${result.message}\n\nรหัสผ่านชั่วคราว: ${result.temporaryPassword}\n\nโปรดบันทึกไว้ทันทีและส่งให้ผู้ใช้ผ่านช่องทางที่ปลอดภัย`);
                     } else {
                         alert('❌ เกิดข้อผิดพลาด: ' + (result.error || 'ไม่สามารถรีเซ็ตได้'));
                     }

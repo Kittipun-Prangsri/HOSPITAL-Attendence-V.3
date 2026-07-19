@@ -1,22 +1,28 @@
 const NotificationService = require('../services/notificationService');
 const { pool } = require('../config/db');
+const { getTimeInTimezone, isLateCheckIn } = require('../utils/attendanceTime');
 
 /**
  * Controller to handle manual or automated attendance logging
  */
 exports.checkIn = async (req, res) => {
   const { userId, userName } = req.body;
+  const currentUser = req.session.user;
+  const isPrivileged = currentUser && (currentUser.role === 'admin' || currentUser.role === 'super');
+  if (!userId || !userName || (!isPrivileged && String(userId) !== String(currentUser.id) && String(userId) !== String(currentUser.username))) {
+    return res.status(400).json({ success: false, error: 'Invalid attendance request' });
+  }
   const now = new Date();
-  const currentTime = now.toTimeString().split(' ')[0]; // HH:MM:SS
+  const currentTime = getTimeInTimezone(now);
   const lateThreshold = '08:31:00'; // Define threshold
   
-  const isLate = currentTime > lateThreshold;
+  const isLate = isLateCheckIn(currentTime, lateThreshold);
   
   try {
     // 1. Save to local attendance table
     const [result] = await pool.query(
       'INSERT INTO attendance (user_name, status, timestamp, is_late) VALUES (?, ?, ?, ?)',
-      [userName, 'check-in', now, isLate]
+      [isPrivileged ? userName : currentUser.fullname, 'check-in', now, isLate]
     );
 
     const statusMsg = isLate ? '⏰ สาย (Late)' : '✅ ปกติ (On-time)';
@@ -43,13 +49,18 @@ exports.checkIn = async (req, res) => {
 
 exports.checkOut = async (req, res) => {
   const { userId, userName } = req.body;
+  const currentUser = req.session.user;
+  const isPrivileged = currentUser && (currentUser.role === 'admin' || currentUser.role === 'super');
+  if (!userId || !userName || (!isPrivileged && String(userId) !== String(currentUser.id) && String(userId) !== String(currentUser.username))) {
+    return res.status(400).json({ success: false, error: 'Invalid attendance request' });
+  }
   const now = new Date();
-  const currentTime = now.toTimeString().split(' ')[0];
+  const currentTime = getTimeInTimezone(now);
 
   try {
     await pool.query(
       'INSERT INTO attendance (user_name, status, timestamp, is_late) VALUES (?, ?, ?, ?)',
-      [userName, 'check-out', now, false]
+      [isPrivileged ? userName : currentUser.fullname, 'check-out', now, false]
     );
 
     const message = `🔔 *แจ้งเตือนการลงเวลา*\n\n` +

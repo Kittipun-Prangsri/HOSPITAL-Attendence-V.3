@@ -1,5 +1,5 @@
-const mysql = require('mysql2/promise');
-const pool = mysql.createPool({ host: '192.168.80.7', user: 'Khos', password: 'KH10866@zjkowfh', database: 'hosoffice' });
+require('dotenv').config();
+const { hosofficePool: pool } = require('../../src/config/db');
 async function test() {
   try {
     const targetDateStr = '2026-03-24';
@@ -20,7 +20,7 @@ async function test() {
       LIMIT 1
     `, [targetDateStr, targetMonth]);
     console.log("Success! Employees:", employees);
-    process.exit(0);
-  } catch(e) { console.error('Error:', e); process.exit(1); }
+  } catch(e) { console.error('Error:', e.message); process.exitCode = 1; }
+  finally { await pool.end(); }
 }
 test();

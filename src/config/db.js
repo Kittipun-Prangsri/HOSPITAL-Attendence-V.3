@@ -8,7 +8,8 @@ const dbConfig = {
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
-  charset: 'utf8mb4'
+  charset: 'utf8mb4',
+  timezone: process.env.DB_TIMEZONE || '+07:00'
 };
 
 const pool = mysql.createPool({

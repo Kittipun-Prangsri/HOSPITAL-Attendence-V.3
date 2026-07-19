@@ -36,7 +36,7 @@ router.get('/attendance/history/:fingleId', checkAuth, personnelController.getAt
 // Schedule
 router.get('/schedule', checkAuth, scheduleController.getSchedule);
 router.post('/schedule', checkAuth, checkAdmin, scheduleController.postSchedule);
-router.post('/schedule/save', checkAuth, scheduleController.saveMonthlySchedule);
+router.post('/schedule/save', checkAuth, checkAdmin, scheduleController.saveMonthlySchedule);
 router.get('/schedule/load', checkAuth, scheduleController.loadMonthlySchedule);
 router.get('/schedule/staff/:id/:yearMonth', checkAuth, scheduleController.getStaffSchedule);
 

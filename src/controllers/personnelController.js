@@ -32,12 +32,26 @@ exports.getPersonnel = async (req, res) => {
 
 exports.updateStaff = async (req, res) => {
   const { id, nickname, phone, email, line_user_id, telegram_chat_id } = req.body;
-  if (!id) return res.status(400).json({ success: false, message: 'Missing staff ID' });
+  if (!id || String(id).length > 50) return res.status(400).json({ success: false, message: 'Missing or invalid staff ID' });
+
+  const currentUser = req.session.user;
+  const isPrivileged = currentUser && (currentUser.role === 'admin' || currentUser.role === 'super');
+  const normalizeText = (value, maxLength) => typeof value === 'string' && value.trim().length <= maxLength ? value.trim() || null : null;
+  const textFields = [[nickname, 100], [phone, 50], [email, 255], [line_user_id, 255], [telegram_chat_id, 100]];
+  if (textFields.some(([value, maxLength]) => value !== undefined && (typeof value !== 'string' || value.trim().length > maxLength))) {
+    return res.status(400).json({ success: false, message: 'Invalid staff data' });
+  }
 
   try {
+    if (!isPrivileged) {
+      const [userRows] = await hosofficePool.query('SELECT FINGLE_ID FROM hr_person WHERE ID = ?', [currentUser.id]);
+      if (String(id) !== String(userRows[0]?.FINGLE_ID || '')) {
+        return res.status(403).json({ success: false, message: 'แก้ไขข้อมูลได้เฉพาะของตนเองเท่านั้น' });
+      }
+    }
     const [result] = await hosofficePool.query(
       `UPDATE hr_person SET NICKNAME = ?, HR_PHONE = ?, HR_EMAIL = ?, LINE_YOUR_USER_ID = ?, TELEGRAM_CHAT_ID = ? WHERE FINGLE_ID = ?`,
-      [nickname || null, phone || null, email || null, line_user_id || null, telegram_chat_id || null, id]
+      [normalizeText(nickname, 100), normalizeText(phone, 50), normalizeText(email, 255), normalizeText(line_user_id, 255), normalizeText(telegram_chat_id, 100), id]
     );
 
     if (result.affectedRows === 0) {

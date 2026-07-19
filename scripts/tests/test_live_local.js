@@ -1,13 +1,7 @@
-const mysql = require('mysql2/promise');
+require('dotenv').config();
+const { hosofficePool: pool } = require('../../src/config/db');
 
 async function testLiveScans() {
-  const pool = mysql.createPool({ 
-    host: '192.168.80.7', 
-    user: 'Khos', 
-    password: 'KH10866@zjkowfh', 
-    database: 'hosoffice' 
-  });
-
   const targetDateStr = '2026-03-24';
 
   try {
@@ -33,10 +27,10 @@ async function testLiveScans() {
     console.log(`Total Scans for ${targetDateStr} in hikvision:`, allRows.length);
     console.table(allRows);
 
-    process.exit(0);
   } catch (err) {
-    console.error('Test query error:', err);
-    process.exit(1);
+    console.error('Test query error:', err.message);
+  } finally {
+    await pool.end();
   }
 }
 

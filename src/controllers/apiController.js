@@ -1,12 +1,8 @@
-const fs = require('fs');
-const path = require('path');
 const { pool, hosofficePool } = require('../config/db');
-
-const SCHEDULE_FILE = path.join(__dirname, '..', '..', 'data', 'schedule.json');
 
 exports.getData = async (req, res) => {
   try {
-    const targetDateStr = req.query.date || new Date().toISOString().split('T')[0];
+    const targetDateStr = req.query.date || new Date().toLocaleDateString('sv-SE', { timeZone: process.env.APP_TIMEZONE || 'Asia/Bangkok' });
     const targetDateObj = new Date(targetDateStr);
     const targetMonth = targetDateStr.substring(0, 7); // YYYY-MM
     let day = targetDateObj.getDate().toString();
@@ -22,17 +18,14 @@ exports.getData = async (req, res) => {
     const lateM = (lateTotalMinutes % 60).toString().padStart(2, '0');
     const lateThresholdTime = `${lateH}:${lateM}:00`;
 
-    // Load schedule mapping
+    // Load schedule mapping from the database for the requested date.
     let shiftMap = {};
     try {
-      if (fs.existsSync(SCHEDULE_FILE)) {
-        const sched = JSON.parse(fs.readFileSync(SCHEDULE_FILE, 'utf8'));
-        sched.forEach(s => {
-          if (s.emp_id && s.shift) {
-            shiftMap[s.emp_id] = s.shift.toLowerCase();
-          }
-        });
-      }
+      const [scheduleRows] = await pool.query(
+        'SELECT employee_id, shift FROM schedule_entries WHERE schedule_date = ?',
+        [targetDateStr]
+      );
+      scheduleRows.forEach(row => { shiftMap[row.employee_id] = row.shift.toLowerCase(); });
     } catch (e) {
       console.error('Shift load error:', e);
     }

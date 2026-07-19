@@ -1,5 +1,5 @@
-const mysql = require('mysql2/promise');
-const pool = mysql.createPool({ host: '192.168.80.7', user: 'Khos', password: 'KH10866@zjkowfh', database: 'hosoffice' });
+require('dotenv').config();
+const { hosofficePool: pool } = require('../../src/config/db');
 
 async function debugDashboard() {
   const targetDateStr = '2026-03-24';
@@ -38,9 +38,9 @@ async function debugDashboard() {
     console.log('Sample filtered employees:', employees);
 
   } catch (err) {
-    console.error(err);
+    console.error(err.message);
   } finally {
-    process.exit(0);
+    await pool.end();
   }
 }
 debugDashboard();
