@@ -1,0 +1,50 @@
+<div id="staffScheduleModal" class="staff-schedule-modal" role="dialog" aria-modal="true"
+  aria-labelledby="staffScheduleName" aria-describedby="staffScheduleDescription" hidden>
+  <div class="staff-schedule-dialog" role="document">
+    <header class="staff-schedule-header">
+      <div class="staff-schedule-person">
+        <div id="staffScheduleAvatar" class="staff-schedule-avatar" aria-hidden="true"></div>
+        <div>
+          <h2 id="staffScheduleName" class="staff-schedule-name"></h2>
+          <p id="staffScheduleMeta" class="staff-schedule-meta"></p>
+        </div>
+      </div>
+      <button type="button" class="staff-schedule-close" data-staff-schedule-close
+        aria-label="ปิดตารางเวร">
+        <i class="bi bi-x-lg" aria-hidden="true"></i>
+      </button>
+    </header>
+
+    <div id="staffScheduleChips" class="staff-schedule-chips"></div>
+
+    <div class="staff-schedule-body">
+      <div class="staff-schedule-toolbar">
+        <div>
+          <h3 class="staff-schedule-title">
+            <i class="bi bi-calendar2-week" aria-hidden="true"></i>
+            ตารางเวรประจำเดือน <span id="staffSchedulePeriod"></span>
+          </h3>
+          <p id="staffScheduleDescription">แสดงกะงาน เวลาเข้า–ออก และสถานะลา</p>
+        </div>
+        <div class="staff-schedule-month-actions" aria-label="เปลี่ยนเดือน">
+          <button type="button" data-staff-schedule-previous aria-label="เดือนก่อนหน้า">
+            <i class="bi bi-chevron-left" aria-hidden="true"></i>
+          </button>
+          <button type="button" data-staff-schedule-next aria-label="เดือนถัดไป">
+            <i class="bi bi-chevron-right" aria-hidden="true"></i>
+          </button>
+        </div>
+      </div>
+
+      <div id="staffScheduleCalendar" class="staff-schedule-calendar" aria-live="polite"></div>
+
+      <div class="staff-schedule-legend" aria-label="คำอธิบายสี">
+        <span><i class="legend-morning"></i>เวรเช้า</span>
+        <span><i class="legend-afternoon"></i>เวรบ่าย</span>
+        <span><i class="legend-night"></i>เวรดึก</span>
+        <span><i class="legend-leave"></i>ลา</span>
+        <span><i class="legend-off"></i>OFF</span>
+      </div>
+    </div>
+  </div>
+</div>
