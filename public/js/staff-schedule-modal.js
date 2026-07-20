@@ -18,6 +18,7 @@
   const config = {
     apiBase: '/api/schedule/staff',
     timeZone: 'Asia/Bangkok',
+    loadSchedule: null,
     getEmployees: () => typeof employees !== 'undefined' ? employees : [],
     getColors: () => typeof AV_COLORS !== 'undefined' ? AV_COLORS : defaultColors,
     getShiftDefinitions: () => typeof SHIFTS !== 'undefined' ? SHIFTS : {},
@@ -237,12 +238,23 @@
     const yearMonth = `${state.year}-${String(state.month).padStart(2, '0')}`;
 
     try {
-      const response = await fetch(`${config.apiBase.replace(/\/$/, '')}/${encodeURIComponent(state.staffId)}/${yearMonth}`, {
-        headers: { Accept: 'application/json' },
-        credentials: 'same-origin'
-      });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const data = await response.json();
+      let data;
+      if (typeof config.loadSchedule === 'function') {
+        data = await config.loadSchedule({
+          staffId: state.staffId,
+          year: state.year,
+          month: state.month,
+          yearMonth
+        });
+      } else {
+        const response = await fetch(`${config.apiBase.replace(/\/$/, '')}/${encodeURIComponent(state.staffId)}/${yearMonth}`, {
+          headers: { Accept: 'application/json' },
+          credentials: 'same-origin'
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        data = await response.json();
+      }
+      if (!data || typeof data !== 'object') throw new Error('Invalid schedule response');
       if (requestId !== state.requestId) return null;
       (data.shifts || []).forEach(item => { shiftMap[item.day] = item.shift; });
       (data.leaves || []).forEach(item => { leaveDays[item.day] = true; });

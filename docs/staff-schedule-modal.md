@@ -7,6 +7,7 @@ Reusable monthly staff-schedule dialog extracted from the KHH dashboard.
 - `views/components/staff-schedule-modal.ejs`
 - `public/css/staff-schedule-modal.css`
 - `public/js/staff-schedule-modal.js`
+- `docs/samples/staff-schedule-modal-demo.html` (optional standalone demo)
 
 The destination page also needs Bootstrap Icons and the shared status classes from the destination design system.
 
@@ -73,6 +74,31 @@ StaffScheduleModal.configure({
 
 Only `apiBase` and `getEmployees` normally need changing on another website.
 
+### Use an existing API shape
+
+If the destination website already has a different API, provide a loader instead of creating the REST route shown below:
+
+```js
+StaffScheduleModal.configure({
+  loadSchedule: async ({ staffId, year, month, yearMonth }) => {
+    const response = await fetch(`/my-existing-api/shifts?employee=${encodeURIComponent(staffId)}&month=${yearMonth}`);
+    const existingData = await response.json();
+
+    return {
+      shifts: existingData.workDays.map(item => ({ day: item.day, shift: item.shiftName })),
+      times: existingData.clockTimes.map(item => ({
+        day: item.day,
+        time_in: item.firstScan,
+        time_out: item.lastScan
+      })),
+      leaves: existingData.leaveDays.map(item => ({ day: item.day, reason: item.reason }))
+    };
+  }
+});
+```
+
+`loadSchedule` may also return local or mock data and does not have to call a server.
+
 ## API contract
 
 The component requests:
@@ -101,6 +127,10 @@ Expected JSON:
 ```
 
 Missing arrays may be returned as empty arrays. If the request fails, the component shows any same-day information supplied in the employee object.
+
+## Standalone demo
+
+Open `docs/samples/staff-schedule-modal-demo.html` in a browser. The demo uses mock data through `loadSchedule`, so it does not require a database or authenticated API. Bootstrap Icons are loaded from a CDN and require an internet connection; the modal remains functional without the icons.
 
 ## Security requirements
 
