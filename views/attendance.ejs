@@ -22,7 +22,7 @@
 
 <body>
   <%- include("components/sidebar") %>
-    <div class="main">
+    <div class="main" role="main">
       <%- include("components/topbar") %>
         <!-- PAGE -->
         <div class="page">
@@ -42,7 +42,7 @@
           <!-- MINI STATS -->
           <div class="stat-row"
             style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); margin-bottom: 20px;">
-            <div class="stat-box" style="padding:14px; gap:120x;">
+            <div class="stat-box" style="padding:14px; gap:12px;">
               <div class="stat-ico s1" style="width:36px; height:36px; font-size:16px;"><i class="bi bi-people"></i>
               </div>
               <div>
@@ -151,7 +151,7 @@
 
           <!-- MAIN TABLE -->
           <div class="table-card" style="border-radius:18px; box-shadow:0 10px 30px rgba(0,0,0,0.04); border:none;">
-            <div style="overflow-x:auto;">
+            <div class="data-table-wrap">
               <table class="att-tbl">
                 <thead style="background:#F8FAFC;">
                   <tr>

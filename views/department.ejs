@@ -82,21 +82,16 @@
 
 <body>
   <%- include("components/sidebar") %>
-    <div class="main">
+    <div class="main" role="main">
       <%- include("components/topbar") %>
         <div class="page">
-          <div class="d-flex align-items-center mb-4">
-            <div
-              style="background: var(--primary); color: white; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px; margin-right: 16px;">
-              <i class="bi bi-diagram-3-fill"></i>
-            </div>
+          <section class="workspace-hero" aria-labelledby="department-heading">
             <div>
-              <h3 style="color:var(--dark);font-weight:800;margin:0;">
-                <%= deptName %>
-              </h3>
-              <span style="color:var(--muted);font-size:14px;">สรุปข้อมูลการลงเวลาและรายชื่อบุคลากรประจำกลุ่มงาน</span>
+              <span class="workspace-eyebrow"><i class="bi bi-diagram-3-fill"></i> กลุ่มงาน</span>
+              <h1 id="department-heading"><%= deptName %></h1>
+              <p>สรุปข้อมูลการลงเวลาและรายชื่อบุคลากรประจำกลุ่มงาน</p>
             </div>
-          </div>
+          </section>
 
           <!-- STAT ROW -->
           <div class="stat-row">
@@ -132,7 +127,7 @@
 
           <!-- TABLE -->
           <div class="table-card">
-            <div class="card-top d-flex justify-content-between align-items-center">
+            <div class="table-toolbar">
               <div>
                 <div class="card-title">รายชื่อและการลงเวลาวันนี้</div>
               </div>
@@ -141,7 +136,7 @@
                   oninput="applyFilter()" style="width: 200px;">
               </div>
             </div>
-            <div style="overflow-x:auto;">
+            <div class="data-table-wrap">
               <table class="att-tbl">
                 <thead>
                   <tr>

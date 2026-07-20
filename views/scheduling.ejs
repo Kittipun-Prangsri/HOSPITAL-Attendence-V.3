@@ -398,36 +398,29 @@
 
   <%- include("components/sidebar") %>
 
-    <div class="main">
+    <div class="main" role="main">
       <%- include("components/topbar") %>
 
         <div class="page">
 
-          <!-- PAGE HEADER -->
-          <div class="page-header" style="margin-bottom:20px;">
-            <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
-              <div>
-                <h4 style="display:flex;align-items:center;gap:10px;">
-                  <span
-                    style="background:linear-gradient(135deg,#0F766E,#0D9488);width:38px;height:38px;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:17px;"><i
-                      class="bi bi-calendar2-week-fill"></i></span>
-                  จัดตารางเวรพยาบาล
-                </h4>
-                <p style="margin-top:4px;">ระบบวางแผนการปฏิบัติงานรายเดือน &bull; กลุ่มงานการพยาบาล</p>
-              </div>
-              <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                <button class="btn-auto" id="btnAutoGen" onclick="autoGenerate()">
-                  <i class="bi bi-magic"></i> Auto-Generate
-                </button>
-                <button class="btn-teal" id="btnSave" onclick="saveSchedule()">
-                  <i class="bi bi-save2"></i> บันทึกตารางเวร
-                </button>
-                <button class="btn-outline-dark" onclick="exportExcel()">
-                  <i class="bi bi-file-earmark-excel"></i> ส่งออก Excel
-                </button>
-              </div>
+          <section class="workspace-hero" aria-labelledby="scheduling-heading">
+            <div>
+              <span class="workspace-eyebrow"><i class="bi bi-calendar2-week-fill"></i> การจัดเวร</span>
+              <h1 id="scheduling-heading">จัดตารางเวรพยาบาล</h1>
+              <p>วางแผนการปฏิบัติงานรายเดือนสำหรับกลุ่มงานการพยาบาล</p>
             </div>
-          </div>
+            <div class="workspace-hero-actions">
+              <button class="btn-auto" id="btnAutoGen" onclick="autoGenerate()">
+                <i class="bi bi-magic"></i> จัดเวรอัตโนมัติ
+              </button>
+              <button class="btn-teal" id="btnSave" onclick="saveSchedule()">
+                <i class="bi bi-save2"></i> บันทึกตารางเวร
+              </button>
+              <button class="btn-outline-dark" onclick="exportExcel()">
+                <i class="bi bi-file-earmark-excel"></i> ส่งออก Excel
+              </button>
+            </div>
+          </section>
 
           <!-- SUMMARY STATS -->
           <div class="sched-stat-row" id="summaryStats">

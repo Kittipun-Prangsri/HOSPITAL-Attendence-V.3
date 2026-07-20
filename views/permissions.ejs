@@ -63,23 +63,24 @@
 
 <body>
   <%- include("components/sidebar") %>
-    <div class="main">
+    <div class="main" role="main">
       <%- include("components/topbar") %>
-        <div class="page p-4">
-          <div class="d-flex justify-content-between align-items-center mb-4">
+        <div class="page">
+          <section class="workspace-hero" aria-labelledby="permissions-heading">
             <div>
-              <h4 class="fw-800 text-deep-blue mb-1">ตั้งค่าระดับสิทธิ์ (RBAC)</h4>
-              <p class="text-muted text-14">กำหนดขอบเขตการเข้าถึงข้อมูลระหว่าง Admin และ Staff</p>
+              <span class="workspace-eyebrow"><i class="bi bi-shield-lock-fill"></i> บริหารระบบ</span>
+              <h1 id="permissions-heading">ตั้งค่าระดับสิทธิ์</h1>
+              <p>กำหนดขอบเขตการเข้าถึงข้อมูลระหว่างผู้ดูแลระบบและเจ้าหน้าที่</p>
             </div>
-            <div>
-              <button class="btn btn-outline-secondary me-2" onclick="setDefault()">
-                <i class="bi bi-arrow-counterclockwise me-2"></i> Set Default
+            <div class="workspace-hero-actions">
+              <button class="btn btn-outline-secondary" onclick="setDefault()">
+                <i class="bi bi-arrow-counterclockwise me-2"></i> คืนค่าเริ่มต้น
               </button>
               <button class="btn btn-primary" onclick="savePermissions()">
                 <i class="bi bi-floppy-fill me-2"></i> บันทึกการตั้งค่า
               </button>
             </div>
-          </div>
+          </section>
 
           <div class="row g-4 mb-4">
             <div class="col-md-6">

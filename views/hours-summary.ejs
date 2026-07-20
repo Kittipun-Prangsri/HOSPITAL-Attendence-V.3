@@ -22,13 +22,21 @@
 
 <body>
   <%- include("components/sidebar") %>
-    <div class="main">
+    <div class="main" role="main">
       <%- include("components/topbar") %>
         <div class="page">
-          <div class="table-card page-empty">
-            <i class="bi bi-tools" style="font-size:48px;color:var(--border);margin-bottom:16px;display:block;"></i>
-            <h3 style="color:var(--primary);font-weight:700;">สรุปชั่วโมงทำงาน</h3>
-            <p>ระบบกำลังอยู่ในระหว่างการพัฒนา</p>
+          <section class="workspace-hero" aria-labelledby="hours-heading">
+            <div>
+              <span class="workspace-eyebrow"><i class="bi bi-clock-history"></i> รายงาน</span>
+              <h1 id="hours-heading">สรุปชั่วโมงทำงาน</h1>
+              <p>ตรวจสอบชั่วโมงปฏิบัติงาน เวร และเวลาสะสมของบุคลากร</p>
+            </div>
+          </section>
+          <div class="table-card empty-state">
+            <span class="state-icon"><i class="bi bi-tools"></i></span>
+            <h2>รายงานนี้กำลังอยู่ระหว่างการพัฒนา</h2>
+            <p>ระหว่างนี้สามารถใช้รายงานรายวันและรายเดือนเพื่อตรวจสอบข้อมูลการปฏิบัติงานได้</p>
+            <a href="/report/monthly" class="btn btn-outline-secondary">ดูรายงานรายเดือน</a>
           </div>
         </div>
     </div>
