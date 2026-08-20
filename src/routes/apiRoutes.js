@@ -24,6 +24,7 @@ router.get('/notifications/failed', checkAuth, checkAdmin, attendanceController.
 router.get('/users', checkAuth, checkSuper, userController.getUsers);
 router.post('/users', checkAuth, checkSuper, userController.saveUser);
 router.post('/users/test-line', checkAuth, checkSuper, userController.testLine);
+router.post('/users/test-line-flex', checkAuth, userController.testLineFlex);
 router.post('/users/test-telegram', checkAuth, checkSuper, userController.testTelegram);
 router.delete('/users/:id', checkAuth, checkSuper, userController.deleteUser);
 router.post('/users/:id/reset-password', checkAuth, checkSuper, userController.resetPassword);

@@ -16,7 +16,8 @@ const pages = [
   { path: '/report/hours', view: 'hours-summary' },
   { path: '/admin/users', view: 'users' },
   { path: '/admin/permissions', view: 'permissions' },
-  { path: '/excuses', view: 'excuses' }
+  { path: '/excuses', view: 'excuses' },
+  { path: '/flex-preview', view: 'flex-preview' }
 ];
 
 pages.forEach(p => {

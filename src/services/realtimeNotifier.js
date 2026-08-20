@@ -1,5 +1,6 @@
 const { pool, hosofficePool } = require('../config/db');
 const NotificationService = require('./notificationService');
+const flexBuilder = require('./flexBuilder');
 const { createAttendanceFlex } = require('../utils/flexMessageBuilder');
 
 let intervalId = null;
@@ -122,6 +123,20 @@ async function checkNewScans() {
           day: 'numeric'
         });
 
+        const isLateScan = (Direction === 'in' || Direction === 'i' || AttendanceStatus === 'i') && (AccessTime > '08:31:00');
+        const lineFlexContents = flexBuilder.buildAttendanceFlex({
+          fullname: fullname || EmployeeID,
+          employeeId: EmployeeID,
+          direction: Direction,
+          attendanceStatus: AttendanceStatus,
+          authResult: AuthenticationResult,
+          dateThai,
+          timeStr: AccessTime,
+          deviceName: location,
+          temperature: SkinSurfaceTemperature,
+          isLate: isLateScan
+        });
+
         let message = `🕒 *บันทึกเวลาปฏิบัติงาน*\n\n` +
                       `👤 พนักงาน: ${fullname || EmployeeID}\n` +
                       `📋 สถานะ: ${directionThai}\n` +
@@ -133,21 +148,7 @@ async function checkNewScans() {
           message += `\n🌡️ อุณหภูมิ: ${SkinSurfaceTemperature} °C`;
         }
 
-        const isLate = (Direction === 'in' || Direction === 'i') && (AccessTime > '08:31:00');
-        const flexContents = createAttendanceFlex({
-          fullname: fullname || EmployeeID,
-          employeeId: EmployeeID,
-          statusLabel: directionThai,
-          direction: Direction,
-          isLate,
-          authResult: AuthenticationResult,
-          timeStr: AccessTime,
-          dateStr: dateThai,
-          deviceName: location,
-          temperature: SkinSurfaceTemperature
-        });
-
-        const result = await NotificationService.sendDirectNotification(line_user_id, telegram_chat_id, message, {}, flexContents);
+        const result = await NotificationService.sendDirectNotification(line_user_id, telegram_chat_id, message, undefined, lineFlexContents);
         if (result.success) {
           await pool.query(
             `UPDATE notification_deliveries SET status = 'sent', attempts = attempts + 1, sent_at = NOW(), next_attempt_at = NULL, last_error = NULL
