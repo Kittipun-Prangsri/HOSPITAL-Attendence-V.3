@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
+    "build": "echo \"No build step required for Node.js Express server\"",
     "init-db": "node scripts/init_db.js",
     "migrate": "node scripts/migrations.js",
     "import-legacy-schedules": "node scripts/import_legacy_schedules.js",
