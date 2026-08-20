@@ -47,7 +47,6 @@ async function testLineFlex() {
     temperature: '36.5',
     isLate
   });
-  });
 
   const result = await NotificationService.sendDirectNotification(lineUserId, null, messageText, {}, lineFlexContents);
   if (result.success) {
