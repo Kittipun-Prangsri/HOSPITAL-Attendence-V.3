@@ -347,8 +347,8 @@
 
               <!-- FOOTER -->
               <div class="flex-footer">
-                <button type="button" class="flex-btn-primary" id="fx-btn-primary">📋 ดูประวัติการเข้างาน</button>
-                <button type="button" class="flex-btn-secondary">📝 ยื่นใบลา / แจ้งเหตุสาย</button>
+                <button type="button" class="flex-btn-primary" id="fx-btn-primary" onclick="simulateButtonClick('history')">📋 ดูประวัติการเข้างาน</button>
+                <button type="button" class="flex-btn-secondary" onclick="simulateButtonClick('excuse')">📝 ยื่นใบลา / แจ้งเหตุสาย</button>
               </div>
             </div>
           </div>
@@ -549,6 +549,39 @@
       resultMsg.className = 'alert alert-danger';
       resultMsg.innerHTML = `<i class="bi bi-exclamation-triangle-fill me-1"></i> เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์`;
     }
+  }
+
+  function simulateButtonClick(type) {
+    const phoneBody = document.querySelector('.phone-body');
+    const existingReply = document.getElementById('sim-reply-msg');
+    if (existingReply) existingReply.remove();
+
+    const replyBox = document.createElement('div');
+    replyBox.id = 'sim-reply-msg';
+    replyBox.style.cssText = 'background:#FFFFFF; border-radius:14px; padding:12px 16px; margin-top:8px; font-size:12px; box-shadow:0 4px 12px rgba(0,0,0,0.1); border-left:4px solid #0D9488; color:#0F172A; animation: fadeIn 0.3s ease;';
+
+    if (type === 'history') {
+      replyBox.innerHTML = `
+        <div style="font-weight:700; color:#0D9488; margin-bottom:4px;"><i class="bi bi-chat-left-dots-fill me-1"></i> บอทตอบกลับการสแกนวันนี้</div>
+        <div style="font-size:11.5px; color:#334155;">
+          📊 <b>รายการสแกนสำเร็จวันนี้</b><br>
+          👤 คุณกิตติพันธ์ ปรางศรี - ⏰ 08:15:00 น.<br>
+          <i>(ระบบทำการดึงประวัติสแกนจริงจากฐานข้อมูล)</i>
+        </div>
+      `;
+    } else {
+      replyBox.innerHTML = `
+        <div style="font-weight:700; color:#D97706; margin-bottom:4px;"><i class="bi bi-chat-left-dots-fill me-1"></i> บอทตอบกลับการยื่นใบลา</div>
+        <div style="font-size:11.5px; color:#334155;">
+          📝 <b>ระบบแจ้งสาเหตุการลงเวลา / ยื่นใบลา</b><br>
+          ท่านสามารถยื่นใบลาหรือแจ้งเหตุผลเข้างานสายได้ที่ระบบออนไลน์<br>
+          <a href="/excuses" target="_blank" style="color:#0284C7; font-weight:700;">🔗 ยื่นใบลาออนไลน์ (/excuses)</a>
+        </div>
+      `;
+    }
+
+    phoneBody.appendChild(replyBox);
+    phoneBody.scrollTop = phoneBody.scrollHeight;
   }
 
   window.onload = () => {
