@@ -375,6 +375,327 @@ function buildAttendanceFlex(params = {}) {
           color: theme.btnColor,
           height: 'sm'
         }
+  };
+}
+
+/**
+ * Builds a LINE Flex Message bubble summarizing a user's attendance history for today
+ */
+function buildHistoryFlex(params = {}) {
+  const {
+    fullname = 'บุคลากรโรงพยาบาล',
+    employeeId = '',
+    dateThai = '',
+    scans = []
+  } = params;
+
+  const firstLetter = fullname ? fullname.trim().charAt(0).toUpperCase() : 'K';
+  const hasScans = scans && scans.length > 0;
+
+  const scanRows = hasScans ? scans.map((s, idx) => {
+    return {
+      type: 'box',
+      layout: 'horizontal',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      margin: idx > 0 ? 'sm' : 'none',
+      contents: [
+        {
+          type: 'text',
+          text: `${idx + 1}. ⏰ ${s.AccessTime || s.timeStr} น.`,
+          size: 'xs',
+          weight: 'bold',
+          color: '#0F172A',
+          flex: 6
+        },
+        {
+          type: 'text',
+          text: `🚪 ${s.DeviceName || s.deviceName || 'ประตูสแกน'}`,
+          size: 'xs',
+          color: '#64748B',
+          align: 'end',
+          flex: 6
+        }
+      ]
+    };
+  }) : [
+    {
+      type: 'text',
+      text: '⚠️ ยังไม่พบรายการสแกนเข้า-ออกงานในระบบสำหรับวันนี้',
+      size: 'xs',
+      color: '#94A3B8',
+      align: 'center'
+    }
+  ];
+
+  return {
+    type: 'bubble',
+    size: 'mega',
+    header: {
+      type: 'box',
+      layout: 'vertical',
+      backgroundColor: '#0D9488',
+      paddingAll: '20px',
+      contents: [
+        {
+          type: 'text',
+          text: 'KLONG HAT HOSPITAL • ATTENDANCE LOG',
+          color: '#CCFBF1',
+          size: 'xxs',
+          weight: 'bold',
+          align: 'center'
+        },
+        {
+          type: 'text',
+          text: 'ประวัติการบันทึกเวลาประจำวัน',
+          color: '#FFFFFF',
+          size: 'lg',
+          weight: 'bold',
+          margin: 'xs',
+          align: 'center'
+        },
+        {
+          type: 'text',
+          text: `📅 ${dateThai}`,
+          color: '#CCFBF1',
+          size: 'xs',
+          margin: 'xs',
+          align: 'center'
+        }
+      ]
+    },
+    body: {
+      type: 'box',
+      layout: 'vertical',
+      paddingAll: '20px',
+      contents: [
+        // User Profile
+        {
+          type: 'box',
+          layout: 'horizontal',
+          spacing: 'md',
+          alignItems: 'center',
+          contents: [
+            {
+              type: 'box',
+              layout: 'vertical',
+              width: '42px',
+              height: '42px',
+              cornerRadius: '21px',
+              backgroundColor: '#0D9488',
+              alignItems: 'center',
+              justifyContent: 'center',
+              contents: [
+                {
+                  type: 'text',
+                  text: firstLetter,
+                  color: '#FFFFFF',
+                  size: 'md',
+                  weight: 'bold',
+                  align: 'center'
+                }
+              ]
+            },
+            {
+              type: 'box',
+              layout: 'vertical',
+              flex: 1,
+              contents: [
+                {
+                  type: 'text',
+                  text: fullname,
+                  weight: 'bold',
+                  size: 'md',
+                  color: '#0F172A',
+                  wrap: true
+                },
+                {
+                  type: 'text',
+                  text: employeeId ? `รหัสพนักงาน: ${employeeId}` : 'บุคลากรโรงพยาบาลคลองหาด',
+                  size: 'xs',
+                  color: '#64748B',
+                  margin: 'xs'
+                }
+              ]
+            }
+          ]
+        },
+
+        {
+          type: 'separator',
+          margin: 'lg',
+          color: '#E2E8F0'
+        },
+
+        // Status Card
+        {
+          type: 'box',
+          layout: 'vertical',
+          margin: 'lg',
+          backgroundColor: '#ECFDF5',
+          borderColor: '#A7F3D0',
+          borderWidth: '1px',
+          cornerRadius: '12px',
+          paddingAll: '12px',
+          contents: [
+            {
+              type: 'text',
+              text: `📊 สรุปรายการสแกนวันนี้ (พบ ${scans.length} รายการ)`,
+              color: '#047857',
+              weight: 'bold',
+              size: 'xs',
+              align: 'center'
+            }
+          ]
+        },
+
+        // Scan List Box
+        {
+          type: 'box',
+          layout: 'vertical',
+          margin: 'lg',
+          backgroundColor: '#F8FAFC',
+          cornerRadius: '12px',
+          paddingAll: '14px',
+          contents: scanRows
+        }
+      ]
+    },
+    footer: {
+      type: 'box',
+      layout: 'vertical',
+      spacing: 'sm',
+      paddingAll: '16px',
+      contents: [
+        {
+          type: 'button',
+          action: {
+            type: 'postback',
+            label: '📝 ยื่นใบลา / แจ้งเหตุสาย',
+            data: 'action=excuse',
+            displayText: 'ยื่นใบลา / แจ้งเหตุสาย'
+          },
+          style: 'secondary',
+          height: 'sm'
+        }
+      ]
+    }
+  };
+}
+
+/**
+ * Builds a LINE Flex Message bubble for leave and excuse submissions
+ */
+function buildExcuseFlex(params = {}) {
+  const {
+    fullname = 'บุคลากรโรงพยาบาล',
+    employeeId = ''
+  } = params;
+
+  const baseUrl = (process.env.SYSTEM_URL || process.env.DOMAIN || '').trim();
+  const hasValidUrl = baseUrl && baseUrl.startsWith('http') && !baseUrl.includes('your-hospital-system.com') && !baseUrl.includes('khh-attendance.com');
+  const excuseUrl = hasValidUrl ? `${baseUrl}/excuses` : null;
+
+  const mainAction = excuseUrl
+    ? { type: 'uri', label: '🔗 เปิดระบบยื่นใบลาออนไลน์', uri: excuseUrl }
+    : { type: 'postback', label: '📋 ดูประวัติการเข้างาน', data: 'action=today_history', displayText: 'ดูประวัติการเข้างาน' };
+
+  return {
+    type: 'bubble',
+    size: 'mega',
+    header: {
+      type: 'box',
+      layout: 'vertical',
+      backgroundColor: '#0284C7',
+      paddingAll: '20px',
+      contents: [
+        {
+          type: 'text',
+          text: 'KLONG HAT HOSPITAL • HR PORTAL',
+          color: '#BAE6FD',
+          size: 'xxs',
+          weight: 'bold',
+          align: 'center'
+        },
+        {
+          type: 'text',
+          text: 'ระบบแจ้งสาเหตุ & ยื่นใบลา',
+          color: '#FFFFFF',
+          size: 'lg',
+          weight: 'bold',
+          margin: 'xs',
+          align: 'center'
+        }
+      ]
+    },
+    body: {
+      type: 'box',
+      layout: 'vertical',
+      paddingAll: '20px',
+      contents: [
+        {
+          type: 'text',
+          text: `สวัสดีคุณ ${fullname}`,
+          weight: 'bold',
+          size: 'md',
+          color: '#0F172A'
+        },
+        {
+          type: 'text',
+          text: employeeId ? `รหัสพนักงาน: ${employeeId}` : 'บุคลากรโรงพยาบาลคลองหาด',
+          size: 'xs',
+          color: '#64748B',
+          margin: 'xs'
+        },
+
+        {
+          type: 'separator',
+          margin: 'lg',
+          color: '#E2E8F0'
+        },
+
+        {
+          type: 'box',
+          layout: 'vertical',
+          margin: 'lg',
+          backgroundColor: '#F0F9FF',
+          borderColor: '#BAE6FD',
+          borderWidth: '1px',
+          cornerRadius: '12px',
+          paddingAll: '14px',
+          contents: [
+            {
+              type: 'text',
+              text: '📝 แจ้งเหตุผลเข้างานสาย / ลืมสแกน / ยื่นใบลา',
+              color: '#0369A1',
+              weight: 'bold',
+              size: 'xs'
+            },
+            {
+              type: 'text',
+              text: 'หากท่านมีเหตุจำเป็นในการเข้างานสาย ลืมบันทึกเวลา หรือต้องการยื่นใบลาป่วย/ลากิจ สามารถบันทึกข้อมูลผ่านระบบหรือติดต่อ HR โรงพยาบาลได้ครับ',
+              size: 'xs',
+              color: '#334155',
+              wrap: true,
+              margin: 'sm'
+            }
+          ]
+        }
+      ]
+    },
+    footer: {
+      type: 'box',
+      layout: 'vertical',
+      spacing: 'sm',
+      paddingAll: '16px',
+      contents: [
+        {
+          type: 'button',
+          action: mainAction,
+          style: 'primary',
+          color: '#0284C7',
+          height: 'sm'
+        }
       ]
     }
   };
@@ -382,5 +703,7 @@ function buildAttendanceFlex(params = {}) {
 
 module.exports = {
   buildAttendanceFlex,
+  buildHistoryFlex,
+  buildExcuseFlex,
   determineStatusType
 };

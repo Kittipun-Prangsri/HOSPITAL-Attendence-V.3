@@ -1,8 +1,9 @@
 const { hosofficePool } = require('../config/db');
+const flexBuilder = require('./flexBuilder');
 
 class ChatbotService {
   /**
-   * Handle incoming postback events from LINE Flex buttons
+   * Handle incoming postback events from LINE Flex buttons (Returns LINE Flex Bubble Object)
    */
   async handlePostback(data, userId) {
     if (!data) return null;
@@ -10,18 +11,91 @@ class ChatbotService {
     const action = params.get('action');
 
     if (action === 'today_history' || action === 'history') {
-      return await this.handleTodayScans(null, userId);
+      return await this.handleTodayScansFlex(userId);
     }
     if (action === 'excuse' || action === 'leave') {
-      const baseUrl = process.env.SYSTEM_URL || process.env.DOMAIN || '';
-      const linkMsg = baseUrl && baseUrl.startsWith('http')
-        ? `\n🔗 ลิงก์ยื่นใบลาออนไลน์: ${baseUrl}/excuses`
-        : '';
-      return `📝 *ระบบแจ้งสาเหตุการลงเวลา / ยื่นใบลา*\n\n` +
-             `ท่านสามารถแจ้งเหตุผลการเข้างานสาย ลืมสแกน หรือยื่นใบลาออนไลน์ได้ที่ระบบ${linkMsg}\n\n` +
-             `หรือติดต่อเจ้าหน้าที่งานบริหารทรัพยากรบุคคล (HR) โรงพยาบาลคลองหาดครับ`;
+      let fullname = 'บุคลากร';
+      let empId = '';
+      if (userId) {
+        try {
+          const [person] = await hosofficePool.query(`
+            SELECT FINGLE_ID, CONCAT(HR_FNAME, '   ', HR_LNAME) as fullname
+            FROM hr_person
+            WHERE LINE_TOKEN = ? 
+               OR LINE_TOKEN1 = ? 
+               OR LINE_TOKEN2 = ? 
+               OR LINE_YOUR_USER_ID = ?
+               OR TELEGRAM_CHAT_ID = ?
+            LIMIT 1
+          `, [userId, userId, userId, userId, userId]);
+          if (person.length > 0) {
+            empId = person[0].FINGLE_ID;
+            fullname = person[0].fullname.trim();
+          }
+        } catch (err) {
+          console.error('[Chatbot] Error querying user info for excuse Flex:', err.message);
+        }
+      }
+      return flexBuilder.buildExcuseFlex({ fullname, employeeId: empId });
     }
     return null;
+  }
+
+  /**
+   * Helper to return today scans as a polished LINE Flex Message Bubble
+   */
+  async handleTodayScansFlex(userId) {
+    const todayStr = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Bangkok' });
+    const todayThai = new Date().toLocaleDateString('th-TH', {
+      timeZone: 'Asia/Bangkok',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+
+    let fullname = 'บุคลากร';
+    let empId = '';
+    let scans = [];
+
+    if (userId) {
+      try {
+        const [person] = await hosofficePool.query(`
+          SELECT FINGLE_ID, CONCAT(HR_FNAME, '   ', HR_LNAME) as fullname
+          FROM hr_person
+          WHERE LINE_TOKEN = ? 
+             OR LINE_TOKEN1 = ? 
+             OR LINE_TOKEN2 = ? 
+             OR LINE_YOUR_USER_ID = ?
+             OR TELEGRAM_CHAT_ID = ?
+          LIMIT 1
+        `, [userId, userId, userId, userId, userId]);
+
+        if (person.length > 0) {
+          empId = person[0].FINGLE_ID;
+          fullname = person[0].fullname.trim();
+
+          const [userScans] = await hosofficePool.query(`
+            SELECT AccessTime, DeviceName
+            FROM hikvision
+            WHERE EmployeeID = ?
+              AND AccessDate = ?
+              AND AuthenticationResult = 'Success'
+            ORDER BY AccessTime ASC
+          `, [empId, todayStr]);
+
+          scans = userScans;
+        }
+      } catch (err) {
+        console.error('[Chatbot] Error querying user personal scans for Flex:', err.message);
+      }
+    }
+
+    return flexBuilder.buildHistoryFlex({
+      fullname,
+      employeeId: empId,
+      dateThai: todayThai,
+      scans
+    });
   }
 
   /**

@@ -259,37 +259,52 @@ class NotificationService {
     try {
       if (replyToken && process.env.LINE_CHANNEL_ACCESS_TOKEN) {
         let messages = [];
-        if (message.length <= 4000) {
-          messages.push({
-            type: 'text',
-            text: message,
-          });
-        } else {
-          // Split message by lines to fit within LINE's 5000 character limit per text block (max 5 blocks)
-          const lines = message.split('\n');
-          let chunk = '';
-          for (const line of lines) {
-            if (chunk.length + line.length + 1 > 4000) {
-              if (chunk) messages.push({ type: 'text', text: chunk });
-              chunk = line;
-            } else {
-              chunk = chunk ? chunk + '\n' + line : line;
-            }
+
+        // Check if message is a Flex Message object or JSON bubble
+        if (typeof message === 'object' && message !== null) {
+          if (message.type === 'flex' || message.type === 'text') {
+            messages.push(message);
+          } else if (message.type === 'bubble' || message.type === 'carousel') {
+            messages.push({
+              type: 'flex',
+              altText: 'ประวัติการเข้างาน โรงพยาบาลคลองหาด',
+              contents: message
+            });
           }
-          if (chunk) messages.push({ type: 'text', text: chunk });
-          
-          // LINE limits up to 5 messages in reply. Keep only first 5 to prevent API error
-          if (messages.length > 5) {
-            messages = messages.slice(0, 5);
-            messages[4].text += '\n\n... (ข้อมูลถูกจำกัดการแสดงผลเนื่องจากจำนวนรายการเกินขีดจำกัด)';
+        } else if (typeof message === 'string') {
+          if (message.length <= 4000) {
+            messages.push({
+              type: 'text',
+              text: message,
+            });
+          } else {
+            // Split message by lines to fit within LINE's character limit per text block (max 5 blocks)
+            const lines = message.split('\n');
+            let chunk = '';
+            for (const line of lines) {
+              if (chunk.length + line.length + 1 > 4000) {
+                if (chunk) messages.push({ type: 'text', text: chunk });
+                chunk = line;
+              } else {
+                chunk = chunk ? chunk + '\n' + line : line;
+              }
+            }
+            if (chunk) messages.push({ type: 'text', text: chunk });
+            
+            if (messages.length > 5) {
+              messages = messages.slice(0, 5);
+              messages[4].text += '\n\n... (ข้อมูลถูกจำกัดการแสดงผลเนื่องจากจำนวนรายการเกินขีดจำกัด)';
+            }
           }
         }
 
-        await lineClient.replyMessage({
-          replyToken: replyToken,
-          messages: messages
-        });
-        return true;
+        if (messages.length > 0) {
+          await lineClient.replyMessage({
+            replyToken: replyToken,
+            messages: messages
+          });
+          return true;
+        }
       }
       return false;
     } catch (error) {
