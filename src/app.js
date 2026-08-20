@@ -50,14 +50,10 @@ app.use(session({
   }
 }));
 
-// Routes
-app.use('/', authRoutes);
-app.use('/api', apiRoutes);
-app.use('/', viewRoutes);
-
 const chatbotService = require('./services/chatbotService');
 const notificationService = require('./services/notificationService');
 
+// LINE Webhook Route (Highest Priority)
 app.post(['/', '/webhook'], async (req, res) => {
   try {
     console.log('📌 LINE Webhook เข้ามาแล้ว!');
@@ -111,6 +107,11 @@ app.post(['/', '/webhook'], async (req, res) => {
     res.status(500).send(error.message);
   }
 });
+
+// Routes
+app.use('/', authRoutes);
+app.use('/api', apiRoutes);
+app.use('/', viewRoutes);
 
 // Error Handling
 app.use(notFound);
