@@ -70,11 +70,6 @@ h1, h2, h3, h4, h5, h6, .snum-val, .stat-val, .role-badge, .time-tag, .live-pill
   font-size: 18px !important;
   margin: 0 !important;
 }
-.sidebar.collapsed:not(:hover) .sb-logo {
-  padding: 20px 0 !important;
-  text-align: center !important;
-  display: block !important;
-}
 .sidebar.collapsed:not(:hover) .sb-logo-icon {
   margin: 0 auto !important;
 }
@@ -88,12 +83,6 @@ h1, h2, h3, h4, h5, h6, .snum-val, .stat-val, .role-badge, .time-tag, .live-pill
 }
 .sidebar.collapsed:not(:hover) .sb-user i.ms-auto {
   display: none !important;
-}
-.sidebar.collapsed:not(:hover) .sb-toggle-btn {
-  right: 0 !important;
-  left: 0 !important;
-  margin: 0 auto !important;
-  top: 15px !important;
 }
 .sidebar.collapsed:not(:hover) .sb-dept-header {
   justify-content: center !important;

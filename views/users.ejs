@@ -291,6 +291,60 @@
             color: var(--muted);
             font-size: 11px;
         }
+
+        /* Tabs */
+        .tab-nav {
+            display: flex;
+            border-bottom: 2px solid var(--border);
+            margin-bottom: 20px;
+            gap: 20px;
+        }
+
+        .tab-btn {
+            background: none;
+            border: none;
+            padding: 10px 5px;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--muted);
+            cursor: pointer;
+            position: relative;
+        }
+
+        .tab-btn.active {
+            color: var(--primary);
+        }
+
+        .tab-btn.active::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: var(--primary);
+        }
+
+        .fail-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13.5px;
+        }
+
+        .fail-table th {
+            text-align: left;
+            color: var(--muted);
+            font-weight: 700;
+            font-size: 12px;
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .fail-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border);
+            vertical-align: top;
+        }
     </style>
 </head>
 
@@ -313,35 +367,63 @@
                         </div>
                     </section>
 
-                    <!-- FILTER BAR -->
-                    <div class="filter-bar"
-                        style="display:flex; align-items:center; gap:12px; margin-bottom:20px; flex-wrap:wrap; background:#fff; padding:16px; border-radius:12px; border:1px solid var(--border);">
-                        <div style="display:flex; align-items:center; gap:8px; flex:1; flex-wrap:wrap;">
-                            <!-- Text Search -->
-                            <div class="input-group"
-                                style="max-width:250px; display:flex; align-items:center; border:1px solid var(--border); border-radius:8px; background:#fff; overflow:hidden;">
-                                <span
-                                    style="padding:8px 12px; background:#f8fafc; border-right:1px solid var(--border); color:var(--muted);"><i
-                                        class="bi bi-search"></i></span>
-                                <input type="text" id="userSearchInput" placeholder="ค้นหาชื่อ / ชื่อผู้ใช้..."
-                                    style="border:none; padding:8px 12px; outline:none; font-size:13.5px; width:100%;"
-                                    oninput="applyFilters()" />
-                            </div>
+                    <div class="tab-nav">
+                        <button class="tab-btn active" onclick="switchUsersTab('users')"><i
+                                class="bi bi-people"></i> ผู้ใช้งาน</button>
+                        <button class="tab-btn" onclick="switchUsersTab('failed')"><i
+                                class="bi bi-exclamation-triangle"></i> การแจ้งเตือนที่ล้มเหลว</button>
+                    </div>
 
-                            <!-- Department Dropdown -->
-                            <select class="form-select" id="userDeptFilter"
-                                style="max-width:250px; padding:8px 12px; border-radius:8px; border:1px solid var(--border); font-size:13.5px; outline:none;"
-                                onchange="applyFilters()">
-                                <option value="all">ทุกแผนก / กลุ่มงาน</option>
-                            </select>
+                    <!-- TAB 1: USERS -->
+                    <div id="tab-users" class="tab-content">
+                        <!-- FILTER BAR -->
+                        <div class="filter-bar"
+                            style="display:flex; align-items:center; gap:12px; margin-bottom:20px; flex-wrap:wrap; background:#fff; padding:16px; border-radius:12px; border:1px solid var(--border);">
+                            <div style="display:flex; align-items:center; gap:8px; flex:1; flex-wrap:wrap;">
+                                <!-- Text Search -->
+                                <div class="input-group"
+                                    style="max-width:250px; display:flex; align-items:center; border:1px solid var(--border); border-radius:8px; background:#fff; overflow:hidden;">
+                                    <span
+                                        style="padding:8px 12px; background:#f8fafc; border-right:1px solid var(--border); color:var(--muted);"><i
+                                            class="bi bi-search"></i></span>
+                                    <input type="text" id="userSearchInput" placeholder="ค้นหาชื่อ / ชื่อผู้ใช้..."
+                                        style="border:none; padding:8px 12px; outline:none; font-size:13.5px; width:100%;"
+                                        oninput="applyFilters()" />
+                                </div>
+
+                                <!-- Department Dropdown -->
+                                <select class="form-select" id="userDeptFilter"
+                                    style="max-width:250px; padding:8px 12px; border-radius:8px; border:1px solid var(--border); font-size:13.5px; outline:none;"
+                                    onchange="applyFilters()">
+                                    <option value="all">ทุกแผนก / กลุ่มงาน</option>
+                                </select>
+                            </div>
+                            <div style="font-size:12px; color:var(--muted); font-weight:600;">
+                                แสดง <span id="userCountSpan" style="color:var(--primary);">0</span> รายการ
+                            </div>
                         </div>
-                        <div style="font-size:12px; color:var(--muted); font-weight:600;">
-                            แสดง <span id="userCountSpan" style="color:var(--primary);">0</span> รายการ
+
+                        <div class="user-grid" id="userList">
+                            <!-- User Cards will be injected here -->
                         </div>
                     </div>
 
-                    <div class="user-grid" id="userList">
-                        <!-- User Cards will be injected here -->
+                    <!-- TAB 2: FAILED NOTIFICATIONS -->
+                    <div id="tab-failed" class="tab-content" style="display:none;">
+                        <div style="background:#fff; border-radius:12px; border:1px solid var(--border); overflow-x:auto;">
+                            <table class="fail-table">
+                                <thead>
+                                    <tr>
+                                        <th>พนักงาน</th>
+                                        <th>วันที่ / เวลาสแกน</th>
+                                        <th>จำนวนครั้งที่ลอง</th>
+                                        <th>ข้อผิดพลาดล่าสุด</th>
+                                        <th>อัปเดตล่าสุด</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="failedNotifBody"></tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
         </div>
@@ -418,6 +500,47 @@
         <script>
             let allUsers = [];
             let allPersonnel = [];
+            let failedNotifLoaded = false;
+
+            function switchUsersTab(tabId) {
+                document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+
+                const activeBtn = Array.from(document.querySelectorAll('.tab-btn')).find(btn => btn.getAttribute('onclick').includes(`'${tabId}'`));
+                if (activeBtn) activeBtn.classList.add('active');
+
+                const content = document.getElementById('tab-' + tabId);
+                if (content) content.style.display = 'block';
+
+                if (tabId === 'failed' && !failedNotifLoaded) fetchFailedNotifications();
+            }
+
+            async function fetchFailedNotifications() {
+                const tbody = document.getElementById('failedNotifBody');
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--muted);">กำลังโหลด...</td></tr>';
+                try {
+                    const res = await fetch('/api/notifications/failed', { headers: { Accept: 'application/json' } });
+                    const data = await res.json();
+                    const failures = (data && data.failures) || [];
+                    failedNotifLoaded = true;
+                    if (failures.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--muted);">ไม่มีการแจ้งเตือนที่ล้มเหลว</td></tr>';
+                        return;
+                    }
+                    tbody.innerHTML = failures.map(f => `
+                        <tr>
+                            <td><strong>${f.employeeName}</strong></td>
+                            <td>${f.accessDate} ${f.accessTime}</td>
+                            <td>${f.attempts}</td>
+                            <td style="color:#dc2626;">${f.lastError || '—'}</td>
+                            <td>${new Date(f.updatedAt).toLocaleString('th-TH')}</td>
+                        </tr>
+                    `).join('');
+                } catch (err) {
+                    console.error('Fetch failed notifications error:', err);
+                    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:#dc2626;">โหลดข้อมูลไม่สำเร็จ</td></tr>';
+                }
+            }
 
             async function fetchUsers() {
                 try {

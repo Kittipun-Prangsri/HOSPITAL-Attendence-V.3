@@ -164,7 +164,22 @@ exports.getData = async (req, res) => {
 
     const [serviceWorkData] = await hosofficePool.query(serviceWorkQuery, serviceWorkParams);
 
-    res.json({ employees, timelineData, scanQueue, serviceWorkData });
+    // 4. Count failed face-scan attempts for the day
+    let faceFailQuery = `
+      SELECT COUNT(*) as failCount
+      FROM hikvision h
+      LEFT JOIN hr_person p ON h.EmployeeID = p.FINGLE_ID
+      WHERE h.AccessDate = ? AND h.AuthenticationResult = 'Failed'
+    `;
+    const faceFailParams = [targetDateStr];
+    if (!isPrivileged) {
+      faceFailQuery += ` AND p.ID = ?`;
+      faceFailParams.push(currentUser.id);
+    }
+    const [faceFailRows] = await hosofficePool.query(faceFailQuery, faceFailParams);
+    const totalFaceFail = faceFailRows[0]?.failCount || 0;
+
+    res.json({ employees, timelineData, scanQueue, serviceWorkData, totalFaceFail });
   } catch (error) {
     console.error('Database query error:', error);
     res.status(500).json({ employees: [], timelineData: [], scanQueue: [] });

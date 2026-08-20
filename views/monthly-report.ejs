@@ -610,7 +610,7 @@
         const search = document.getElementById('nameSearch').value;
 
         const tableBody = document.getElementById('reportTableBody');
-        tableBody.innerHTML = '<tr><td colspan="8" class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><div class="mt-2 text-muted">กำลังดึงข้อมูลสรุป...</div></td></tr>';
+        tableBody.innerHTML = '<tr><td colspan="9" class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><div class="mt-2 text-muted">กำลังดึงข้อมูลสรุป...</div></td></tr>';
 
         try {
           const res = await fetch(`/api/report/monthly?month=${month}&year=${year}&department=${encodeURIComponent(dept)}&search=${encodeURIComponent(search)}`);
@@ -630,6 +630,7 @@
             <th>มาสาย (ครั้ง)</th>
             <th>ขาดงาน (วัน)</th>
             <th>วันลา (วัน)</th>
+            <th>ค้างดำเนินการ (Overdue)</th>
             <th>สถานะ</th>
           </tr>
         `;
@@ -638,18 +639,18 @@
             updateSummaryStats();
             renderSummaryChart();
           } else {
-            tableBody.innerHTML = `<tr><td colspan="8" class="text-center text-danger py-4">ดึงข้อมูลล้มเหลว: ${data.message}</td></tr>`;
+            tableBody.innerHTML = `<tr><td colspan="9" class="text-center text-danger py-4">ดึงข้อมูลล้มเหลว: ${data.message}</td></tr>`;
           }
         } catch (err) {
           console.error(err);
-          tableBody.innerHTML = '<tr><td colspan="8" class="text-center text-danger py-4">เกิดข้อผิดพลาดในการโหลดข้อมูลสรุป</td></tr>';
+          tableBody.innerHTML = '<tr><td colspan="9" class="text-center text-danger py-4">เกิดข้อผิดพลาดในการโหลดข้อมูลสรุป</td></tr>';
         }
       }
 
       function renderSummaryTableBody() {
         const tbody = document.getElementById('reportTableBody');
         if (filteredSummaryData.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="8" class="text-center py-5 text-muted">ไม่พบข้อมูลตามเงื่อนไขที่ระบุ</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="9" class="text-center py-5 text-muted">ไม่พบข้อมูลตามเงื่อนไขที่ระบุ</td></tr>';
           return;
         }
 
@@ -673,6 +674,7 @@
           <td><span class="badge-late">${person.lateCount}</span></td>
           <td><span class="badge-absent">${person.absentCount}</span></td>
           <td><span class="badge bg-light text-dark">${person.leaveCount}</span></td>
+          <td><span class="badge bg-light text-dark">${person.overdueCount || 0}</span></td>
           <td><span class="badge ${badgeClass}">${person.status}</span></td>
         </tr>
       `;
@@ -961,6 +963,7 @@
             'มาสาย (ครั้ง)': e.lateCount,
             'ขาดงาน (วัน)': e.absentCount,
             'วันลา (วัน)': e.leaveCount,
+            'ค้างดำเนินการ (Overdue)': e.overdueCount || 0,
             'สถานะ': e.status
           }));
           ws = XLSX.utils.json_to_sheet(dataToExport);

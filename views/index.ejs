@@ -86,6 +86,14 @@
                   <div class="stat-lbl">ขาด / ยังไม่มา</div>
                 </div>
               </div>
+              <div class="stat-box">
+                <div class="stat-ico s4" style="background:#FEE2E2; color:#B91C1C;"><i
+                    class="bi bi-shield-x"></i></div>
+                <div>
+                  <div class="stat-val" id="totalFaceFail">0</div>
+                  <div class="stat-lbl">สแกนไม่ผ่าน</div>
+                </div>
+              </div>
             </div>
 
             <!-- USER SELF-SERVICE BAR (Visible to everyone) -->
@@ -306,6 +314,7 @@
           let timelineData = [];
           let scanQueue = [];
           let serviceWorkData = [];
+          let totalFaceFail = 0;
 
           /* ================================================================
              STATE
@@ -341,6 +350,7 @@
             document.getElementById('totalLate').textContent = employees.filter(e => e.status === 'late').length;
             document.getElementById('totalLeave').textContent = employees.filter(e => e.status === 'leave').length;
             document.getElementById('totalAbsent').textContent = employees.filter(e => e.status === 'none' || e.status === '').length;
+            document.getElementById('totalFaceFail').textContent = totalFaceFail;
           }
 
           /* ================================================================
@@ -598,6 +608,7 @@
                 timelineData = db.timelineData || [];
                 scanQueue = db.scanQueue || [];
                 serviceWorkData = db.serviceWorkData || [];
+                totalFaceFail = db.totalFaceFail || 0;
 
                 // If date was provided, update the header subtitle or state
                 if (date) {
@@ -842,6 +853,36 @@
                       <div class="sdm-field-val sdm-view-field" id="sdmNicknameField"></div>
                       <input class="sdm-input sdm-edit-field" id="sdmNicknameInput" type="text" placeholder="ชื่อเล่น"
                         style="display:none;">
+                    </div>
+                  </div>
+
+                  <!-- Citizen ID (read-only) -->
+                  <div class="sdm-field-card">
+                    <div class="sdm-field-icon" style="background:#F1F5F9;color:#475569;"><i
+                        class="bi bi-person-vcard-fill"></i></div>
+                    <div>
+                      <div class="sdm-field-label">เลขบัตรประชาชน / รหัสผู้ใช้</div>
+                      <div class="sdm-field-val" id="sdmCid"></div>
+                    </div>
+                  </div>
+
+                  <!-- LINE User ID (read-only) -->
+                  <div class="sdm-field-card">
+                    <div class="sdm-field-icon" style="background:#ECFDF5;color:#0d9488;"><i class="bi bi-line"></i>
+                    </div>
+                    <div>
+                      <div class="sdm-field-label">LINE User ID</div>
+                      <div class="sdm-field-val" id="sdmLineId"></div>
+                    </div>
+                  </div>
+
+                  <!-- Telegram Chat ID (read-only) -->
+                  <div class="sdm-field-card">
+                    <div class="sdm-field-icon" style="background:#E0F2FE;color:#0284c7;"><i
+                        class="bi bi-telegram"></i></div>
+                    <div>
+                      <div class="sdm-field-label">Telegram Chat ID</div>
+                      <div class="sdm-field-val" id="sdmTelegramId"></div>
                     </div>
                   </div>
 
@@ -1423,7 +1464,7 @@
               ? `<span style="color:${emp.conf >= 97 ? '#10B981' : emp.conf >= 93 ? '#F59E0B' : '#EF4444'};font-size:15px;">${emp.conf}%</span>` : _NA;
 
             /* Extended fields - loading state */
-            ['sdmPhone', 'sdmEmail', 'sdmNicknameField', 'sdmStartDate'].forEach(id => {
+            ['sdmPhone', 'sdmEmail', 'sdmNicknameField', 'sdmStartDate', 'sdmCid', 'sdmLineId', 'sdmTelegramId'].forEach(id => {
               document.getElementById(id).innerHTML = '<span style="color:#94A3B8;font-size:11px;"><span class="sdm-spinner" style="width:10px;height:10px;"></span></span>';
             });
 
@@ -1457,6 +1498,9 @@
                   document.getElementById('sdmNicknameField').innerHTML = nn || _NA;
                   document.getElementById('sdmStartDate').innerHTML = p.HR_STARTWORK_DATE
                     ? new Date(p.HR_STARTWORK_DATE).toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' }) : _NA;
+                  document.getElementById('sdmCid').textContent = maskSensitiveData(p.HR_CID, 'view_id', staffId) || _NA;
+                  document.getElementById('sdmLineId').textContent = p.line_user_id || _NA;
+                  document.getElementById('sdmTelegramId').textContent = p.telegram_chat_id || _NA;
                   return;
                 }
               }
@@ -1465,7 +1509,7 @@
           }
 
           function _sdmFallback() {
-            ['sdmPhone', 'sdmEmail', 'sdmNicknameField', 'sdmStartDate'].forEach(id => {
+            ['sdmPhone', 'sdmEmail', 'sdmNicknameField', 'sdmStartDate', 'sdmCid', 'sdmLineId', 'sdmTelegramId'].forEach(id => {
               document.getElementById(id).innerHTML = _NA;
             });
           }

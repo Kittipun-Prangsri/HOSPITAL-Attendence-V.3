@@ -201,3 +201,60 @@ exports.getStaffSchedule = async (req, res) => {
     res.status(500).json({ error: 'Failed to load staff schedule', shifts: [], times: [], leaves: [] });
   }
 };
+
+exports.getScheduleAudit = async (req, res) => {
+  try {
+    const { employee_id: employeeId, start, end } = req.query;
+    const conditions = [];
+    const params = [];
+    if (employeeId) {
+      if (!validEmployeeId(employeeId)) return res.status(400).json({ error: 'Invalid employee_id' });
+      conditions.push('employee_id = ?');
+      params.push(employeeId);
+    }
+    if (start) {
+      if (!DATE_RE.test(start)) return res.status(400).json({ error: 'Invalid start date' });
+      conditions.push('schedule_date >= ?');
+      params.push(start);
+    }
+    if (end) {
+      if (!DATE_RE.test(end)) return res.status(400).json({ error: 'Invalid end date' });
+      conditions.push('schedule_date <= ?');
+      params.push(end);
+    }
+    const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    const [rows] = await pool.query(
+      `SELECT employee_id, DATE_FORMAT(schedule_date, '%Y-%m-%d') AS schedule_date,
+              previous_shift, new_shift, changed_by, changed_at
+       FROM schedule_audit_log ${whereClause}
+       ORDER BY changed_at DESC LIMIT 200`,
+      params
+    );
+
+    let nameMap = {};
+    const employeeIds = [...new Set(rows.map(row => row.employee_id))];
+    if (employeeIds.length > 0) {
+      const [people] = await hosofficePool.query(
+        `SELECT FINGLE_ID, CONCAT(HR_FNAME, ' ', HR_LNAME) AS name FROM hr_person WHERE FINGLE_ID IN (?)`,
+        [employeeIds]
+      );
+      nameMap = Object.fromEntries(people.map(p => [p.FINGLE_ID, p.name]));
+    }
+
+    const log = rows.map(row => ({
+      employeeId: row.employee_id,
+      employeeName: nameMap[row.employee_id] || row.employee_id,
+      date: row.schedule_date,
+      previousShift: row.previous_shift,
+      newShift: row.new_shift,
+      changedBy: row.changed_by,
+      changedAt: row.changed_at
+    }));
+
+    res.json({ success: true, log });
+  } catch (err) {
+    console.error('Error in /api/schedule/audit:', err);
+    res.status(500).json({ error: 'Failed to load schedule audit log', log: [] });
+  }
+};

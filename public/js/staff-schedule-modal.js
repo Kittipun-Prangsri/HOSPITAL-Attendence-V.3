@@ -129,8 +129,10 @@
     const now = new Date();
     state.year = now.getFullYear();
     state.month = now.getMonth() + 1;
-    state.lastFocused = document.activeElement;
-    state.previousBodyOverflow = document.body.style.overflow;
+    if (elements.modal.hidden) {
+      state.lastFocused = document.activeElement;
+      state.previousBodyOverflow = document.body.style.overflow;
+    }
 
     renderEmployeeHeader(employee);
     elements.modal.hidden = false;
@@ -257,7 +259,7 @@
       if (!data || typeof data !== 'object') throw new Error('Invalid schedule response');
       if (requestId !== state.requestId) return null;
       (data.shifts || []).forEach(item => { shiftMap[item.day] = item.shift; });
-      (data.leaves || []).forEach(item => { leaveDays[item.day] = true; });
+      (data.leaves || []).forEach(item => { leaveDays[item.day] = item.reason || true; });
       (data.times || []).forEach(item => { timesMap[item.day] = { in: item.time_in, out: item.time_out }; });
     } catch (error) {
       console.warn('[StaffScheduleModal] Schedule request failed; showing available local data.', error.message);
@@ -285,7 +287,9 @@
     for (let day = 1; day <= daysInMonth; day += 1) {
       const date = new Date(state.year, state.month - 1, day);
       const dateKey = `${state.year}-${String(state.month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-      const isLeave = Boolean(leaveDays[day]);
+      const leaveEntry = leaveDays[day];
+      const isLeave = Boolean(leaveEntry);
+      const leaveReason = typeof leaveEntry === 'string' ? leaveEntry : '';
       const shift = shiftMap[day];
       const times = timesMap[day];
       const shiftStyle = shiftStyles[shift];
@@ -296,8 +300,11 @@
       ].filter(Boolean).join(' ');
 
       let shiftMarkup = '<span class="staff-schedule-off">OFF</span>';
-      if (isLeave) shiftMarkup = '<span class="staff-schedule-shift" style="background:#fef3c7;color:#92400e;">ลา</span>';
-      else if (shift) {
+      if (isLeave) {
+        const leaveLabel = leaveReason || 'ลา';
+        const titleAttr = leaveReason ? ` title="${escapeHtml(leaveReason)}"` : '';
+        shiftMarkup = `<span class="staff-schedule-shift" style="background:#fef3c7;color:#92400e;"${titleAttr}>${escapeHtml(leaveLabel)}</span>`;
+      } else if (shift) {
         const style = shiftStyle || { bg: '#dcfce7', text: '#166534' };
         shiftMarkup = `<span class="staff-schedule-shift" style="background:${style.bg};color:${style.text};">${escapeHtml(shift)}</span>`;
       }

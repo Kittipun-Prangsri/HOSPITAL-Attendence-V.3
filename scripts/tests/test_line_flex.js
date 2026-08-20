@@ -12,160 +12,18 @@ async function testLineFlex() {
 
   const messageText = `🕒 *บันทึกเวลาปฏิบัติงาน*\n\n👤 พนักงาน: คุณกิตติพันธ์ ปรางศรี (ทดสอบ)\n📋 สถานะ: เข้างาน (Check-in)\n⏰ เวลา: 10:30 น.`;
   
-  const lineFlexContents = {
-    type: "bubble",
-    size: "mega",
-    header: {
-      type: "box",
-      layout: "vertical",
-      contents: [
-        {
-          type: "text",
-          text: "ATTENDANCE LOG",
-          color: "#FFFFFF",
-          size: "xs",
-          weight: "bold",
-          align: "center"
-        },
-        {
-          type: "text",
-          text: "บันทึกเวลาปฏิบัติงาน (TEST)",
-          color: "#FFFFFF",
-          size: "lg",
-          weight: "bold",
-          margin: "sm",
-          align: "center"
-        }
-      ],
-      paddingTop: "25px",
-      paddingBottom: "25px",
-      backgroundColor: "#FF0099"
-    },
-    hero: {
-      type: "image",
-      url: "https://cdn-icons-png.flaticon.com/512/3135/3135715.png",
-      size: "full",
-      aspectRatio: "3:1",
-      aspectMode: "cover",
-      gravity: "center"
-    },
-    body: {
-      type: "box",
-      layout: "vertical",
-      contents: [
-        {
-          type: "text",
-          text: "คุณกิตติพันธ์ ปรางศรี (ทดสอบ)",
-          weight: "bold",
-          size: "xl",
-          align: "center",
-          color: "#333333"
-        },
-        {
-          type: "box",
-          layout: "vertical",
-          margin: "xxl",
-          spacing: "sm",
-          contents: [
-            {
-              type: "box",
-              layout: "baseline",
-              contents: [
-                {
-                  type: "text",
-                  text: "สถานะ",
-                  color: "#aaaaaa",
-                  size: "sm",
-                  flex: 1,
-                  align: "start"
-                },
-                {
-                  type: "text",
-                  text: "✅ เข้างาน (Check-in)",
-                  color: "#FF0099",
-                  size: "sm",
-                  flex: 3,
-                  weight: "bold",
-                  margin: "lg"
-                }
-              ]
-            },
-            {
-              type: "box",
-              layout: "baseline",
-              contents: [
-                {
-                  type: "text",
-                  text: "เวลา",
-                  color: "#aaaaaa",
-                  size: "sm",
-                  flex: 1,
-                  align: "start"
-                },
-                {
-                  type: "text",
-                  text: "05 มิถุนายน 2026, 10:30 น.",
-                  color: "#555555",
-                  size: "sm",
-                  flex: 3,
-                  margin: "lg"
-                }
-              ]
-            },
-            {
-              type: "box",
-              layout: "baseline",
-              contents: [
-                {
-                  type: "text",
-                  text: "จุดบันทึก",
-                  color: "#aaaaaa",
-                  size: "sm",
-                  flex: 1,
-                  align: "start"
-                },
-                {
-                  type: "text",
-                  text: "KHHin2",
-                  color: "#555555",
-                  size: "sm",
-                  flex: 3,
-                  margin: "lg"
-                }
-              ]
-            }
-          ]
-        }
-      ]
-    },
-    footer: {
-      type: "box",
-      layout: "horizontal",
-      spacing: "md",
-      contents: [
-        {
-          type: "button",
-          action: {
-            type: "uri",
-            label: "ดูประวัติ",
-            uri: process.env.SYSTEM_URL ? `${process.env.SYSTEM_URL}/history` : 'https://your-hospital-system.com/history'
-          },
-          style: "primary",
-          color: "#FF0099"
-        },
-        {
-          type: "button",
-          action: {
-            type: "uri",
-            label: "แจ้งเหตุฉุกเฉิน",
-            uri: process.env.EMERGENCY_URL || "https://line.me"
-          },
-          style: "secondary",
-          color: "#FF0099"
-        }
-      ]
-    }
-  };
+  const { createAttendanceFlex } = require('../../src/utils/flexMessageBuilder');
+
+  const lineFlexContents = createAttendanceFlex({
+    fullname: 'คุณกิตติพันธ์ ปรางศรี (ทดสอบ)',
+    employeeId: 'EMP-999',
+    statusLabel: '✅ เข้างานปกติ (Check-in)',
+    direction: 'in',
+    isLate: false,
+    timeStr: '08:25',
+    dateStr: '20 สิงหาคม 2026',
+    deviceName: 'KHHin2 (อาคารหลัก)'
+  });
 
   const result = await NotificationService.sendDirectNotification(lineUserId, null, messageText, {}, lineFlexContents);
   if (result.success) {

@@ -18,6 +18,7 @@ router.post('/attendance/check-in', checkAuth, attendanceController.checkIn);
 router.post('/attendance/check-out', checkAuth, attendanceController.checkOut);
 router.get('/notifications/mappings', checkAuth, checkAdmin, attendanceController.getMappings);
 router.post('/notifications/mappings', checkAuth, checkAdmin, attendanceController.updateMapping);
+router.get('/notifications/failed', checkAuth, checkAdmin, attendanceController.getFailedNotifications);
 
 // User management
 router.get('/users', checkAuth, checkSuper, userController.getUsers);
@@ -40,6 +41,7 @@ router.post('/schedule', checkAuth, checkAdmin, scheduleController.postSchedule)
 router.post('/schedule/save', checkAuth, checkAdmin, scheduleController.saveMonthlySchedule);
 router.get('/schedule/load', checkAuth, scheduleController.loadMonthlySchedule);
 router.get('/schedule/staff/:id/:yearMonth', checkAuth, scheduleController.getStaffSchedule);
+router.get('/schedule/audit', checkAuth, checkAdmin, scheduleController.getScheduleAudit);
 
 // Excuses & Reminders (3-7 Days)
 router.get('/excuses', checkAuth, excuseController.getExcuses);

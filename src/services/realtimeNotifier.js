@@ -1,5 +1,6 @@
 const { pool, hosofficePool } = require('../config/db');
 const NotificationService = require('./notificationService');
+const { createAttendanceFlex } = require('../utils/flexMessageBuilder');
 
 let intervalId = null;
 const processingScans = new Set();
@@ -132,7 +133,21 @@ async function checkNewScans() {
           message += `\n🌡️ อุณหภูมิ: ${SkinSurfaceTemperature} °C`;
         }
 
-        const result = await NotificationService.sendDirectNotification(line_user_id, telegram_chat_id, message);
+        const isLate = (Direction === 'in' || Direction === 'i') && (AccessTime > '08:31:00');
+        const flexContents = createAttendanceFlex({
+          fullname: fullname || EmployeeID,
+          employeeId: EmployeeID,
+          statusLabel: directionThai,
+          direction: Direction,
+          isLate,
+          authResult: AuthenticationResult,
+          timeStr: AccessTime,
+          dateStr: dateThai,
+          deviceName: location,
+          temperature: SkinSurfaceTemperature
+        });
+
+        const result = await NotificationService.sendDirectNotification(line_user_id, telegram_chat_id, message, {}, flexContents);
         if (result.success) {
           await pool.query(
             `UPDATE notification_deliveries SET status = 'sent', attempts = attempts + 1, sent_at = NOW(), next_attempt_at = NULL, last_error = NULL

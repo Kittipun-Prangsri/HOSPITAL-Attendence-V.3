@@ -419,6 +419,9 @@
               <button class="btn-outline-dark" onclick="exportExcel()">
                 <i class="bi bi-file-earmark-excel"></i> ส่งออก Excel
               </button>
+              <button class="btn-outline-dark" id="btnAuditLog" onclick="openAuditLog()">
+                <i class="bi bi-clock-history"></i> ประวัติการแก้ไข
+              </button>
             </div>
           </section>
 
@@ -1017,7 +1020,77 @@
         setCurrentMonthYear();
         initGrid();
       });
+
+      /* ================================================================
+         AUDIT LOG MODAL
+      ================================================================ */
+      function openAuditLog() {
+        document.getElementById('auditLogModal').style.display = 'flex';
+        loadAuditLog();
+      }
+
+      function closeAuditLog() {
+        document.getElementById('auditLogModal').style.display = 'none';
+      }
+
+      async function loadAuditLog() {
+        const body = document.getElementById('auditLogBody');
+        body.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:28px;color:#94A3B8;">กำลังโหลด...</td></tr>';
+        try {
+          const res = await fetch('/api/schedule/audit', { headers: { Accept: 'application/json' } });
+          const data = await res.json();
+          const log = (data && data.log) || [];
+          if (log.length === 0) {
+            body.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:28px;color:#94A3B8;">ไม่มีประวัติการแก้ไข</td></tr>';
+            return;
+          }
+          body.innerHTML = log.map(entry => `
+            <tr>
+              <td>${entry.employeeName}</td>
+              <td>${entry.date}</td>
+              <td>${entry.previousShift || 'OFF'} → ${entry.newShift || 'OFF'}</td>
+              <td>${entry.changedBy || '—'}</td>
+              <td>${new Date(entry.changedAt).toLocaleString('th-TH')}</td>
+            </tr>
+          `).join('');
+        } catch (err) {
+          body.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:28px;color:#EF4444;">โหลดประวัติการแก้ไขไม่สำเร็จ</td></tr>';
+        }
+      }
     </script>
+
+  <!-- AUDIT LOG MODAL -->
+  <div id="auditLogModal" style="
+    display:none; position:fixed; inset:0; z-index:9999;
+    background:rgba(0,0,0,0.45); backdrop-filter:blur(4px);
+    align-items:center; justify-content:center;"
+    onclick="if (event.target === this) closeAuditLog();">
+    <div style="
+      background:var(--card,#fff); border-radius:18px; width:720px; max-width:96vw;
+      max-height:82vh; overflow:hidden; box-shadow:0 24px 64px rgba(0,0,0,0.22);
+      display:flex; flex-direction:column;">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 24px;border-bottom:1px solid var(--border,#E2E8F0);">
+        <div style="font-size:16px;font-weight:700;color:var(--text,#1E293B);">
+          <i class="bi bi-clock-history"></i> ประวัติการแก้ไขตารางเวร
+        </div>
+        <button onclick="closeAuditLog()" style="border:none;background:var(--surface,#F8FAFC);border-radius:8px;width:32px;height:32px;cursor:pointer;font-size:16px;color:var(--muted,#94A3B8);">✕</button>
+      </div>
+      <div style="overflow:auto;padding:0 24px 20px;">
+        <table style="width:100%;border-collapse:collapse;font-size:13px;">
+          <thead>
+            <tr style="text-align:left;color:var(--muted,#64748B);border-bottom:1px solid var(--border,#E2E8F0);">
+              <th style="padding:10px 8px;">พนักงาน</th>
+              <th style="padding:10px 8px;">วันที่</th>
+              <th style="padding:10px 8px;">การเปลี่ยนแปลง</th>
+              <th style="padding:10px 8px;">แก้ไขโดย</th>
+              <th style="padding:10px 8px;">เมื่อ</th>
+            </tr>
+          </thead>
+          <tbody id="auditLogBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
 
 </body>
 
