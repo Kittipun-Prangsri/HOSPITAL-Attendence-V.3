@@ -35,7 +35,7 @@ function buildAttendanceFlex(params = {}) {
     deviceName = 'ไม่ระบุจุดบันทึก',
     temperature = null,
     isLate = false,
-    systemUrl = process.env.SYSTEM_URL || 'https://khh-attendance.com'
+    systemUrl = (process.env.SYSTEM_URL || process.env.DOMAIN || '').trim()
   } = params;
 
   const statusType = determineStatusType(direction, attendanceStatus, authResult, isLate);
@@ -194,7 +194,7 @@ function buildAttendanceFlex(params = {}) {
   }
 
   const baseUrl = (systemUrl || process.env.DOMAIN || '').trim();
-  const hasValidUrl = baseUrl && baseUrl.startsWith('http');
+  const hasValidUrl = baseUrl && baseUrl.startsWith('http') && !baseUrl.includes('khh-attendance.com') && !baseUrl.includes('your-hospital-system.com');
 
   const historyAction = hasValidUrl
     ? { type: 'uri', label: '📋 ดูประวัติการเข้างาน', uri: `${baseUrl}/schedule` }

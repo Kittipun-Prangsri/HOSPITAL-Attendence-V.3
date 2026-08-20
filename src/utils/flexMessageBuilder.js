@@ -142,10 +142,10 @@ function createAttendanceFlex({
   }
 
   const baseUrl = (process.env.SYSTEM_URL || process.env.DOMAIN || '').trim();
-  const hasValidUrl = baseUrl && baseUrl.startsWith('http');
+  const hasValidUrl = baseUrl && baseUrl.startsWith('http') && !baseUrl.includes('your-hospital-system.com') && !baseUrl.includes('khh-attendance.com');
 
-  const defaultHistoryUrl = historyUrl || (hasValidUrl ? `${baseUrl}/attendance` : null);
-  const defaultExcuseUrl = excuseUrl || (hasValidUrl ? `${baseUrl}/excuses` : null);
+  const defaultHistoryUrl = historyUrl && historyUrl.startsWith('http') && !historyUrl.includes('your-hospital-system.com') ? historyUrl : (hasValidUrl ? `${baseUrl}/attendance` : null);
+  const defaultExcuseUrl = excuseUrl && excuseUrl.startsWith('http') && !excuseUrl.includes('your-hospital-system.com') ? excuseUrl : (hasValidUrl ? `${baseUrl}/excuses` : null);
 
   const historyBtnAction = defaultHistoryUrl
     ? { type: "uri", label: "ดูประวัติ", uri: defaultHistoryUrl }
