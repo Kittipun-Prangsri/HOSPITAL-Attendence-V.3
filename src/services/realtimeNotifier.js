@@ -1,7 +1,6 @@
 const { pool, hosofficePool } = require('../config/db');
 const NotificationService = require('./notificationService');
 const flexBuilder = require('./flexBuilder');
-const { createAttendanceFlex } = require('../utils/flexMessageBuilder');
 
 let intervalId = null;
 const processingScans = new Set();

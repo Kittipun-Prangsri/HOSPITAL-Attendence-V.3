@@ -2,7 +2,6 @@ const NotificationService = require('../services/notificationService');
 const { pool, hosofficePool } = require('../config/db');
 const flexBuilder = require('../services/flexBuilder');
 const { getTimeInTimezone, isLateCheckIn } = require('../utils/attendanceTime');
-const { createAttendanceFlex } = require('../utils/flexMessageBuilder');
 
 function getStatusLabel(attendanceStatus, authResult, direction) {
   if (authResult === 'Failed') {

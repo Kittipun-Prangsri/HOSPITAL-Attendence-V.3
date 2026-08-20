@@ -2,7 +2,7 @@ const cron = require('node-cron');
 const { pool, hosofficePool } = require('../src/config/db');
 const NotificationService = require('../src/services/notificationService');
 const { syncIncidentsForMonth } = require('../src/controllers/apiController');
-const { createWeeklySummaryFlex } = require('../src/utils/flexMessageBuilder');
+const { buildWeeklySummaryFlex } = require('../src/services/flexBuilder');
 
 const ACTIVE_STATUS_IDS = ['01', '02', '03', '04', '09'];
 
@@ -157,7 +157,7 @@ async function runWeeklySummary() {
                       `🏖️ ลา: ${leaveCount} วัน\n` +
                       `🕒 ชั่วโมงทำงานรวม: ${totalHours} ชม.`;
 
-      const flexContents = createWeeklySummaryFlex({
+      const flexContents = buildWeeklySummaryFlex({
         fullname: emp.fullname,
         employeeId: emp.FINGLE_ID,
         weekRangeStr,
