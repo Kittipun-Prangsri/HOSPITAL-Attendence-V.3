@@ -45,6 +45,16 @@ class ChatbotService {
         console.error('[Chatbot] Lookup employee ID error:', err.message);
         return 'ขออภัยครับ ไม่พบข้อมูลรหัสพนักงานที่ผูกกับบัญชีของคุณ กรุณาติดต่อฝ่าย IT';
       }
+    // Command: "ยื่นใบลา" / "แจ้งเหตุสาย" / "แจ้งเหตุ" / "ขอใบลา"
+    const excuseKeywords = ['ยื่นใบลา', 'แจ้งเหตุสาย', 'แจ้งเหตุ', 'ขอใบลา', 'ใบลา', 'แก้ต่าง'];
+    if (excuseKeywords.some(k => cleanText.toLowerCase().includes(k))) {
+      const baseUrl = process.env.SYSTEM_URL || process.env.DOMAIN || '';
+      const linkMsg = baseUrl && baseUrl.startsWith('http')
+        ? `\n🔗 ลิงก์ยื่นใบลาออนไลน์: ${baseUrl}/excuses`
+        : '';
+      return `📝 *ระบบแจ้งสาเหตุการลงเวลา / ยื่นใบลา*\n\n` +
+             `ท่านสามารถแจ้งเหตุผลการเข้างานสาย ลืมสแกน หรือยื่นใบลาออนไลน์ได้ที่ระบบ${linkMsg}\n\n` +
+             `หรือติดต่อเจ้าหน้าที่งานบริหารทรัพยากรบุคคล (HR) โรงพยาบาลคลองหาดครับ`;
     }
 
     // 1. Command: "ขอดูการสแกนวันนี้ [EmployeeID/Name]" (supports ขอดูการสแกนวันนี้, ขอดูแสกนวันนี้, เลข 1, หรือ scan_today)

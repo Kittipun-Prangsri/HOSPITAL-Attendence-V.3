@@ -141,9 +141,19 @@ function createAttendanceFlex({
     });
   }
 
-  const systemUrl = process.env.SYSTEM_URL || 'https://your-hospital-system.com';
-  const defaultHistoryUrl = historyUrl || `${systemUrl}/attendance`;
-  const defaultExcuseUrl = excuseUrl || `${systemUrl}/excuses`;
+  const baseUrl = (process.env.SYSTEM_URL || process.env.DOMAIN || '').trim();
+  const hasValidUrl = baseUrl && baseUrl.startsWith('http');
+
+  const defaultHistoryUrl = historyUrl || (hasValidUrl ? `${baseUrl}/attendance` : null);
+  const defaultExcuseUrl = excuseUrl || (hasValidUrl ? `${baseUrl}/excuses` : null);
+
+  const historyBtnAction = defaultHistoryUrl
+    ? { type: "uri", label: "ดูประวัติ", uri: defaultHistoryUrl }
+    : { type: "message", label: "ดูประวัติ", text: "ขอดูประวัติการทำงาน" };
+
+  const excuseBtnAction = defaultExcuseUrl
+    ? { type: "uri", label: "ส่งใบแก้ต่าง", uri: defaultExcuseUrl }
+    : { type: "message", label: "ส่งใบแก้ต่าง", text: "แจ้งเหตุสาย" };
 
   return {
     type: "bubble",
@@ -290,22 +300,14 @@ function createAttendanceFlex({
       contents: [
         {
           type: "button",
-          action: {
-            type: "uri",
-            label: "ดูประวัติ",
-            uri: defaultHistoryUrl
-          },
+          action: historyBtnAction,
           style: "primary",
           color: theme.headerBg,
           height: "sm"
         },
         ...(isLate ? [{
           type: "button",
-          action: {
-            type: "uri",
-            label: "ส่งใบแก้ต่าง",
-            uri: defaultExcuseUrl
-          },
+          action: excuseBtnAction,
           style: "secondary",
           height: "sm"
         }] : [])

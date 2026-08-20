@@ -193,6 +193,17 @@ function buildAttendanceFlex(params = {}) {
     });
   }
 
+  const baseUrl = (systemUrl || process.env.DOMAIN || '').trim();
+  const hasValidUrl = baseUrl && baseUrl.startsWith('http');
+
+  const historyAction = hasValidUrl
+    ? { type: 'uri', label: '📋 ดูประวัติการเข้างาน', uri: `${baseUrl}/schedule` }
+    : { type: 'message', label: '📋 ดูประวัติวันนี้', text: 'ขอดูการสแกนวันนี้' };
+
+  const excuseAction = hasValidUrl
+    ? { type: 'uri', label: '📝 ยื่นใบลา / แจ้งเหตุสาย', uri: `${baseUrl}/excuses` }
+    : { type: 'message', label: '📝 ยื่นใบลา / แจ้งเหตุสาย', text: 'ยื่นใบลา' };
+
   return {
     type: 'bubble',
     size: 'mega',
@@ -349,22 +360,14 @@ function buildAttendanceFlex(params = {}) {
       contents: [
         {
           type: 'button',
-          action: {
-            type: 'uri',
-            label: '📋 ดูประวัติการเข้างาน',
-            uri: `${systemUrl}/history`
-          },
+          action: historyAction,
           style: 'primary',
           color: theme.btnColor,
           height: 'sm'
         },
         {
           type: 'button',
-          action: {
-            type: 'uri',
-            label: '📝 ยื่นใบลา / แจ้งเหตุสาย',
-            uri: `${systemUrl}/excuses`
-          },
+          action: excuseAction,
           style: 'secondary',
           color: theme.btnColor,
           height: 'sm'
