@@ -55,58 +55,59 @@ app.use('/', authRoutes);
 app.use('/api', apiRoutes);
 app.use('/', viewRoutes);
 
+const chatbotService = require('./services/chatbotService');
+const notificationService = require('./services/notificationService');
+
 app.post(['/', '/webhook'], async (req, res) => {
   try {
     console.log('📌 LINE Webhook เข้ามาแล้ว!');
     const events = req.body.events;
     
-    // ทดสอบดึงข้อมูลมาดูใน Console ก่อน
+    // Log incoming LINE event data
     console.log('Data from LINE:', JSON.stringify(events, null, 2));
 
     if (events && Array.isArray(events)) {
-      const notificationService = require('./services/notificationService');
-      
       for (const event of events) {
-        // If message is text
-        if (event.type === 'message' && event.message && event.message.type === 'text') {
-          const chatbotService = require('./services/chatbotService');
-          const incomingText = event.message.text;
-          const lineUserId = event.source.userId;
+        try {
+          // If message is text
+          if (event.type === 'message' && event.message && event.message.type === 'text') {
+            const incomingText = event.message.text;
+            const lineUserId = event.source.userId;
 
-          // Check if message matches chatbot commands
-          let replyText = await chatbotService.handleMessage(incomingText, lineUserId);
+            // Check if message matches chatbot commands
+            let replyText = await chatbotService.handleMessage(incomingText, lineUserId);
 
-          // Fallback to default message showing LINE ID if no command matched
-          if (!replyText) {
-            replyText = `LINE User ID ของคุณคือ:\n${lineUserId}\n\n` +
-                        `คัดลอกไอดีด้านบนเพื่อนำไปวางในช่อง 'LINE ID' ในฟอร์มลงทะเบียนพนักงานเพื่อรับข้อความแจ้งเตือนครับ`;
-          }
-          
-          await notificationService.replyLineMessage(event.replyToken, replyText);
-        } else if (event.type === 'postback' && event.postback && event.postback.data) {
-          const chatbotService = require('./services/chatbotService');
-          const lineUserId = event.source.userId;
-          const replyText = await chatbotService.handlePostback(event.postback.data, lineUserId);
+            // Fallback to default message showing LINE ID if no command matched
+            if (!replyText) {
+              replyText = `LINE User ID ของคุณคือ:\n${lineUserId}\n\n` +
+                          `คัดลอกไอดีด้านบนเพื่อนำไปวางในช่อง 'LINE ID' ในฟอร์มลงทะเบียนพนักงานเพื่อรับข้อความแจ้งเตือนครับ`;
+            }
+            
+            await notificationService.replyLineMessage(event.replyToken, replyText);
+          } else if (event.type === 'postback' && event.postback && event.postback.data) {
+            const lineUserId = event.source.userId;
+            const replyText = await chatbotService.handlePostback(event.postback.data, lineUserId);
 
-          if (replyText) {
+            if (replyText) {
+              await notificationService.replyLineMessage(event.replyToken, replyText);
+            }
+          } else if (event.type === 'follow') {
+            const replyText = `สวัสดีครับ ยินดีต้อนรับสู่ระบบบันทึกเวลาปฏิบัติงาน KHH Attendance\n\n` +
+                              `LINE User ID ของคุณคือ:\n${event.source.userId}\n\n` +
+                              `คัดลอกไอดีด้านบนเพื่อนำไปวางในช่อง 'LINE ID' ในฟอร์มลงทะเบียนพนักงานเพื่อรับข้อความแจ้งเตือนครับ`;
+            
             await notificationService.replyLineMessage(event.replyToken, replyText);
           }
-        } else if (event.type === 'follow') {
-          const replyText = `สวัสดีครับ ยินดีต้อนรับสู่ระบบบันทึกเวลาปฏิบัติงาน KHH Attendance\n\n` +
-                            `LINE User ID ของคุณคือ:\n${event.source.userId}\n\n` +
-                            `คัดลอกไอดีด้านบนเพื่อนำไปวางในช่อง 'LINE ID' ในฟอร์มลงทะเบียนพนักงานเพื่อรับข้อความแจ้งเตือนครับ`;
-          
-          await notificationService.replyLineMessage(event.replyToken, replyText);
+        } catch (eventErr) {
+          console.error(`[Webhook Event Processing Error]:`, eventErr);
         }
       }
     }
 
-    // 2. ตอบกลับ LINE ทันทีเพื่อให้ขึ้นสถานะ Success (200)
+    // ตอบกลับ LINE ทันทีเพื่อให้ขึ้นสถานะ Success (200)
     res.sendStatus(200);
-    
   } catch (error) {
     console.error('Webhook Error:', error);
-    // หากพังใน try จะหลุดมาที่นี่
     res.status(500).send(error.message);
   }
 });
