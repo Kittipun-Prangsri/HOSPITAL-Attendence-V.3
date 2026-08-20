@@ -10,7 +10,7 @@ class ChatbotService {
     const action = params.get('action');
 
     if (action === 'today_history' || action === 'history') {
-      return await this.handleTodayScans();
+      return await this.handleTodayScans(null, userId);
     }
     if (action === 'excuse' || action === 'leave') {
       const baseUrl = process.env.SYSTEM_URL || process.env.DOMAIN || '';
@@ -156,7 +156,7 @@ class ChatbotService {
    * Queries SQL database for DATE = CURRENT_DATE (using today in Asia/Bangkok time)
    * Can optionally filter by EmployeeID or Name
    */
-  async handleTodayScans(nameFilter = null) {
+  async handleTodayScans(nameFilter = null, userId = null) {
     const todayStr = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Bangkok' }); // YYYY-MM-DD
     const todayThai = new Date().toLocaleDateString('th-TH', {
       timeZone: 'Asia/Bangkok',
@@ -164,6 +164,48 @@ class ChatbotService {
       month: 'long',
       day: 'numeric'
     });
+
+    // Personal user lookup when clicking Flex button / requesting personal scans
+    if (userId && !nameFilter) {
+      try {
+        const [person] = await hosofficePool.query(`
+          SELECT FINGLE_ID, CONCAT(HR_FNAME, '   ', HR_LNAME) as fullname
+          FROM hr_person
+          WHERE LINE_TOKEN = ? 
+             OR LINE_TOKEN1 = ? 
+             OR LINE_TOKEN2 = ? 
+             OR LINE_YOUR_USER_ID = ?
+             OR TELEGRAM_CHAT_ID = ?
+          LIMIT 1
+        `, [userId, userId, userId, userId, userId]);
+
+        if (person.length > 0 && person[0].FINGLE_ID) {
+          const empId = person[0].FINGLE_ID;
+          const fullname = person[0].fullname.trim();
+
+          const [scans] = await hosofficePool.query(`
+            SELECT AccessTime, DeviceName
+            FROM hikvision
+            WHERE EmployeeID = ?
+              AND AccessDate = ?
+              AND AuthenticationResult = 'Success'
+            ORDER BY AccessTime ASC
+          `, [empId, todayStr]);
+
+          if (scans.length > 0) {
+            let reply = `📋 *ประวัติการสแกนวันนี้ของคุณ*\n👤 คุณ${fullname} (ID: ${empId})\n📅 วันที่: ${todayThai}\n\n`;
+            scans.forEach((s, idx) => {
+              reply += `${idx + 1}. ⏰ เวลา ${s.AccessTime} น. | 🚪 ${s.DeviceName || 'เครื่องสแกน'}\n`;
+            });
+            return reply.trim();
+          } else {
+            return `📋 *ประวัติการสแกนวันนี้*\n👤 คุณ${fullname} (ID: ${empId})\n📅 วันที่: ${todayThai}\n\n⚠️ ยังไม่พบรายการสแกนเข้า-ออกงานของคุณในระบบวันนี้ครับ`;
+          }
+        }
+      } catch (err) {
+        console.error('[Chatbot] Error querying user personal scans:', err.message);
+      }
+    }
 
     if (nameFilter) {
       // Check if it is an EmployeeID query (contains only alphanumeric characters, no Thai characters)
