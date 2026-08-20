@@ -1,4 +1,5 @@
 const express = require('express');
+const crypto = require('crypto');
 const cors = require('cors');
 const path = require('path');
 const session = require('express-session');
@@ -8,21 +9,49 @@ const viewRoutes = require('./routes/viewRoutes');
 const { errorHandler, notFound } = require('./middleware/errorMiddleware');
 
 const app = express();
+const isProduction = process.env.NODE_ENV === 'production';
+
+// A guessable, hardcoded fallback would let anyone forge session cookies.
+// Generate a random one instead so a missing SESSION_SECRET fails safe
+// (sessions just won't survive a restart) rather than being exploitable.
+let sessionSecret = process.env.SESSION_SECRET;
+if (!sessionSecret) {
+  sessionSecret = crypto.randomBytes(32).toString('hex');
+  console.warn('[app] SESSION_SECRET is not set — using a random secret for this run. ' +
+    'Set SESSION_SECRET in .env before deploying to production, or every restart invalidates all sessions.');
+}
 
 // Basic Middleware
-app.use(cors());
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
+  .split(',')
+  .map(o => o.trim())
+  .filter(Boolean);
+if (allowedOrigins.length > 0) {
+  app.use(cors({ origin: allowedOrigins, credentials: true }));
+}
+// If ALLOWED_ORIGINS is unset, cors() is skipped entirely: the app is
+// server-rendered and same-origin, so no cross-origin API access is needed
+// by default. Set ALLOWED_ORIGINS to a comma-separated list only if an
+// external client must call the API directly.
+
+if (isProduction) app.set('trust proxy', 1);
+
 app.use(express.static(path.join(__dirname, '..', 'public')));
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, '..', 'views'));
-app.use(express.json());
+app.use(express.json({ verify: (req, res, buf) => { req.rawBody = buf; } }));
 app.use(express.urlencoded({ extended: true }));
 
 // Session Configuration
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'khh-secret-key-2024',
+  secret: sessionSecret,
   resave: false,
   saveUninitialized: false,
-  cookie: { maxAge: 24 * 60 * 60 * 1000 } // 24 hours
+  cookie: {
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    secure: isProduction,
+    sameSite: 'lax'
+  }
 }));
 
 // Routes
@@ -30,8 +59,23 @@ app.use('/', authRoutes);
 app.use('/api', apiRoutes);
 app.use('/', viewRoutes);
 
+function isValidLineSignature(req) {
+  const signature = req.headers['x-line-signature'];
+  const channelSecret = process.env.LINE_CHANNEL_SECRET;
+  if (!signature || !channelSecret || !req.rawBody) return false;
+  const expected = crypto.createHmac('SHA256', channelSecret).update(req.rawBody).digest('base64');
+  const expectedBuf = Buffer.from(expected);
+  const signatureBuf = Buffer.from(signature);
+  return expectedBuf.length === signatureBuf.length && crypto.timingSafeEqual(expectedBuf, signatureBuf);
+}
+
 app.post(['/', '/webhook'], async (req, res) => {
   try {
+    if (!isValidLineSignature(req)) {
+      console.warn('[LINE webhook] Rejected request with invalid or missing x-line-signature');
+      return res.sendStatus(401);
+    }
+
     console.log('📌 LINE Webhook เข้ามาแล้ว!');
     const events = req.body.events;
     

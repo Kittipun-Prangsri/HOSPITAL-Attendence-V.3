@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { hosofficePool } = require('../config/db');
+const { calculateLateThreshold } = require('../utils/time');
 
 const SCHEDULE_FILE = path.join(__dirname, '..', '..', 'data', 'schedule.json');
 
@@ -14,13 +15,7 @@ exports.getData = async (req, res) => {
 
     const lateMin = parseInt(req.query.lateMin) || 31;
     const workStart = req.query.workStart || '08:00';
-    
-    // Calculate late threshold time
-    const [h, m] = workStart.split(':').map(Number);
-    const lateTotalMinutes = h * 60 + m + lateMin;
-    const lateH = Math.floor(lateTotalMinutes / 60).toString().padStart(2, '0');
-    const lateM = (lateTotalMinutes % 60).toString().padStart(2, '0');
-    const lateThresholdTime = `${lateH}:${lateM}:00`;
+    const lateThresholdTime = calculateLateThreshold(workStart, lateMin);
 
     // Load schedule mapping
     let shiftMap = {};

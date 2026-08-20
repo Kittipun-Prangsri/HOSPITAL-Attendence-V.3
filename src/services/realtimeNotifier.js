@@ -1,5 +1,6 @@
 const { hosofficePool } = require('../config/db');
 const NotificationService = require('./notificationService');
+const flexBuilder = require('./flexBuilder');
 
 let intervalId = null;
 const processedScans = new Set();
@@ -126,160 +127,19 @@ async function checkNewScans() {
         }
       };
 
-      const lineFlexContents = {
-        type: "bubble",
-        size: "mega",
-        header: {
-          type: "box",
-          layout: "vertical",
-          contents: [
-            {
-              type: "text",
-              text: "ATTENDANCE LOG",
-              color: "#FFFFFF",
-              size: "xs",
-              weight: "bold",
-              align: "center"
-            },
-            {
-              type: "text",
-              text: "บันทึกเวลาปฏิบัติงาน",
-              color: "#FFFFFF",
-              size: "lg",
-              weight: "bold",
-              margin: "sm",
-              align: "center"
-            }
-          ],
-          paddingTop: "25px",
-          paddingBottom: "25px",
-          backgroundColor: "#FF0099"
-        },
-        hero: {
-          type: "image",
-          url: "https://cdn-icons-png.flaticon.com/512/3135/3135715.png",
-          size: "full",
-          aspectRatio: "3:1",
-          aspectMode: "cover",
-          gravity: "center"
-        },
-        body: {
-          type: "box",
-          layout: "vertical",
-          contents: [
-            {
-              type: "text",
-              text: fullname || EmployeeID,
-              weight: "bold",
-              size: "xl",
-              align: "center",
-              color: "#333333"
-            },
-            {
-              type: "box",
-              layout: "vertical",
-              margin: "xxl",
-              spacing: "sm",
-              contents: [
-                {
-                  type: "box",
-                  layout: "baseline",
-                  contents: [
-                    {
-                      type: "text",
-                      text: "สถานะ",
-                      color: "#aaaaaa",
-                      size: "sm",
-                      flex: 1,
-                      align: "start"
-                    },
-                    {
-                      type: "text",
-                      text: directionThai,
-                      color: "#FF0099",
-                      size: "sm",
-                      flex: 3,
-                      weight: "bold",
-                      margin: "lg"
-                    }
-                  ]
-                },
-                {
-                  type: "box",
-                  layout: "baseline",
-                  contents: [
-                    {
-                      type: "text",
-                      text: "เวลา",
-                      color: "#aaaaaa",
-                      size: "sm",
-                      flex: 1,
-                      align: "start"
-                    },
-                    {
-                      type: "text",
-                      text: `${dateThai}, ${AccessTime} น.`,
-                      color: "#555555",
-                      size: "sm",
-                      flex: 3,
-                      margin: "lg"
-                    }
-                  ]
-                },
-                {
-                  type: "box",
-                  layout: "baseline",
-                  contents: [
-                    {
-                      type: "text",
-                      text: "จุดบันทึก",
-                      color: "#aaaaaa",
-                      size: "sm",
-                      flex: 1,
-                      align: "start"
-                    },
-                    {
-                      type: "text",
-                      text: location,
-                      color: "#555555",
-                      size: "sm",
-                      flex: 3,
-                      margin: "lg"
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
-        },
-        footer: {
-          type: "box",
-          layout: "horizontal",
-          spacing: "md",
-          contents: [
-            {
-              type: "button",
-              action: {
-                type: "uri",
-                label: "ดูประวัติ",
-                uri: process.env.SYSTEM_URL ? `${process.env.SYSTEM_URL}/history` : 'https://your-hospital-system.com/history'
-              },
-              style: "primary",
-              color: "#FF0099"
-            },
-            {
-              type: "button",
-              action: {
-                type: "uri",
-                label: "แจ้งเหตุฉุกเฉิน",
-                uri: process.env.EMERGENCY_URL || "https://line.me"
-              },
-              style: "secondary",
-              color: "#FF0099"
-            }
-          ]
-        }
-      };
+      const isLateScan = (Direction === 'in' || Direction === 'i' || AttendanceStatus === 'i') && (AccessTime > '08:31:00');
+      const lineFlexContents = flexBuilder.buildAttendanceFlex({
+        fullname: fullname || EmployeeID,
+        employeeId: EmployeeID,
+        direction: Direction,
+        attendanceStatus: AttendanceStatus,
+        authResult: AuthenticationResult,
+        dateThai,
+        timeStr: AccessTime,
+        deviceName: location,
+        temperature: SkinSurfaceTemperature,
+        isLate: isLateScan
+      });
 
       const targetTelegramChatId = process.env.TELEGRAM_ADMIN_CHAT_ID || '7857036135';
 

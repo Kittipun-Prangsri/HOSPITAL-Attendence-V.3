@@ -102,6 +102,67 @@ exports.testLine = async (req, res) => {
   }
 };
 
+exports.testLineFlex = async (req, res) => {
+  const flexBuilder = require('../services/flexBuilder');
+  const { lineUserId, statusType = 'check-in', fullname, employeeId, deviceName } = req.body;
+  try {
+    const targetUserId = lineUserId || process.env.LINE_ADMIN_USER_ID;
+    if (!targetUserId) {
+      return res.status(400).json({ success: false, error: 'กรุณาระบุ LINE User ID หรือตั้งค่า LINE_ADMIN_USER_ID ใน .env' });
+    }
+
+    const now = new Date();
+    const dateThai = now.toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' });
+    const timeStr = now.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+
+    let direction = 'in';
+    let attendanceStatus = 'i';
+    let isLate = false;
+    let authResult = 'Success';
+
+    if (statusType === 'check-out' || statusType === 'out') {
+      direction = 'out';
+      attendanceStatus = 'o';
+    } else if (statusType === 'late') {
+      direction = 'in';
+      attendanceStatus = 'i';
+      isLate = true;
+    } else if (statusType === 'failed') {
+      authResult = 'Failed';
+    }
+
+    const flexPayload = flexBuilder.buildAttendanceFlex({
+      fullname: fullname || 'คุณกิตติพันธ์ ปรางศรี (ทดสอบ)',
+      employeeId: employeeId || 'KHH-8921',
+      direction,
+      attendanceStatus,
+      authResult,
+      dateThai,
+      timeStr,
+      deviceName: deviceName || 'KHHin2 (ประตูหน้าหลัก)',
+      temperature: '36.5',
+      isLate
+    });
+
+    const result = await NotificationService.sendDirectNotification(
+      targetUserId,
+      null,
+      `🔔 *ทดสอบ LINE Flex Message*\n\nสวัสดีคุณ ${fullname || 'ผู้ใช้งาน'}`,
+      {},
+      flexPayload
+    );
+
+    if (result.line) {
+      res.json({ success: true, message: 'ส่ง LINE Flex Message สำเร็จแล้ว!' });
+    } else {
+      res.status(500).json({ success: false, error: 'ไม่สามารถส่งข้อความได้ กรุณาตรวจสอบว่า LINE Access Token และ User ID ถูกต้อง' });
+    }
+  } catch (error) {
+    console.error('Error in testLineFlex:', error);
+    res.status(500).json({ success: false, error: error.message || 'เกิดข้อผิดพลาดภายในระบบ' });
+  }
+};
+
 exports.testTelegram = async (req, res) => {
   const { userId } = req.body;
   try {
