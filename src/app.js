@@ -83,6 +83,14 @@ app.post(['/', '/webhook'], async (req, res) => {
           }
           
           await notificationService.replyLineMessage(event.replyToken, replyText);
+        } else if (event.type === 'postback' && event.postback && event.postback.data) {
+          const chatbotService = require('./services/chatbotService');
+          const lineUserId = event.source.userId;
+          const replyText = await chatbotService.handlePostback(event.postback.data, lineUserId);
+
+          if (replyText) {
+            await notificationService.replyLineMessage(event.replyToken, replyText);
+          }
         } else if (event.type === 'follow') {
           const replyText = `สวัสดีครับ ยินดีต้อนรับสู่ระบบบันทึกเวลาปฏิบัติงาน KHH Attendance\n\n` +
                             `LINE User ID ของคุณคือ:\n${event.source.userId}\n\n` +

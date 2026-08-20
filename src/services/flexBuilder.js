@@ -198,11 +198,11 @@ function buildAttendanceFlex(params = {}) {
 
   const historyAction = hasValidUrl
     ? { type: 'uri', label: '📋 ดูประวัติการเข้างาน', uri: `${baseUrl}/schedule` }
-    : { type: 'message', label: '📋 ดูประวัติการเข้างาน', text: 'ดูประวัติการเข้างาน' };
+    : { type: 'postback', label: '📋 ดูประวัติการเข้างาน', data: 'action=today_history', displayText: 'ดูประวัติการเข้างาน' };
 
   const excuseAction = hasValidUrl
     ? { type: 'uri', label: '📝 ยื่นใบลา / แจ้งเหตุสาย', uri: `${baseUrl}/excuses` }
-    : { type: 'message', label: '📝 ยื่นใบลา / แจ้งเหตุสาย', text: 'ยื่นใบลา / แจ้งเหตุสาย' };
+    : { type: 'postback', label: '📝 ยื่นใบลา / แจ้งเหตุสาย', data: 'action=excuse', displayText: 'ยื่นใบลา / แจ้งเหตุสาย' };
 
   return {
     type: 'bubble',

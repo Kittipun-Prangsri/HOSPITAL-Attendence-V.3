@@ -2,6 +2,29 @@ const { hosofficePool } = require('../config/db');
 
 class ChatbotService {
   /**
+   * Handle incoming postback events from LINE Flex buttons
+   */
+  async handlePostback(data, userId) {
+    if (!data) return null;
+    const params = new URLSearchParams(data);
+    const action = params.get('action');
+
+    if (action === 'today_history' || action === 'history') {
+      return await this.handleTodayScans();
+    }
+    if (action === 'excuse' || action === 'leave') {
+      const baseUrl = process.env.SYSTEM_URL || process.env.DOMAIN || '';
+      const linkMsg = baseUrl && baseUrl.startsWith('http')
+        ? `\n🔗 ลิงก์ยื่นใบลาออนไลน์: ${baseUrl}/excuses`
+        : '';
+      return `📝 *ระบบแจ้งสาเหตุการลงเวลา / ยื่นใบลา*\n\n` +
+             `ท่านสามารถแจ้งเหตุผลการเข้างานสาย ลืมสแกน หรือยื่นใบลาออนไลน์ได้ที่ระบบ${linkMsg}\n\n` +
+             `หรือติดต่อเจ้าหน้าที่งานบริหารทรัพยากรบุคคล (HR) โรงพยาบาลคลองหาดครับ`;
+    }
+    return null;
+  }
+
+  /**
    * Main entry point to handle incoming text messages
    */
   async handleMessage(text, userId) {
