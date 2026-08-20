@@ -46,7 +46,7 @@ class ChatbotService {
         return 'ขออภัยครับ ไม่พบข้อมูลรหัสพนักงานที่ผูกกับบัญชีของคุณ กรุณาติดต่อฝ่าย IT';
       }
     // Command: "ยื่นใบลา" / "แจ้งเหตุสาย" / "แจ้งเหตุ" / "ขอใบลา"
-    const excuseKeywords = ['ยื่นใบลา', 'แจ้งเหตุสาย', 'แจ้งเหตุ', 'ขอใบลา', 'ใบลา', 'แก้ต่าง'];
+    const excuseKeywords = ['ยื่นใบลา', 'แจ้งเหตุสาย', 'แจ้งเหตุ', 'ขอใบลา', 'ใบลา', 'แก้ต่าง', 'ยื่นใบลา / แจ้งเหตุสาย', 'ส่งใบแก้ต่าง'];
     if (excuseKeywords.some(k => cleanText.toLowerCase().includes(k))) {
       const baseUrl = process.env.SYSTEM_URL || process.env.DOMAIN || '';
       const linkMsg = baseUrl && baseUrl.startsWith('http')
@@ -57,8 +57,8 @@ class ChatbotService {
              `หรือติดต่อเจ้าหน้าที่งานบริหารทรัพยากรบุคคล (HR) โรงพยาบาลคลองหาดครับ`;
     }
 
-    // 1. Command: "ขอดูการสแกนวันนี้ [EmployeeID/Name]" (supports ขอดูการสแกนวันนี้, ขอดูแสกนวันนี้, เลข 1, หรือ scan_today)
-    const todayRegex = /^(?:ขอดู(?:การ)?(?:สแกน|แสกน)วันนี้|1|scan_today)(?:\s+(.+))?$/i;
+    // 1. Command: "ขอดูการสแกนวันนี้" / "ดูประวัติการเข้างาน" [EmployeeID/Name]
+    const todayRegex = /^(?:ขอดู(?:การ)?(?:สแกน|แสกน)วันนี้|ดูประวัติ(?:การเข้างาน|การสแกน|ประวัติ)?|ประวัติ|1|scan_today)(?:\s+(.+))?$/i;
     const todayMatch = cleanText.match(todayRegex);
     if (todayMatch) {
       const nameFilter = todayMatch[1] ? todayMatch[1].trim() : null;

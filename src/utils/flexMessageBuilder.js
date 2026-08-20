@@ -149,11 +149,11 @@ function createAttendanceFlex({
 
   const historyBtnAction = defaultHistoryUrl
     ? { type: "uri", label: "ดูประวัติ", uri: defaultHistoryUrl }
-    : { type: "message", label: "ดูประวัติ", text: "ขอดูประวัติการทำงาน" };
+    : { type: "message", label: "ดูประวัติการเข้างาน", text: "ดูประวัติการเข้างาน" };
 
   const excuseBtnAction = defaultExcuseUrl
     ? { type: "uri", label: "ส่งใบแก้ต่าง", uri: defaultExcuseUrl }
-    : { type: "message", label: "ส่งใบแก้ต่าง", text: "แจ้งเหตุสาย" };
+    : { type: "message", label: "ยื่นใบลา / แจ้งเหตุสาย", text: "ยื่นใบลา / แจ้งเหตุสาย" };
 
   return {
     type: "bubble",
