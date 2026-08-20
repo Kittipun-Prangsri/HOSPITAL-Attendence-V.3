@@ -68,6 +68,7 @@ class ChatbotService {
         console.error('[Chatbot] Lookup employee ID error:', err.message);
         return 'ขออภัยครับ ไม่พบข้อมูลรหัสพนักงานที่ผูกกับบัญชีของคุณ กรุณาติดต่อฝ่าย IT';
       }
+    }
     // Command: "ยื่นใบลา" / "แจ้งเหตุสาย" / "แจ้งเหตุ" / "ขอใบลา"
     const excuseKeywords = ['ยื่นใบลา', 'แจ้งเหตุสาย', 'แจ้งเหตุ', 'ขอใบลา', 'ใบลา', 'แก้ต่าง', 'ยื่นใบลา / แจ้งเหตุสาย', 'ส่งใบแก้ต่าง'];
     if (excuseKeywords.some(k => cleanText.toLowerCase().includes(k))) {
