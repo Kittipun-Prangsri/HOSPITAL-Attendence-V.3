@@ -141,19 +141,19 @@ function createAttendanceFlex({
     });
   }
 
-  const baseUrl = (process.env.SYSTEM_URL || process.env.DOMAIN || '').trim();
-  const hasValidUrl = baseUrl && baseUrl.startsWith('http') && !baseUrl.includes('your-hospital-system.com') && !baseUrl.includes('khh-attendance.com');
+  const historyBtnAction = {
+    type: "postback",
+    label: "📋 ดูประวัติการเข้างาน",
+    data: "action=today_history",
+    displayText: "ดูประวัติการเข้างาน"
+  };
 
-  const defaultHistoryUrl = historyUrl && historyUrl.startsWith('http') && !historyUrl.includes('your-hospital-system.com') ? historyUrl : (hasValidUrl ? `${baseUrl}/attendance` : null);
-  const defaultExcuseUrl = excuseUrl && excuseUrl.startsWith('http') && !excuseUrl.includes('your-hospital-system.com') ? excuseUrl : (hasValidUrl ? `${baseUrl}/excuses` : null);
-
-  const historyBtnAction = defaultHistoryUrl
-    ? { type: "uri", label: "ดูประวัติ", uri: defaultHistoryUrl }
-    : { type: "postback", label: "ดูประวัติการเข้างาน", data: "action=today_history", displayText: "ดูประวัติการเข้างาน" };
-
-  const excuseBtnAction = defaultExcuseUrl
-    ? { type: "uri", label: "ส่งใบแก้ต่าง", uri: defaultExcuseUrl }
-    : { type: "postback", label: "ยื่นใบลา / แจ้งเหตุสาย", data: "action=excuse", displayText: "ยื่นใบลา / แจ้งเหตุสาย" };
+  const excuseBtnAction = {
+    type: "postback",
+    label: "📝 ยื่นใบลา / แจ้งเหตุสาย",
+    data: "action=excuse",
+    displayText: "ยื่นใบลา / แจ้งเหตุสาย"
+  };
 
   return {
     type: "bubble",
@@ -462,7 +462,12 @@ function createWeeklySummaryFlex({
       contents: [
         {
           type: "button",
-          action: { type: "uri", label: "ดูประวัติ", uri: defaultHistoryUrl },
+          action: {
+            type: "postback",
+            label: "📋 ดูประวัติการเข้างาน",
+            data: "action=today_history",
+            displayText: "ดูประวัติการเข้างาน"
+          },
           style: "primary",
           color: theme.headerBg,
           height: "sm"

@@ -193,16 +193,19 @@ function buildAttendanceFlex(params = {}) {
     });
   }
 
-  const baseUrl = (systemUrl || process.env.DOMAIN || '').trim();
-  const hasValidUrl = baseUrl && baseUrl.startsWith('http') && !baseUrl.includes('khh-attendance.com') && !baseUrl.includes('your-hospital-system.com');
+  const historyAction = {
+    type: 'postback',
+    label: '📋 ดูประวัติการเข้างาน',
+    data: 'action=today_history',
+    displayText: 'ดูประวัติการเข้างาน'
+  };
 
-  const historyAction = hasValidUrl
-    ? { type: 'uri', label: '📋 ดูประวัติการเข้างาน', uri: `${baseUrl}/schedule` }
-    : { type: 'postback', label: '📋 ดูประวัติการเข้างาน', data: 'action=today_history', displayText: 'ดูประวัติการเข้างาน' };
-
-  const excuseAction = hasValidUrl
-    ? { type: 'uri', label: '📝 ยื่นใบลา / แจ้งเหตุสาย', uri: `${baseUrl}/excuses` }
-    : { type: 'postback', label: '📝 ยื่นใบลา / แจ้งเหตุสาย', data: 'action=excuse', displayText: 'ยื่นใบลา / แจ้งเหตุสาย' };
+  const excuseAction = {
+    type: 'postback',
+    label: '📝 ยื่นใบลา / แจ้งเหตุสาย',
+    data: 'action=excuse',
+    displayText: 'ยื่นใบลา / แจ้งเหตุสาย'
+  };
 
   return {
     type: 'bubble',
