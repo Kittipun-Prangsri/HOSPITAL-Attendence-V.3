@@ -69,17 +69,33 @@ app.post(['/', '/webhook'], async (req, res) => {
           if (event.type === 'message' && event.message && event.message.type === 'text') {
             const incomingText = event.message.text;
             const lineUserId = event.source.userId;
+            const cleanText = incomingText.trim();
 
-            // Check if message matches chatbot commands
-            let replyText = await chatbotService.handleMessage(incomingText, lineUserId);
+            // Typing the same label shown on a Flex button should behave like tapping it
+            const historyTextMatch = /^(?:ดูประวัติการเข้างาน|ดูประวัติการสแกน|ดูประวัติ|ขอดูการสแกนวันนี้|ขอดูแสกนวันนี้)$/i.test(cleanText);
+            const excuseTextMatch = /^(?:ยื่นใบลา\s*\/\s*แจ้งเหตุสาย|ยื่นใบลา|แจ้งเหตุสาย|แจ้งเหตุ|ขอใบลา|ใบลา|แก้ต่าง)$/i.test(cleanText);
 
-            // Fallback to default message showing LINE ID if no command matched
-            if (!replyText) {
-              replyText = `LINE User ID ของคุณคือ:\n${lineUserId}\n\n` +
-                          `คัดลอกไอดีด้านบนเพื่อนำไปวางในช่อง 'LINE ID' ในฟอร์มลงทะเบียนพนักงานเพื่อรับข้อความแจ้งเตือนครับ`;
+            let flexReply = null;
+            if (historyTextMatch) {
+              flexReply = await chatbotService.handlePostback('action=today_history', lineUserId);
+            } else if (excuseTextMatch) {
+              flexReply = await chatbotService.handlePostback('action=excuse', lineUserId);
             }
-            
-            await notificationService.replyLineMessage(event.replyToken, replyText);
+
+            if (flexReply) {
+              await notificationService.replyLineMessage(event.replyToken, flexReply);
+            } else {
+              // Check if message matches chatbot commands
+              let replyText = await chatbotService.handleMessage(incomingText, lineUserId);
+
+              // Fallback to default message showing LINE ID if no command matched
+              if (!replyText) {
+                replyText = `LINE User ID ของคุณคือ:\n${lineUserId}\n\n` +
+                            `คัดลอกไอดีด้านบนเพื่อนำไปวางในช่อง 'LINE ID' ในฟอร์มลงทะเบียนพนักงานเพื่อรับข้อความแจ้งเตือนครับ`;
+              }
+
+              await notificationService.replyLineMessage(event.replyToken, replyText);
+            }
           } else if (event.type === 'postback' && event.postback && event.postback.data) {
             const lineUserId = event.source.userId;
             const replyText = await chatbotService.handlePostback(event.postback.data, lineUserId);

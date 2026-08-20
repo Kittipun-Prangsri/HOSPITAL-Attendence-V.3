@@ -375,6 +375,8 @@ function buildAttendanceFlex(params = {}) {
           color: theme.btnColor,
           height: 'sm'
         }
+      ]
+    }
   };
 }
 
