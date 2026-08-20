@@ -1,6 +1,6 @@
 <!-- SIDEBAR -->
-<nav class="sidebar" id="sidebar">
-  <button class="sb-toggle-btn" onclick="toggleGlobalSidebar()" style="
+<nav class="sidebar" id="sidebar" aria-label="เมนูหลัก">
+  <button type="button" class="sb-toggle-btn" onclick="toggleGlobalSidebar()" aria-label="ย่อหรือขยายเมนูนำทาง" style="
     position: absolute;
     top: 20px;
     right: 15px;
@@ -38,8 +38,10 @@
   <div class="sb-logo">
     <div class="sb-logo-icon" style="background:transparent;"><img src="/images/LOGO%20KHH.jpg" alt="KHH Hospital Logo"
         style="width:100%; height:100%; border-radius:10px; object-fit:cover;" /></div>
-    <h5>โรงพยาบาลคลองหาด</h5>
-    <small>ระบบสแกนหน้าบุคลากรโรงพยาบาล</small>
+    <div class="sb-brand-copy">
+      <h5>โรงพยาบาลคลองหาด</h5>
+      <small>ระบบบริหารเวลาปฏิบัติงาน</small>
+    </div>
   </div>
   <div class="sb-nav">
     <div class="sb-sec">Dashboard</div>
@@ -161,7 +163,7 @@
 <div class="sb-overlay" id="sidebar-overlay" onclick="toggleGlobalSidebar()"></div>
 
 <!-- Scroll to Top Button -->
-<button id="scrollToTopBtn" class="scroll-to-top" onclick="scrollToTop()" title="กลับไปข้างบน">
+<button type="button" id="scrollToTopBtn" class="scroll-to-top" onclick="scrollToTop()" title="กลับไปข้างบน" aria-label="กลับไปด้านบนของหน้า">
   <i class="bi bi-chevron-up"></i>
 </button>
 

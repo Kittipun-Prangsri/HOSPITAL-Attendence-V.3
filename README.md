@@ -36,11 +36,14 @@
    ```bash
    npm run init-db
    ```
+   สำหรับฐานข้อมูลที่มีอยู่แล้ว ให้ใช้ `npm run migrate` แยกจากการเปิด server
+   และหากมีตารางเวรเดิมใน JSON ให้ย้ายข้อมูลหนึ่งครั้งด้วย `npm run import-legacy-schedules`
 
 4. เริ่มใช้งานโปรเจค:
    - โหมดปกติ: `npm start`
    - โหมดพัฒนา: `npm run dev` (ใช้ nodemon)
 
-## 🔐 ข้อมูลการเข้าสู่ระบบ (เริ่มต้น)
-- **Admin**: `admin` / `root1234`
-- **User**: `staff` / `staff1234`
+## 🔐 ความปลอดภัย
+- ระบบต้องตั้งค่า `SESSION_SECRET` ที่ยาวและสุ่มใน `.env` ก่อนเริ่มใช้งาน
+- ผู้ใช้ต้องมี `HR_PASSWORD_HASH` ที่เป็น bcrypt ในตาราง `hr_person`; ไม่มีรหัสผ่านตั้งต้นในระบบ
+- ตั้งรหัสผ่านให้บัญชีที่ยังไม่มี hash ด้วย `NEW_PASSWORD="รหัสผ่านใหม่" npm run reset-password -- <HR_CID>`

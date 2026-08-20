@@ -1,45 +1,5 @@
-const fs = require('fs');
-const path = require('path');
 const { pool, hosofficePool } = require('../config/db');
 const NotificationService = require('../services/notificationService');
-
-const DATA_DIR = path.join(__dirname, '..', '..', 'data');
-const SCHEDULE_FILE = path.join(DATA_DIR, 'schedule.json');
-const MONTHLY_SCHEDULE_DIR = path.join(DATA_DIR, 'monthly_schedules');
-
-// Helper to determine the scheduled shift for a given employee and date
-function getScheduledShift(empId, dateStr) {
-  const [year, month, day] = dateStr.split('-').map(Number);
-  const monthFile = path.join(MONTHLY_SCHEDULE_DIR, `schedule_${year}_${String(month).padStart(2,'0')}.json`);
-  
-  if (fs.existsSync(monthFile)) {
-    try {
-      const data = JSON.parse(fs.readFileSync(monthFile, 'utf8'));
-      const empSched = (data.schedule || {})[empId] || {};
-      const shift = empSched[String(day)];
-      if (shift && shift !== 'OFF' && shift !== 'EMPTY') {
-        return shift;
-      }
-    } catch (e) {
-      console.error('Error reading monthly schedule:', e);
-    }
-  }
-  
-  // Fallback to weekly schedule
-  if (fs.existsSync(SCHEDULE_FILE)) {
-    try {
-      const weekly = JSON.parse(fs.readFileSync(SCHEDULE_FILE, 'utf8'));
-      const match = weekly.find(s => s.emp_id === String(empId) && s.date === dateStr);
-      if (match && match.shift && match.shift !== 'EMPTY' && match.shift !== 'OFF') {
-        return match.shift;
-      }
-    } catch (e) {
-      console.error('Error reading weekly schedule:', e);
-    }
-  }
-  
-  return null;
-}
 
 // Format past date helper
 function getPastDateString(daysAgo) {
@@ -320,7 +280,7 @@ exports.compileReminderCandidates = async () => {
   const lateThresholdTime = `${lateH}:${lateM}:00`;
 
   // 1. Get all local users who are registered
-  const [users] = await hosofficePool.query('SELECT HR_CID as username, CONCAT(HR_FNAME, \' \', HR_LNAME) as fullname, LINE_YOUR_USER_ID as line_user_id, TELEGRAM_CHAT_ID as telegram_chat_id FROM hr_person WHERE USER_TYPE IS NOT NULL AND HR_CID IS NOT NULL');
+  const [users] = await hosofficePool.query('SELECT FINGLE_ID as employee_id, HR_CID as username, CONCAT(HR_FNAME, \' \', HR_LNAME) as fullname, LINE_YOUR_USER_ID as line_user_id, TELEGRAM_CHAT_ID as telegram_chat_id FROM hr_person WHERE USER_TYPE IS NOT NULL AND HR_CID IS NOT NULL');
   
   if (users.length === 0) return [];
   
@@ -345,6 +305,13 @@ exports.compileReminderCandidates = async () => {
     scansMap[`${s.EmployeeID}_${s.AccessDate}`] = s.time_in;
   });
 
+  const [scheduleRows] = await pool.query(
+    `SELECT employee_id, DATE_FORMAT(schedule_date, '%Y-%m-%d') AS schedule_date, shift
+     FROM schedule_entries WHERE schedule_date BETWEEN ? AND ?`,
+    [startStr, endStr]
+  );
+  const scheduleMap = new Map(scheduleRows.map(row => [`${row.employee_id}_${row.schedule_date}`, row.shift]));
+
   const remindersList = [];
   const todayObj = new Date();
   
@@ -354,8 +321,8 @@ exports.compileReminderCandidates = async () => {
     const targetDateObj = new Date(targetDateStr);
     const elapsedDays = Math.floor((todayObj - targetDateObj) / (24 * 60 * 60 * 1000));
     
-    users.forEach(user => {
-      const shift = getScheduledShift(user.username, targetDateStr);
+    for (const user of users) {
+      const shift = scheduleMap.get(`${user.employee_id}_${targetDateStr}`);
       if (shift) {
         // Person is scheduled to work! Let's check their scan
         const key = `${user.username}_${targetDateStr}`;
@@ -385,7 +352,7 @@ exports.compileReminderCandidates = async () => {
           }
         }
       }
-    });
+    }
   }
   
   return remindersList;

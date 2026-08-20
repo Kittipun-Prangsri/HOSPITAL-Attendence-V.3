@@ -4,7 +4,7 @@
    ========================================================================== */
 
 /* 1. TYPOGRAPHY IMPORT */
-@import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700;800&family=Prompt:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Thai:wght@400;500;600;700;800&display=swap');
 
 /* 2. DESIGN TOKENS (CSS VARIABLES) */
 :root {
@@ -27,7 +27,7 @@
   --ds-radius-sm: 8px;
 
   /* Typography Scale (Fluid using clamp) */
-  --ds-font-family: 'Prompt', 'Kanit', -apple-system, BlinkMacSystemFont, sans-serif;
+  --ds-font-family: 'Noto Sans Thai', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   --ds-font-display: clamp(2rem, 5vw + 1rem, 4.5rem);  /* Large centered headings */
   --ds-font-h1: clamp(1.75rem, 3vw + 0.75rem, 3rem);
   --ds-font-h2: clamp(1.5rem, 2.5vw + 0.5rem, 2.25rem);

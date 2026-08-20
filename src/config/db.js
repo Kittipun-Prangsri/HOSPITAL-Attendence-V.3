@@ -9,8 +9,11 @@ const dbConfig = {
   connectionLimit: 10,
   queueLimit: 0,
   charset: 'utf8mb4',
+  timezone: process.env.DB_TIMEZONE || '+07:00',
   enableKeepAlive: true,
-  keepAliveInitialDelay: 0
+  keepAliveInitialDelay: 10000, // 10 seconds delay before keep-alive probes
+  connectTimeout: 10000,        // 10 seconds to establish connection
+  idleTimeout: 60000            // 60 seconds idle timeout to reap stale connections
 };
 
 const pool = mysql.createPool({

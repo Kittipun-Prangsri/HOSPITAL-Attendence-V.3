@@ -1,8 +1,7 @@
-const mysql = require('mysql2/promise');
-const dbConfig = { host: '192.168.80.7', user: 'Khos', password: 'KH10866@zjkowfh', database: 'hosoffice', charset: 'utf8mb4' };
+require('dotenv').config();
+const { hosofficePool: conn } = require('../../src/config/db');
 
 async function describeServiceTables() {
-  const conn = await mysql.createConnection(dbConfig);
   try {
     const [colsMorning] = await conn.query('DESCRIBE service_work_scans_morning');
     console.log('Morning Table Columns:');

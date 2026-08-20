@@ -33,24 +33,45 @@ exports.getPersonnel = async (req, res) => {
 
 exports.updateStaff = async (req, res) => {
   const { id, nickname, phone, email, line_user_id, telegram_chat_id, work_shift, time_in, time_out } = req.body;
-  if (!id) return res.status(400).json({ success: false, message: 'Missing staff ID' });
+  if (!id || String(id).length > 50) return res.status(400).json({ success: false, message: 'Missing or invalid staff ID' });
 
   const currentUser = req.session.user;
   const isPrivileged = currentUser && (currentUser.role === 'admin' || currentUser.role === 'super');
+  const normalizeText = (value, maxLength) => typeof value === 'string' && value.trim().length <= maxLength ? value.trim() || null : null;
+  const textFields = [
+    [nickname, 100],
+    [phone, 50],
+    [email, 255],
+    [line_user_id, 255],
+    [telegram_chat_id, 100],
+    [work_shift, 50],
+    [time_in, 20],
+    [time_out, 20]
+  ];
+  if (textFields.some(([value, maxLength]) => value !== undefined && (typeof value !== 'string' || value.trim().length > maxLength))) {
+    return res.status(400).json({ success: false, message: 'Invalid staff data' });
+  }
 
   try {
-    // Security Check: If not admin/super, the 'id' (FINGLE_ID) must belong to the logged-in user
     if (!isPrivileged) {
       const [userRows] = await hosofficePool.query('SELECT FINGLE_ID FROM hr_person WHERE ID = ?', [currentUser.id]);
-      const userFingleId = userRows.length > 0 ? userRows[0].FINGLE_ID : null;
-      if (String(id) !== String(userFingleId)) {
-        return res.status(403).json({ success: false, message: 'ไม่มีสิทธิ์แก้ไขข้อมูลผู้อื่น' });
+      if (String(id) !== String(userRows[0]?.FINGLE_ID || '')) {
+        return res.status(403).json({ success: false, message: 'แก้ไขข้อมูลได้เฉพาะของตนเองเท่านั้น' });
       }
     }
-
     const [result] = await hosofficePool.query(
       `UPDATE hr_person SET NICKNAME = ?, HR_PHONE = ?, HR_EMAIL = ?, LINE_YOUR_USER_ID = ?, TELEGRAM_CHAT_ID = ?, WORK_SHIFT = ?, TIME_IN = ?, TIME_OUT = ? WHERE FINGLE_ID = ?`,
-      [nickname || null, phone || null, email || null, line_user_id || null, telegram_chat_id || null, work_shift || null, time_in || null, time_out || null, id]
+      [
+        normalizeText(nickname, 100),
+        normalizeText(phone, 50),
+        normalizeText(email, 255),
+        normalizeText(line_user_id, 255),
+        normalizeText(telegram_chat_id, 100),
+        normalizeText(work_shift, 50),
+        normalizeText(time_in, 20),
+        normalizeText(time_out, 20),
+        id
+      ]
     );
 
     if (result.affectedRows === 0) {
@@ -62,6 +83,8 @@ exports.updateStaff = async (req, res) => {
     res.status(500).json({ success: false, message: 'Database update failed.' });
   }
 };
+
+
 
 exports.getPersonnelTemplate2 = async (req, res) => {
   try {
@@ -88,7 +111,7 @@ exports.getPersonnelTemplate2 = async (req, res) => {
       query += ` AND hp.ID = ?`;
       params.push(currentUser.id);
     }
-    
+
     const [personnel] = await hosofficePool.query(query, params);
 
     let scans = { morning: [], afternoon: [], night: [] };
@@ -147,9 +170,9 @@ exports.getPersonByFingleId = async (req, res) => {
     `, [fingleId]);
 
     if (rows.length === 0) return res.status(404).json({ person: null, message: 'Not found' });
-    
+
     const person = rows[0];
-    
+
     // Security check moved to after query to allow owners to see their own data
     if (!isPrivileged && !isOwner) {
         return res.status(403).json({ success: false, error: 'เข้าถึงไม่ได้: สิทธิ์การเข้าถึงข้อมูลเฉพาะของตนเองเท่านั้น' });

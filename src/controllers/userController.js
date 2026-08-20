@@ -1,4 +1,5 @@
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const { pool, hosofficePool } = require('../config/db');
 
 const NotificationService = require('../services/notificationService');
@@ -31,6 +32,12 @@ exports.getUsers = async (req, res) => {
 
 exports.saveUser = async (req, res) => {
   const { id, username, password, fullname, role, line_user_id, telegram_chat_id } = req.body;
+  if (typeof username !== 'string' || username.trim().length === 0 || username.length > 50 || typeof fullname !== 'string' || fullname.trim().length === 0) {
+    return res.status(400).json({ error: 'Invalid username or full name' });
+  }
+  if (password !== undefined && password !== '' && (typeof password !== 'string' || password.length < 8 || password.length > 200)) {
+    return res.status(400).json({ error: 'Password must be 8-200 characters long' });
+  }
   try {
     let dbRole = 'USER';
     if (role === 'super') dbRole = 'SUPER';
@@ -41,7 +48,7 @@ exports.saveUser = async (req, res) => {
 
     if (existing.length > 0) {
       if (password) {
-        const hashed = await bcrypt.hash(password, 10);
+        const hashed = await bcrypt.hash(password, 12);
         await hosofficePool.query(
           'UPDATE hr_person SET USER_TYPE = ?, HR_PASSWORD_HASH = ?, LINE_YOUR_USER_ID = ?, TELEGRAM_CHAT_ID = ? WHERE HR_CID = ?',
           [dbRole, hashed, line_user_id || null, telegram_chat_id || null, username]
@@ -54,7 +61,10 @@ exports.saveUser = async (req, res) => {
       }
       res.json({ success: true, message: 'User updated successfully' });
     } else {
-      const hashed = await bcrypt.hash(password || 'staff1234', 10);
+      if (typeof password !== 'string' || password.length < 8) {
+        return res.status(400).json({ error: 'A password of at least 8 characters is required for new users' });
+      }
+      const hashed = await bcrypt.hash(password, 12);
       const nameParts = (fullname || '').split(' ');
       const fname = nameParts[0] || 'New';
       const lname = nameParts.slice(1).join(' ') || 'User';
@@ -211,8 +221,8 @@ exports.deleteUser = async (req, res) => {
 exports.resetPassword = async (req, res) => {
   const { id } = req.params;
   try {
-    const defaultPassword = '1234';
-    const hashed = await bcrypt.hash(defaultPassword, 10);
+    const temporaryPassword = crypto.randomBytes(12).toString('base64url');
+    const hashed = await bcrypt.hash(temporaryPassword, 12);
     const [result] = await hosofficePool.query(
       'UPDATE hr_person SET HR_PASSWORD_HASH = ? WHERE ID = ?',
       [hashed, id]
@@ -220,7 +230,11 @@ exports.resetPassword = async (req, res) => {
     if (result.affectedRows === 0) {
       return res.status(404).json({ success: false, error: 'ไม่พบผู้ใช้งานนี้ในระบบ' });
     }
-    res.json({ success: true, message: 'รีเซ็ตรหัสผ่านเป็น 1234 สำเร็จแล้ว' });
+    res.json({
+      success: true,
+      message: 'รีเซ็ตรหัสผ่านสำเร็จ กรุณาบันทึกรหัสชั่วคราวและส่งให้ผู้ใช้ผ่านช่องทางที่ปลอดภัย',
+      temporaryPassword
+    });
   } catch (error) {
     console.error('Error resetting password:', error);
     res.status(500).json({ success: false, error: 'เกิดข้อผิดพลาดในการรีเซ็ตรหัสผ่าน' });

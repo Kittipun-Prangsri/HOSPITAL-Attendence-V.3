@@ -8,21 +8,46 @@ const viewRoutes = require('./routes/viewRoutes');
 const { errorHandler, notFound } = require('./middleware/errorMiddleware');
 
 const app = express();
+const sessionSecret = process.env.SESSION_SECRET;
+const allowedOrigins = (process.env.CORS_ORIGIN || '').split(',').map(origin => origin.trim()).filter(Boolean);
+
+if (!sessionSecret) {
+  throw new Error('SESSION_SECRET must be configured before starting the server');
+}
 
 // Basic Middleware
-app.use(cors());
+app.disable('x-powered-by');
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'same-origin');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  next();
+});
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+    callback(null, false);
+  },
+  credentials: true
+}));
 app.use(express.static(path.join(__dirname, '..', 'public')));
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, '..', 'views'));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '100kb' }));
+app.use(express.urlencoded({ extended: true, limit: '100kb' }));
 
 // Session Configuration
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'khh-secret-key-2024',
+  secret: sessionSecret,
   resave: false,
   saveUninitialized: false,
-  cookie: { maxAge: 24 * 60 * 60 * 1000 } // 24 hours
+  cookie: {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 24 * 60 * 60 * 1000
+  }
 }));
 
 // Routes
