@@ -19,6 +19,7 @@
     "check-db": "node scripts/check_db.js",
     "check-tables": "node scripts/check_tables.js",
     "test-scans": "node scripts/test_scans.js",
+    "retest": "node scripts/retest_hikvision.js",
     "inspect": "node scripts/db_inspector.js"
   },
   "dependencies": {
