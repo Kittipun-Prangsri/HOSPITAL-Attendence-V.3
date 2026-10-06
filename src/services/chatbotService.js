@@ -19,7 +19,7 @@ class ChatbotService {
       if (userId) {
         try {
           const [person] = await hosofficePool.query(`
-            SELECT FINGLE_ID, CONCAT(HR_FNAME, '   ', HR_LNAME) as fullname
+            SELECT FINGLE_ID, CONCAT(TRIM(HR_FNAME), ' ', TRIM(HR_LNAME)) as fullname
             FROM hr_person
             WHERE LINE_TOKEN = ? 
                OR LINE_TOKEN1 = ? 
@@ -60,7 +60,7 @@ class ChatbotService {
     if (userId) {
       try {
         const [person] = await hosofficePool.query(`
-          SELECT FINGLE_ID, CONCAT(HR_FNAME, '   ', HR_LNAME) as fullname
+          SELECT FINGLE_ID, CONCAT(TRIM(HR_FNAME), ' ', TRIM(HR_LNAME)) as fullname
           FROM hr_person
           WHERE LINE_TOKEN = ? 
              OR LINE_TOKEN1 = ? 
@@ -243,7 +243,7 @@ class ChatbotService {
     if (userId && !nameFilter) {
       try {
         const [person] = await hosofficePool.query(`
-          SELECT FINGLE_ID, CONCAT(HR_FNAME, '   ', HR_LNAME) as fullname
+          SELECT FINGLE_ID, CONCAT(TRIM(HR_FNAME), ' ', TRIM(HR_LNAME)) as fullname
           FROM hr_person
           WHERE LINE_TOKEN = ? 
              OR LINE_TOKEN1 = ? 
@@ -290,7 +290,7 @@ class ChatbotService {
         try {
           // 1. Check if ID exists in hr_person
           const [person] = await hosofficePool.query(`
-            SELECT CONCAT(HR_FNAME, '   ', HR_LNAME) as fullname
+            SELECT CONCAT(TRIM(HR_FNAME), ' ', TRIM(HR_LNAME)) as fullname
             FROM hr_person
             WHERE FINGLE_ID = ?
             LIMIT 1
@@ -328,7 +328,7 @@ class ChatbotService {
         try {
           const [scans] = await hosofficePool.query(`
             SELECT 
-              COALESCE(CONCAT(p.HR_FNAME, '   ', p.HR_LNAME), h.PersonName, h.EmployeeID) as fullname,
+              COALESCE(CONCAT(TRIM(p.HR_FNAME), ' ', TRIM(p.HR_LNAME)), h.PersonName, h.EmployeeID) as fullname,
               h.AccessTime
             FROM hikvision h
             LEFT JOIN hr_person p ON h.EmployeeID = p.FINGLE_ID
@@ -357,7 +357,7 @@ class ChatbotService {
     try {
       const [scans] = await hosofficePool.query(`
         SELECT 
-          COALESCE(CONCAT(p.HR_FNAME, '   ', p.HR_LNAME), h.PersonName, h.EmployeeID) as fullname,
+          COALESCE(CONCAT(TRIM(p.HR_FNAME), ' ', TRIM(p.HR_LNAME)), h.PersonName, h.EmployeeID) as fullname,
           h.AccessTime
         FROM hikvision h
         LEFT JOIN hr_person p ON h.EmployeeID = p.FINGLE_ID
@@ -392,7 +392,7 @@ class ChatbotService {
       console.log(`[Chatbot] Querying SQL database for historical date: ${formattedDate}...`);
       const [scans] = await hosofficePool.query(`
         SELECT 
-          COALESCE(CONCAT(p.HR_FNAME, '   ', p.HR_LNAME), h.PersonName, h.EmployeeID) as fullname,
+          COALESCE(CONCAT(TRIM(p.HR_FNAME), ' ', TRIM(p.HR_LNAME)), h.PersonName, h.EmployeeID) as fullname,
           h.AccessTime
         FROM hikvision h
         LEFT JOIN hr_person p ON h.EmployeeID = p.FINGLE_ID
@@ -445,7 +445,7 @@ class ChatbotService {
         try {
           // 1. Check if ID exists in hr_person
           const [person] = await hosofficePool.query(`
-            SELECT CONCAT(HR_FNAME, '   ', HR_LNAME) as fullname
+            SELECT CONCAT(TRIM(HR_FNAME), ' ', TRIM(HR_LNAME)) as fullname
             FROM hr_person
             WHERE FINGLE_ID = ?
             LIMIT 1
@@ -483,7 +483,7 @@ class ChatbotService {
         try {
           const [scans] = await hosofficePool.query(`
             SELECT 
-              COALESCE(CONCAT(p.HR_FNAME, '   ', p.HR_LNAME), h.PersonName, h.EmployeeID) as fullname,
+              COALESCE(CONCAT(TRIM(p.HR_FNAME), ' ', TRIM(p.HR_LNAME)), h.PersonName, h.EmployeeID) as fullname,
               h.AccessTime
             FROM hikvision h
             LEFT JOIN hr_person p ON h.EmployeeID = p.FINGLE_ID
@@ -512,7 +512,7 @@ class ChatbotService {
     try {
       const [scans] = await hosofficePool.query(`
         SELECT 
-          COALESCE(CONCAT(p.HR_FNAME, '   ', p.HR_LNAME), h.PersonName, h.EmployeeID) as fullname,
+          COALESCE(CONCAT(TRIM(p.HR_FNAME), ' ', TRIM(p.HR_LNAME)), h.PersonName, h.EmployeeID) as fullname,
           h.AccessTime
         FROM hikvision h
         LEFT JOIN hr_person p ON h.EmployeeID = p.FINGLE_ID
@@ -563,7 +563,7 @@ class ChatbotService {
         try {
           // 1. Check if ID exists in hr_person
           const [person] = await hosofficePool.query(`
-            SELECT CONCAT(HR_FNAME, '   ', HR_LNAME) as fullname
+            SELECT CONCAT(TRIM(HR_FNAME), ' ', TRIM(HR_LNAME)) as fullname
             FROM hr_person
             WHERE FINGLE_ID = ?
             LIMIT 1
@@ -632,7 +632,7 @@ class ChatbotService {
         try {
           const [scans] = await hosofficePool.query(`
             SELECT 
-              COALESCE(CONCAT(p.HR_FNAME, '   ', p.HR_LNAME), h.PersonName, h.EmployeeID) as fullname,
+              COALESCE(CONCAT(TRIM(p.HR_FNAME), ' ', TRIM(p.HR_LNAME)), h.PersonName, h.EmployeeID) as fullname,
               h.AccessDate,
               h.AccessTime
             FROM hikvision h
@@ -693,7 +693,7 @@ class ChatbotService {
     try {
       const [scans] = await hosofficePool.query(`
         SELECT 
-          COALESCE(CONCAT(p.HR_FNAME, '   ', p.HR_LNAME), h.PersonName, h.EmployeeID) as fullname,
+          COALESCE(CONCAT(TRIM(p.HR_FNAME), ' ', TRIM(p.HR_LNAME)), h.PersonName, h.EmployeeID) as fullname,
           h.AccessDate,
           h.AccessTime
         FROM hikvision h

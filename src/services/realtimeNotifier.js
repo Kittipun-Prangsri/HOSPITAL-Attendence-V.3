@@ -36,16 +36,12 @@ async function checkNewScans() {
     }
 
     // 1. Discover today's brand-new scans (is_notified = 1 or 2) and register them
-    // in notification_deliveries so they enter the retry queue below. Scoped to
-    // "today" purely to keep this discovery scan cheap — it only ever needs to see
-    // scans as they land.
+    // in notification_deliveries so they enter the retry queue below.
     const [newScans] = await hosofficePool.query(`
       SELECT h.EmployeeID, h.AccessDate, h.AccessTime
       FROM hikvision h
-      INNER JOIN hr_person p ON h.EmployeeID = p.FINGLE_ID
       WHERE h.AccessDate = ?
         AND h.is_notified IN (1, 2)
-        AND (NULLIF(TRIM(p.LINE_YOUR_USER_ID), '') IS NOT NULL OR NULLIF(TRIM(p.TELEGRAM_CHAT_ID), '') IS NOT NULL)
     `, [today]);
     for (const s of newScans) {
       await pool.query(
@@ -54,16 +50,6 @@ async function checkNewScans() {
         [s.EmployeeID, s.AccessDate, s.AccessTime]
       );
     }
-
-    // Do not retry scans that cannot be associated with a notification channel.
-    await hosofficePool.query(`
-      UPDATE hikvision h
-      LEFT JOIN hr_person p ON h.EmployeeID = p.FINGLE_ID
-      SET h.is_notified = 3
-      WHERE h.AccessDate = ?
-        AND h.is_notified IN (1, 2)
-        AND (p.FINGLE_ID IS NULL OR (NULLIF(TRIM(p.LINE_YOUR_USER_ID), '') IS NULL AND NULLIF(TRIM(p.TELEGRAM_CHAT_ID), '') IS NULL))
-    `, [today]);
 
     // 2. Fetch scans actually due for a send/retry attempt right now, driven off
     // notification_deliveries (not hikvision.AccessDate). This is what the old
@@ -82,24 +68,32 @@ async function checkNewScans() {
       SELECT d.employee_id AS EmployeeID, d.access_date AS AccessDate, d.access_time AS AccessTime,
              d.status AS deliveryStatus, d.attempts AS deliveryAttempts
       FROM notification_deliveries d
-      WHERE d.status = 'pending' AND (d.next_attempt_at IS NULL OR d.next_attempt_at <= NOW())
-      ORDER BY d.access_date ASC, d.access_time ASC
+      WHERE d.status = 'pending'
+        AND d.access_date >= ?
+        AND (d.next_attempt_at IS NULL OR d.next_attempt_at <= NOW())
+      ORDER BY d.access_date DESC, d.access_time DESC
       LIMIT 10
-    `);
+    `, [today]);
 
     if (scans.length === 0) return;
 
     // Enrich with scan/employee details from HOSoffice, joined by the natural key.
-    const detailPromises = scans.map(s => hosofficePool.query(`
-      SELECT h.Direction, h.DeviceName, h.ReaderName, h.SkinSurfaceTemperature,
-             h.AttendanceStatus, h.AuthenticationResult,
-             p.LINE_YOUR_USER_ID as line_user_id, p.TELEGRAM_CHAT_ID as telegram_chat_id,
-             CONCAT(p.HR_FNAME, ' ', p.HR_LNAME) as fullname
-      FROM hikvision h
-      INNER JOIN hr_person p ON h.EmployeeID = p.FINGLE_ID
-      WHERE h.EmployeeID = ? AND h.AccessDate = ? AND h.AccessTime = ?
-      LIMIT 1
-    `, [s.EmployeeID, s.AccessDate, s.AccessTime]));
+    const detailPromises = scans.map(s => {
+      const dateStr = typeof s.AccessDate === 'string'
+        ? s.AccessDate.slice(0, 10)
+        : (s.AccessDate instanceof Date ? s.AccessDate.toISOString().slice(0, 10) : String(s.AccessDate));
+
+      return hosofficePool.query(`
+        SELECT h.Direction, h.DeviceName, h.ReaderName, h.SkinSurfaceTemperature,
+               h.AttendanceStatus, h.AuthenticationResult,
+               p.LINE_YOUR_USER_ID as line_user_id, p.TELEGRAM_CHAT_ID as telegram_chat_id,
+               CONCAT(p.HR_FNAME, ' ', p.HR_LNAME) as fullname
+        FROM hikvision h
+        INNER JOIN hr_person p ON h.EmployeeID = p.FINGLE_ID
+        WHERE h.EmployeeID = ? AND h.AccessDate = ? AND h.AccessTime = ?
+        LIMIT 1
+      `, [s.EmployeeID, dateStr, s.AccessTime]);
+    });
     const detailResults = await Promise.all(detailPromises);
     for (let i = 0; i < scans.length; i++) {
       Object.assign(scans[i], detailResults[i][0][0] || {});
@@ -112,9 +106,13 @@ async function checkNewScans() {
     for (const scan of scans) {
       const { EmployeeID, AccessDate, AccessTime, deliveryAttempts, Direction, DeviceName, ReaderName, SkinSurfaceTemperature, AttendanceStatus, AuthenticationResult, line_user_id, telegram_chat_id, fullname } = scan;
 
+      const dateStr = typeof AccessDate === 'string'
+        ? AccessDate.slice(0, 10)
+        : (AccessDate instanceof Date ? AccessDate.toISOString().slice(0, 10) : String(AccessDate));
+
       // Keep concurrent poll iterations from handling the same scan at once. Durable state
       // and retry timing are stored in notification_deliveries, not this in-memory set.
-      const scanKey = `${EmployeeID}_${AccessDate}_${AccessTime}`;
+      const scanKey = `${EmployeeID}_${dateStr}_${AccessTime}`;
       if (processingScans.has(scanKey)) {
         continue;
       }
@@ -126,22 +124,34 @@ async function checkNewScans() {
           console.log(`[RealtimeNotifier] Real-time notifications are disabled in .env. Skipping push to ${fullname || EmployeeID} (${EmployeeID}).`);
           await pool.query(
             `UPDATE notification_deliveries SET status = 'sent', attempts = attempts + 1, sent_at = NOW(), last_error = NULL WHERE employee_id = ? AND access_date = ? AND access_time = ?`,
-            [EmployeeID, AccessDate, AccessTime]
+            [EmployeeID, dateStr, AccessTime]
           );
-          await hosofficePool.query('UPDATE hikvision SET is_notified = 3 WHERE EmployeeID = ? AND AccessDate = ? AND AccessTime = ?', [EmployeeID, AccessDate, AccessTime]);
+          await hosofficePool.query('UPDATE hikvision SET is_notified = 3 WHERE EmployeeID = ? AND AccessDate = ? AND AccessTime = ?', [EmployeeID, dateStr, AccessTime]);
           continue;
         }
 
         const directionThai = getStatusLabel(AttendanceStatus, AuthenticationResult, Direction);
 
         const location = DeviceName || 'ไม่ระบุจุดสแกน';
-        const dateThai = new Date(AccessDate).toLocaleDateString('th-TH', {
+
+        let dateObj;
+        if (typeof AccessDate === 'string') {
+          dateObj = new Date(`${AccessDate.slice(0, 10)}T00:00:00+07:00`);
+        } else {
+          dateObj = new Date(AccessDate);
+        }
+
+        const dateThai = dateObj.toLocaleDateString('th-TH', {
+          timeZone: 'Asia/Bangkok',
           year: 'numeric',
           month: 'long',
           day: 'numeric'
         });
 
-        const isLateScan = (Direction === 'in' || Direction === 'i' || AttendanceStatus === 'i') && (AccessTime > '08:31:00');
+        const dirLower = (Direction || '').toLowerCase();
+        const statusLower = (AttendanceStatus || '').toLowerCase();
+        const isCheckIn = dirLower === 'in' || dirLower === 'i' || statusLower === 'in' || statusLower === 'i' || statusLower === 'check-in';
+        const isLateScan = isCheckIn && (AccessTime > '08:31:00');
         const lineFlexContents = flexBuilder.buildAttendanceFlex({
           fullname: fullname || EmployeeID,
           employeeId: EmployeeID,
@@ -166,14 +176,21 @@ async function checkNewScans() {
           message += `\n🌡️ อุณหภูมิ: ${SkinSurfaceTemperature} °C`;
         }
 
-        const result = await NotificationService.sendDirectNotification(line_user_id, telegram_chat_id, message, undefined, lineFlexContents);
+        const validEmpTelegram = telegram_chat_id && /^-?\d+$/.test(String(telegram_chat_id).trim()) ? String(telegram_chat_id).trim() : null;
+        const targetTelegram = validEmpTelegram || process.env.TELEGRAM_ADMIN_CHAT_ID;
+        const result = await NotificationService.sendDirectNotification(line_user_id, targetTelegram, message, undefined, lineFlexContents);
+
+        // Also send copy to Telegram Admin if employee has their own distinct Telegram ID
+        if (validEmpTelegram && process.env.TELEGRAM_ADMIN_CHAT_ID && validEmpTelegram !== process.env.TELEGRAM_ADMIN_CHAT_ID) {
+          await NotificationService.sendDirectTelegram(process.env.TELEGRAM_ADMIN_CHAT_ID, message);
+        }
         if (result.success) {
           await pool.query(
             `UPDATE notification_deliveries SET status = 'sent', attempts = attempts + 1, sent_at = NOW(), next_attempt_at = NULL, last_error = NULL
              WHERE employee_id = ? AND access_date = ? AND access_time = ?`,
-            [EmployeeID, AccessDate, AccessTime]
+            [EmployeeID, dateStr, AccessTime]
           );
-          await hosofficePool.query('UPDATE hikvision SET is_notified = 3 WHERE EmployeeID = ? AND AccessDate = ? AND AccessTime = ?', [EmployeeID, AccessDate, AccessTime]);
+          await hosofficePool.query('UPDATE hikvision SET is_notified = 3 WHERE EmployeeID = ? AND AccessDate = ? AND AccessTime = ?', [EmployeeID, dateStr, AccessTime]);
           console.log(`[RealtimeNotifier] Successfully sent notification to ${fullname || EmployeeID} (${EmployeeID}). LINE: ${result.line}, Telegram: ${result.telegram}`);
         } else {
           const attempts = Number(deliveryAttempts) + 1;
@@ -184,12 +201,12 @@ async function checkNewScans() {
              SET status = ?, attempts = ?, last_error = ?, next_attempt_at = ${terminal ? 'NULL' : 'DATE_ADD(NOW(), INTERVAL ? MINUTE)'}
              WHERE employee_id = ? AND access_date = ? AND access_time = ?`,
             terminal
-              ? ['failed', attempts, 'LINE and Telegram delivery failed', EmployeeID, AccessDate, AccessTime]
-              : ['pending', attempts, 'LINE and Telegram delivery failed', retryMinutes, EmployeeID, AccessDate, AccessTime]
+              ? ['failed', attempts, 'LINE and Telegram delivery failed', EmployeeID, dateStr, AccessTime]
+              : ['pending', attempts, 'LINE and Telegram delivery failed', retryMinutes, EmployeeID, dateStr, AccessTime]
           );
           if (terminal) {
-            await hosofficePool.query('UPDATE hikvision SET is_notified = 4 WHERE EmployeeID = ? AND AccessDate = ? AND AccessTime = ?', [EmployeeID, AccessDate, AccessTime]);
-            newlyTerminalFailures.push({ fullname: fullname || EmployeeID, employeeId: EmployeeID, accessDate: AccessDate, accessTime: AccessTime });
+            await hosofficePool.query('UPDATE hikvision SET is_notified = 4 WHERE EmployeeID = ? AND AccessDate = ? AND AccessTime = ?', [EmployeeID, dateStr, AccessTime]);
+            newlyTerminalFailures.push({ fullname: fullname || EmployeeID, employeeId: EmployeeID, accessDate: dateStr, accessTime: AccessTime });
           }
           console.error(`[RealtimeNotifier] Delivery failed for ${fullname || EmployeeID} (${EmployeeID}); attempt ${attempts}/5.`);
         }

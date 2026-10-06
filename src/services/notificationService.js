@@ -85,6 +85,14 @@ if (isTelegramConfigured) {
       }
     });
 
+    telegramBot.on('polling_error', (err) => {
+      if (err.message && err.message.includes('409 Conflict')) {
+        // Polling conflict handled silently when multiple script instances run
+        return;
+      }
+      console.error('[TelegramBot] Polling error:', err.message);
+    });
+
     console.log('[TelegramBot] Polling listener initialized successfully.');
   } else {
     console.log('[TelegramBot] Running in sender-only mode (Polling disabled).');
@@ -209,20 +217,24 @@ class NotificationService {
     let lineSuccess = false;
     let telegramSuccess = false;
 
-    if (telegramChatId && process.env.TELEGRAM_BOT_TOKEN) {
+    // Validate IDs to prevent sending to dummy values like '-' or invalid formats
+    const cleanLineId = lineUserId && typeof lineUserId === 'string' && /^U[0-9a-fA-F]{32}$/.test(lineUserId.trim()) ? lineUserId.trim() : null;
+    const cleanTelegramId = telegramChatId && /^-?\d+$/.test(String(telegramChatId).trim()) ? String(telegramChatId).trim() : null;
+
+    if (cleanTelegramId && process.env.TELEGRAM_BOT_TOKEN) {
       try {
         const options = {
           parse_mode: 'Markdown',
           ...telegramOptions
         };
-        await telegramBot.sendMessage(telegramChatId, message, options);
+        await telegramBot.sendMessage(cleanTelegramId, message, options);
         telegramSuccess = true;
       } catch (err) {
         console.error(`[NotificationService] Failed to send Telegram notification: ${err.message}`);
       }
     }
 
-    if (lineUserId && process.env.LINE_CHANNEL_ACCESS_TOKEN) {
+    if (cleanLineId && process.env.LINE_CHANNEL_ACCESS_TOKEN) {
       try {
         const lineMessage = lineFlexContents
           ? {
@@ -236,12 +248,13 @@ class NotificationService {
             };
 
         await lineClient.pushMessage({
-          to: lineUserId,
+          to: cleanLineId,
           messages: [lineMessage]
         });
         lineSuccess = true;
       } catch (err) {
-        console.error(`[NotificationService] Failed to send LINE notification: ${err.message}`);
+        const errDetails = err.originalError?.response?.data || err.response?.data || err.message;
+        console.error(`[NotificationService] Failed to send LINE notification:`, errDetails);
       }
     }
 
