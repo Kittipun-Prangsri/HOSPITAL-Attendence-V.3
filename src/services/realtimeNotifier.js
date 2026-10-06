@@ -134,13 +134,26 @@ async function checkNewScans() {
           isLate: isLateScan
         });
 
+        const telegramCardMessage = flexBuilder.buildTelegramCard({
+          fullname: fullname || scan.EmployeeID,
+          employeeId: scan.EmployeeID,
+          direction: scan.Direction,
+          attendanceStatus: scan.AttendanceStatus,
+          authResult: scan.AuthenticationResult,
+          dateThai,
+          timeStr: scan.AccessTime,
+          deviceName: location,
+          temperature: scan.SkinSurfaceTemperature,
+          isLate: isLateScan
+        });
+
         const validEmpTelegram = hr.telegram_chat_id && /^-?\d+$/.test(String(hr.telegram_chat_id).trim()) ? String(hr.telegram_chat_id).trim() : null;
         const targetTelegram = validEmpTelegram || process.env.TELEGRAM_ADMIN_CHAT_ID;
 
-        const result = await NotificationService.sendDirectNotification(hr.line_user_id, targetTelegram, message, undefined, lineFlexContents);
+        const result = await NotificationService.sendDirectNotification(hr.line_user_id, targetTelegram, telegramCardMessage, undefined, lineFlexContents);
 
         if (validEmpTelegram && process.env.TELEGRAM_ADMIN_CHAT_ID && validEmpTelegram !== process.env.TELEGRAM_ADMIN_CHAT_ID) {
-          await NotificationService.sendDirectTelegram(process.env.TELEGRAM_ADMIN_CHAT_ID, message);
+          await NotificationService.sendDirectTelegram(process.env.TELEGRAM_ADMIN_CHAT_ID, telegramCardMessage, { parse_mode: 'Markdown' });
         }
 
         const deliveryStatus = result.success ? 'sent' : 'failed';

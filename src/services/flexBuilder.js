@@ -89,7 +89,8 @@ function buildAttendanceFlex(params = {}) {
   };
 
   const theme = themeMap[statusType] || themeMap['check-in'];
-  const firstLetter = fullname ? fullname.trim().charAt(0).toUpperCase() : 'U';
+  const cleanName = (fullname || '').replace(/^คุณ\s*/, '').trim();
+  const firstLetter = cleanName ? cleanName.charAt(0).toUpperCase() : 'U';
 
   const detailRows = [
     {
@@ -856,12 +857,60 @@ function buildWeeklySummaryFlex({
             displayText: "ดูประวัติการเข้างาน"
           },
           style: "primary",
-          color: theme.headerBg,
-          height: "sm"
         }
       ]
     }
   };
+}
+
+/**
+ * Builds a beautiful, high-aesthetic Markdown Card for Telegram notifications.
+ */
+function buildTelegramCard(params = {}) {
+  const {
+    fullname = 'ไม่ระบุชื่อ',
+    employeeId = '',
+    direction = 'in',
+    attendanceStatus = 'i',
+    authResult = 'Success',
+    dateThai = '',
+    timeStr = '',
+    deviceName = 'ไม่ระบุจุดบันทึก',
+    temperature = null,
+    isLate = false
+  } = params;
+
+  const statusType = determineStatusType(direction, attendanceStatus, authResult, isLate);
+
+  let statusBadge = '✅ สแกนเข้างาน (Check-In)';
+  if (statusType === 'check-out') {
+    statusBadge = '📤 สแกนออกงาน (Check-Out)';
+  } else if (statusType === 'late') {
+    statusBadge = '⏰ เข้างานสาย (Late Arrival)';
+  } else if (statusType === 'failed') {
+    statusBadge = '❌ สแกนไม่ผ่าน (Scan Failed)';
+  }
+
+  const rawName = (fullname || '').trim();
+  const displayName = rawName.startsWith('คุณ') ? rawName : `คุณ${rawName}`;
+  const empCodeStr = employeeId ? ` (\`${employeeId}\`)` : '';
+  const dateDisplay = dateThai || 'วันนี้';
+  const timeDisplay = timeStr ? `${timeStr} น.` : '-';
+  const locationDisplay = deviceName || 'ไม่ระบุจุดบันทึก';
+
+  let card = `🏥 *บันทึกเวลาปฏิบัติงาน (โรงพยาบาลคลองหาด)*\n` +
+             `━━━━━━━━━━━━━━━━━━━━━\n` +
+             `👤 *พนักงาน:* ${displayName}${empCodeStr}\n` +
+             `📋 *สถานะ:* ${statusBadge}\n` +
+             `⏰ *เวลาบันทึก:* ${timeDisplay}\n` +
+             `📅 *วันที่:* ${dateDisplay}\n` +
+             `🚪 *จุดบันทึก:* ${locationDisplay}`;
+
+  if (temperature && String(temperature).trim() !== '') {
+    card += `\n🌡️ *อุณหภูมิ:* ${temperature} °C`;
+  }
+
+  return card;
 }
 
 module.exports = {
@@ -869,6 +918,8 @@ module.exports = {
   buildHistoryFlex,
   buildExcuseFlex,
   buildWeeklySummaryFlex,
+  buildTelegramCard,
   determineStatusType,
   getWeeklySummaryTheme
 };
+
