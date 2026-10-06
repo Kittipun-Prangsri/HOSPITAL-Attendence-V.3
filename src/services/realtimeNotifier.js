@@ -93,29 +93,43 @@ async function checkNewScans() {
     if (scans.length === 0) return;
 
     // Enrich with scan/employee details from HOSoffice, joined by the natural key.
-    const detailPromises = scans.map(s => {
+    const detailPromises = scans.map(async (s) => {
       const dateStr = typeof s.AccessDate === 'string'
         ? s.AccessDate.slice(0, 10)
         : (s.AccessDate instanceof Date ? s.AccessDate.toISOString().slice(0, 10) : String(s.AccessDate));
 
-      return hosofficePool.query(`
-        SELECT h.Direction, h.DeviceName, h.ReaderName, h.SkinSurfaceTemperature,
-               h.AttendanceStatus, h.AuthenticationResult, h.PersonName,
-               p.LINE_YOUR_USER_ID as line_user_id, p.TELEGRAM_CHAT_ID as telegram_chat_id,
-               COALESCE(
-                 NULLIF(TRIM(CONCAT(COALESCE(TRIM(p.HR_FNAME),''), ' ', COALESCE(TRIM(p.HR_LNAME),''))), ''),
-                 NULLIF(TRIM(h.PersonName), ''),
-                 h.EmployeeID
-               ) as fullname
-        FROM hikvision h
-        LEFT JOIN hr_person p ON h.EmployeeID = p.FINGLE_ID
-        WHERE h.EmployeeID = ? AND h.AccessDate = ? AND h.AccessTime = ?
+      const [hrRows] = await hosofficePool.query(`
+        SELECT p.LINE_YOUR_USER_ID as line_user_id,
+               p.TELEGRAM_CHAT_ID as telegram_chat_id,
+               NULLIF(TRIM(CONCAT(COALESCE(TRIM(p.HR_FNAME),''), ' ', COALESCE(TRIM(p.HR_LNAME),''))), '') as hr_fullname
+        FROM hr_person p
+        WHERE p.FINGLE_ID = ? OR CAST(p.ID AS CHAR) = ? OR p.HR_CID = ? OR p.PERMIS_ID = ?
         LIMIT 1
-      `, [s.EmployeeID, dateStr, s.AccessTime]);
+      `, [s.EmployeeID, s.EmployeeID, s.EmployeeID, s.EmployeeID]);
+
+      const [hikRows] = await hosofficePool.query(`
+        SELECT h.Direction, h.DeviceName, h.ReaderName, h.SkinSurfaceTemperature,
+               h.AttendanceStatus, h.AuthenticationResult, h.PersonName
+        FROM hikvision h
+        WHERE h.EmployeeID = ? AND (h.AccessDate = ? OR h.AccessDate LIKE ?) AND h.AccessTime = ?
+        LIMIT 1
+      `, [s.EmployeeID, dateStr, `${dateStr}%`, s.AccessTime]);
+
+      const hr = hrRows[0] || {};
+      const hik = hikRows[0] || {};
+
+      const fullname = hr.hr_fullname || (hik.PersonName && !hik.PersonName.includes('เธ') ? hik.PersonName : s.EmployeeID);
+
+      return {
+        ...hik,
+        line_user_id: hr.line_user_id,
+        telegram_chat_id: hr.telegram_chat_id,
+        fullname
+      };
     });
     const detailResults = await Promise.all(detailPromises);
     for (let i = 0; i < scans.length; i++) {
-      Object.assign(scans[i], detailResults[i][0][0] || {});
+      Object.assign(scans[i], detailResults[i] || {});
     }
 
     console.log(`[RealtimeNotifier] Found ${scans.length} scans due for a notification attempt.`);
