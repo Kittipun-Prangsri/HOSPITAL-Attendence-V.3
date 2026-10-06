@@ -6,21 +6,26 @@ let intervalId = null;
 const processingScans = new Set();
 let currentTodayStr = null;
 
-function getStatusLabel(attendanceStatus, authResult, direction) {
-  if (authResult === 'Failed') {
-    return '❌ สแกนไม่ผ่าน';
+function getStatusLabel(attendanceStatus, authResult, direction, isLate = false) {
+  if (authResult === 'Failed' || authResult === 'FAILED' || authResult === 'Denied') {
+    return 'สแกนไม่ผ่าน';
+  }
+  if (isLate) {
+    return 'เข้างานสาย';
   }
 
   const status = (attendanceStatus || direction || '').toLowerCase();
   switch (status) {
     case 'i':
     case 'in':
-      return '✅ สแกนเข้างาน (Check-in)';
+    case 'check-in':
+      return 'สแกนเข้างาน';
     case 'o':
     case 'out':
-      return '📤 สแกนออกงาน (Check-out)';
+    case 'check-out':
+      return 'สแกนออกงาน';
     default:
-      return 'ไม่ระบุสถานะ';
+      return 'สแกนเข้างาน';
   }
 }
 
@@ -179,16 +184,11 @@ async function checkNewScans() {
           isLate: isLateScan
         });
 
-        let message = `🕒 *บันทึกเวลาปฏิบัติงาน*\n\n` +
-                      `👤 พนักงาน: ${fullname || EmployeeID}\n` +
-                      `📋 สถานะ: ${directionThai}\n` +
-                      `⏰ เวลา: ${AccessTime} น.\n` +
-                      `📅 วันที่: ${dateThai}\n` +
-                      `🚪 จุดบันทึก: ${location}`;
+        const statusText = getStatusLabel(AttendanceStatus, AuthenticationResult, Direction, isLateScan);
+        const rawName = (fullname || EmployeeID).trim();
+        const displayName = rawName.startsWith('คุณ') ? rawName : `คุณ${rawName}`;
 
-        if (SkinSurfaceTemperature && SkinSurfaceTemperature.trim() !== '') {
-          message += `\n🌡️ อุณหภูมิ: ${SkinSurfaceTemperature} °C`;
-        }
+        const message = `${displayName} — ${statusText} (${AccessTime} น.)`;
 
         const validEmpTelegram = telegram_chat_id && /^-?\d+$/.test(String(telegram_chat_id).trim()) ? String(telegram_chat_id).trim() : null;
         const targetTelegram = validEmpTelegram || process.env.TELEGRAM_ADMIN_CHAT_ID;
