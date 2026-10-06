@@ -85,11 +85,15 @@ async function checkNewScans() {
 
       return hosofficePool.query(`
         SELECT h.Direction, h.DeviceName, h.ReaderName, h.SkinSurfaceTemperature,
-               h.AttendanceStatus, h.AuthenticationResult,
+               h.AttendanceStatus, h.AuthenticationResult, h.PersonName,
                p.LINE_YOUR_USER_ID as line_user_id, p.TELEGRAM_CHAT_ID as telegram_chat_id,
-               CONCAT(p.HR_FNAME, ' ', p.HR_LNAME) as fullname
+               COALESCE(
+                 NULLIF(TRIM(CONCAT(COALESCE(TRIM(p.HR_FNAME),''), ' ', COALESCE(TRIM(p.HR_LNAME),''))), ''),
+                 NULLIF(TRIM(h.PersonName), ''),
+                 h.EmployeeID
+               ) as fullname
         FROM hikvision h
-        INNER JOIN hr_person p ON h.EmployeeID = p.FINGLE_ID
+        LEFT JOIN hr_person p ON h.EmployeeID = p.FINGLE_ID
         WHERE h.EmployeeID = ? AND h.AccessDate = ? AND h.AccessTime = ?
         LIMIT 1
       `, [s.EmployeeID, dateStr, s.AccessTime]);
