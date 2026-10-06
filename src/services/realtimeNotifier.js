@@ -36,7 +36,7 @@ async function checkNewScans() {
     }
 
     // 1. Discover today's brand-new scans (is_notified = 1 or 2) and register them
-    // in notification_deliveries so they enter the retry queue below.
+    // in notification_deliveries so they enter the delivery queue below.
     const [newScans] = await hosofficePool.query(`
       SELECT h.EmployeeID, h.AccessDate, h.AccessTime
       FROM hikvision h
@@ -44,10 +44,20 @@ async function checkNewScans() {
         AND h.is_notified IN (1, 2)
     `, [today]);
     for (const s of newScans) {
+      const dateStr = typeof s.AccessDate === 'string'
+        ? s.AccessDate.slice(0, 10)
+        : (s.AccessDate instanceof Date ? s.AccessDate.toISOString().slice(0, 10) : String(s.AccessDate));
+
       await pool.query(
         `INSERT IGNORE INTO notification_deliveries (employee_id, access_date, access_time, next_attempt_at)
          VALUES (?, ?, ?, NOW())`,
-        [s.EmployeeID, s.AccessDate, s.AccessTime]
+        [s.EmployeeID, dateStr, s.AccessTime]
+      );
+
+      // Immediately mark as notified in hikvision so the scan is never picked up repeatedly
+      await hosofficePool.query(
+        `UPDATE hikvision SET is_notified = 3 WHERE EmployeeID = ? AND AccessDate = ? AND AccessTime = ?`,
+        [s.EmployeeID, dateStr, s.AccessTime]
       );
     }
 
