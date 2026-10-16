@@ -15,4 +15,11 @@ const FISCAL_YEAR_START_MONTH = 10;
 
 const MAX_LEAVE_SPAN_DAYS = 180;
 
-module.exports = { LEAVE_TYPES, FISCAL_YEAR_START_MONTH, MAX_LEAVE_SPAN_DAYS };
+// Default policy, overridable per hospital in Settings → วันหยุดและนโยบายการลา
+// attachmentSickDays: sick leave of this many days or more needs a medical certificate (0 = never required)
+const DEFAULT_LEAVE_POLICY = { attachmentSickDays: 3, byStatus: {} };
+
+const ATTACHMENT_TYPES = { 'application/pdf': 'pdf', 'image/jpeg': 'jpg', 'image/png': 'png' };
+const MAX_ATTACHMENT_BYTES = 4 * 1024 * 1024;
+
+module.exports = { LEAVE_TYPES, FISCAL_YEAR_START_MONTH, MAX_LEAVE_SPAN_DAYS, DEFAULT_LEAVE_POLICY, ATTACHMENT_TYPES, MAX_ATTACHMENT_BYTES };

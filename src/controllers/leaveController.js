@@ -1,11 +1,16 @@
 const { pool, hosofficePool } = require('../config/db');
 const NotificationService = require('../services/notificationService');
 const { LEAVE_TYPES } = require('../constants/leave');
-const { validateLeaveRequest, fiscalYearOf, summarizeBalance, parseDate } = require('../utils/leave');
+const { validateLeaveRequest, fiscalYearOf, summarizeBalance, parseDate, attachmentRequired } = require('../utils/leave');
+const { getHolidaySet } = require('../services/holidays');
+const { getLeavePolicy, quotasForEmployee } = require('../services/leavePolicy');
+const { decodeAttachment, saveAttachment, resolveAttachment, removeAttachment } = require('../utils/attachments');
+const { logAudit } = require('../utils/audit');
 
 const LEAVE_COLUMNS = `id, employee_id, hr_person_id, fullname, dept, leave_type,
   DATE_FORMAT(start_date, '%Y-%m-%d') AS start_date, DATE_FORMAT(end_date, '%Y-%m-%d') AS end_date,
-  half_day, days, reason, contact, status, reviewer, review_comment, submitted_at, reviewed_at`;
+  half_day, days, reason, contact, status, reviewer, review_comment, submitted_at, reviewed_at,
+  attachment_name, (attachment_path IS NOT NULL) AS has_attachment`;
 
 const isReviewer = user => user && (user.role === 'admin' || user.role === 'super');
 const todayStr = () => new Date().toLocaleDateString('sv-SE', { timeZone: process.env.APP_TIMEZONE || 'Asia/Bangkok' });
@@ -22,8 +27,9 @@ async function requestsInFiscalYear(employeeId, dateStr) {
   return { fy, rows };
 }
 
-exports.getTypes = (req, res) => {
-  res.json({ success: true, types: LEAVE_TYPES });
+exports.getTypes = async (req, res) => {
+  const policy = await getLeavePolicy();
+  res.json({ success: true, types: LEAVE_TYPES, attachmentSickDays: policy.attachmentSickDays });
 };
 
 /** List requests. Everyone sees their own; reviewers may pass scope=all with optional filters. */
@@ -65,8 +71,11 @@ exports.getBalance = async (req, res) => {
   const user = req.session.user;
   const employeeId = isReviewer(user) && req.query.employee_id ? String(req.query.employee_id) : user.username;
   try {
-    const { fy, rows } = await requestsInFiscalYear(employeeId, parseDate(req.query.date) ? req.query.date : todayStr());
-    res.json({ success: true, fiscalYear: fy, balance: summarizeBalance(rows) });
+    const [{ fy, rows }, { status, quotas }] = await Promise.all([
+      requestsInFiscalYear(employeeId, parseDate(req.query.date) ? req.query.date : todayStr()),
+      quotasForEmployee(employeeId)
+    ]);
+    res.json({ success: true, fiscalYear: fy, staffStatus: status, balance: summarizeBalance(rows, quotas) });
   } catch (error) {
     console.error('Error getting leave balance:', error);
     res.status(500).json({ success: false, error: 'ไม่สามารถคำนวณสิทธิ์วันลาได้' });
@@ -75,9 +84,22 @@ exports.getBalance = async (req, res) => {
 
 exports.createLeave = async (req, res) => {
   const user = req.session.user;
-  const { error, value } = validateLeaveRequest(req.body);
+  const body = req.body || {};
+  const holidays = parseDate(body.start_date) && parseDate(body.end_date) ? await getHolidaySet(body.start_date, body.end_date) : null;
+  const { error, value } = validateLeaveRequest(body, holidays);
   if (error) return res.status(400).json({ success: false, error });
 
+  const policy = await getLeavePolicy();
+  let attachment = null;
+  if (body.attachment) {
+    const decoded = decodeAttachment(body.attachment);
+    if (decoded.error) return res.status(400).json({ success: false, error: decoded.error });
+    attachment = decoded.value;
+  } else if (attachmentRequired(policy, value.leaveType, value.days)) {
+    return res.status(400).json({ success: false, error: `ลาป่วยตั้งแต่ ${policy.attachmentSickDays} วันขึ้นไป ต้องแนบใบรับรองแพทย์` });
+  }
+
+  let storedFile = null;
   try {
     const [overlap] = await pool.query(
       `SELECT id FROM leave_requests WHERE employee_id = ? AND status IN ('pending', 'approved')
@@ -87,9 +109,10 @@ exports.createLeave = async (req, res) => {
     if (overlap.length) return res.status(409).json({ success: false, error: 'มีใบลาในช่วงวันที่นี้อยู่แล้ว' });
 
     const type = LEAVE_TYPES[value.leaveType];
-    if (type.quota != null) {
+    const { quotas } = await quotasForEmployee(user.username, policy);
+    if (quotas[value.leaveType] != null) {
       const { rows } = await requestsInFiscalYear(user.username, value.startDate);
-      const row = summarizeBalance(rows)[value.leaveType];
+      const row = summarizeBalance(rows, quotas)[value.leaveType];
       if (value.days > row.remaining) {
         return res.status(400).json({ success: false, error: `${type.label}คงเหลือ ${row.remaining} วัน ไม่พอสำหรับ ${value.days} วัน` });
       }
@@ -107,12 +130,17 @@ exports.createLeave = async (req, res) => {
       console.warn('Leave dept lookup failed:', lookupErr.message);
     }
 
+    if (attachment) storedFile = await saveAttachment(attachment);
     const [result] = await pool.query(
-      `INSERT INTO leave_requests (employee_id, hr_person_id, fullname, dept, leave_type, start_date, end_date, half_day, days, reason, contact)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO leave_requests (employee_id, hr_person_id, fullname, dept, leave_type, start_date, end_date, half_day, days, reason, contact,
+         attachment_path, attachment_name, attachment_type)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [user.username, user.id || null, user.fullname, dept, value.leaveType, value.startDate, value.endDate,
-        value.halfDay, value.days, value.reason, value.contact]
+        value.halfDay, value.days, value.reason, value.contact,
+        storedFile, attachment ? attachment.name : null, attachment ? attachment.type : null]
     );
+    storedFile = null; // owned by the row now
+    logAudit(req, 'create', 'leave', result.insertId, { type: value.leaveType, from: value.startDate, to: value.endDate, days: value.days, attachment: !!attachment });
 
     const half = value.halfDay === 'morning' ? ' (ครึ่งเช้า)' : value.halfDay === 'afternoon' ? ' (ครึ่งบ่าย)' : '';
     NotificationService.sendToAdmin(
@@ -122,6 +150,7 @@ exports.createLeave = async (req, res) => {
 
     res.json({ success: true, id: result.insertId, message: 'ส่งใบลาเรียบร้อยแล้ว รอผู้ดูแลระบบอนุมัติ' });
   } catch (error) {
+    if (storedFile) removeAttachment(storedFile);
     console.error('Error creating leave:', error);
     res.status(500).json({ success: false, error: 'เกิดข้อผิดพลาดในการบันทึกใบลา' });
   }
@@ -135,6 +164,7 @@ exports.cancelLeave = async (req, res) => {
     if (rows[0].employee_id !== user.username) return res.status(403).json({ success: false, error: 'ยกเลิกได้เฉพาะใบลาของตนเอง' });
     if (rows[0].status !== 'pending') return res.status(400).json({ success: false, error: 'ยกเลิกได้เฉพาะใบลาที่ยังรออนุมัติ' });
     await pool.query("UPDATE leave_requests SET status = 'cancelled' WHERE id = ? AND status = 'pending'", [req.params.id]);
+    logAudit(req, 'cancel', 'leave', req.params.id);
     res.json({ success: true, message: 'ยกเลิกใบลาแล้ว' });
   } catch (error) {
     console.error('Error cancelling leave:', error);
@@ -162,6 +192,7 @@ exports.reviewLeave = async (req, res) => {
        WHERE id = ? AND status = 'pending'`,
       [status, user.fullname, comment ? comment.trim() || null : null, leave.id]
     );
+    logAudit(req, status === 'approved' ? 'approve' : 'reject', 'leave', leave.id, { employee: leave.fullname, days: Number(leave.days), comment: comment || null });
 
     if (leave.hr_person_id) {
       try {
@@ -183,5 +214,27 @@ exports.reviewLeave = async (req, res) => {
   } catch (error) {
     console.error('Error reviewing leave:', error);
     res.status(500).json({ success: false, error: 'เกิดข้อผิดพลาดในการบันทึกผล' });
+  }
+};
+
+/** Stream a leave attachment to its owner or a reviewer. */
+exports.getAttachment = async (req, res) => {
+  const user = req.session.user;
+  try {
+    const [rows] = await pool.query('SELECT employee_id, attachment_path, attachment_name, attachment_type FROM leave_requests WHERE id = ?', [req.params.id]);
+    const row = rows[0];
+    if (!row || !row.attachment_path) return res.status(404).json({ success: false, error: 'ไม่พบไฟล์แนบ' });
+    if (row.employee_id !== user.username && !isReviewer(user)) return res.status(403).json({ success: false, error: 'สิทธิ์ไม่เพียงพอ' });
+    const full = resolveAttachment(row.attachment_path);
+    if (!full) return res.status(404).json({ success: false, error: 'ไม่พบไฟล์แนบ' });
+    logAudit(req, 'view', 'leave_attachment', req.params.id);
+    res.setHeader('Content-Type', row.attachment_type || 'application/octet-stream');
+    res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(row.attachment_name || 'attachment')}`);
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.setHeader('Content-Security-Policy', "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox");
+    res.sendFile(full, err => { if (err && !res.headersSent) res.status(404).end(); });
+  } catch (error) {
+    console.error('Error reading attachment:', error);
+    res.status(500).json({ success: false, error: 'ไม่สามารถเปิดไฟล์แนบได้' });
   }
 };

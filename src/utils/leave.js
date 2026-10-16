@@ -14,23 +14,46 @@ function formatDate(date) {
   return date.toISOString().slice(0, 10);
 }
 
-/** Days charged for a request: working days (Mon–Fri) unless the type counts calendar days. */
-function countLeaveDays(startStr, endStr, leaveType, halfDay = 'none') {
+const isWorkingDay = (date, holidays) => {
+  const dow = date.getUTCDay();
+  return dow !== 0 && dow !== 6 && !(holidays && holidays.has(formatDate(date)));
+};
+
+/**
+ * Days charged for a request: working days (Mon–Fri, excluding public holidays)
+ * unless the type counts calendar days.
+ */
+function countLeaveDays(startStr, endStr, leaveType, halfDay = 'none', holidays = null) {
   const start = parseDate(startStr);
   const end = parseDate(endStr);
   const type = LEAVE_TYPES[leaveType];
   if (!start || !end || !type || end < start) return 0;
   if (halfDay !== 'none') {
     if (startStr !== endStr) return 0;
-    const dow = start.getUTCDay();
-    return type.countCalendarDays || (dow !== 0 && dow !== 6) ? 0.5 : 0;
+    return type.countCalendarDays || isWorkingDay(start, holidays) ? 0.5 : 0;
   }
   let days = 0;
   for (let d = new Date(start); d <= end; d.setUTCDate(d.getUTCDate() + 1)) {
-    const dow = d.getUTCDay();
-    if (type.countCalendarDays || (dow !== 0 && dow !== 6)) days += 1;
+    if (type.countCalendarDays || isWorkingDay(d, holidays)) days += 1;
   }
   return days;
+}
+
+/** Quotas for a staff status: policy override merged over the regulation defaults. */
+function quotasForStatus(policy, statusName) {
+  const override = (policy && policy.byStatus && statusName && policy.byStatus[statusName]) || {};
+  const quotas = {};
+  Object.entries(LEAVE_TYPES).forEach(([key, type]) => {
+    const v = override[key];
+    quotas[key] = v === null || (Number.isFinite(v) && v >= 0) ? v : type.quota;
+  });
+  return quotas;
+}
+
+/** Whether a request needs a supporting document under the policy. */
+function attachmentRequired(policy, leaveType, days) {
+  const threshold = policy && Number.isFinite(policy.attachmentSickDays) ? policy.attachmentSickDays : 3;
+  return leaveType === 'sick' && threshold > 0 && days >= threshold;
 }
 
 /** Fiscal year (Buddhist era label + date range) containing the given YYYY-MM-DD. */
@@ -48,7 +71,7 @@ function fiscalYearOf(dateStr) {
 /**
  * Validate a leave request body. Returns { error } or { value } with normalized fields.
  */
-function validateLeaveRequest(body) {
+function validateLeaveRequest(body, holidays = null) {
   const { leave_type: leaveType, start_date: startDate, end_date: endDate, reason, contact } = body || {};
   const halfDay = body && body.half_day ? body.half_day : 'none';
   if (!LEAVE_TYPES[leaveType]) return { error: 'ประเภทการลาไม่ถูกต้อง' };
@@ -63,7 +86,7 @@ function validateLeaveRequest(body) {
   if (reason.length > 1000) return { error: 'เหตุผลยาวเกินไป (ไม่เกิน 1000 ตัวอักษร)' };
   if (contact != null && (typeof contact !== 'string' || contact.length > 255)) return { error: 'ข้อมูลติดต่อไม่ถูกต้อง' };
   // A range that falls entirely on weekends would charge 0 days for working-day types
-  const days = countLeaveDays(startDate, endDate, leaveType, halfDay);
+  const days = countLeaveDays(startDate, endDate, leaveType, halfDay, holidays);
   if (days <= 0) return { error: 'ช่วงวันที่เลือกไม่มีวันทำการ' };
   if (fiscalYearOf(startDate).label !== fiscalYearOf(endDate).label) return { error: 'ใบลาหนึ่งใบต้องอยู่ในปีงบประมาณเดียวกัน กรุณาแยกเป็น 2 ใบ' };
   return {
@@ -75,11 +98,15 @@ function validateLeaveRequest(body) {
   };
 }
 
-/** Summarize used / pending days per leave type for a list of requests. */
-function summarizeBalance(requests) {
+/**
+ * Summarize used / pending days per leave type.
+ * @param {object} [quotas] per-type overrides, e.g. { vacation: 0 } for staff without vacation entitlement
+ */
+function summarizeBalance(requests, quotas = {}) {
   const balance = {};
   Object.entries(LEAVE_TYPES).forEach(([key, type]) => {
-    balance[key] = { label: type.label, quota: type.quota, used: 0, pending: 0, remaining: type.quota };
+    const quota = quotas && quotas[key] !== undefined ? quotas[key] : type.quota;
+    balance[key] = { label: type.label, quota, used: 0, pending: 0, remaining: quota };
   });
   requests.forEach(r => {
     const row = balance[r.leave_type];
@@ -94,4 +121,4 @@ function summarizeBalance(requests) {
   return balance;
 }
 
-module.exports = { parseDate, countLeaveDays, fiscalYearOf, validateLeaveRequest, summarizeBalance };
+module.exports = { parseDate, formatDate, countLeaveDays, fiscalYearOf, validateLeaveRequest, summarizeBalance, quotasForStatus, attachmentRequired };

@@ -21,3 +21,6 @@ Thumbs.db
 # Project Specific
 data/monthly_schedules/
 # data/schedule.json  # Uncomment if you don't want to track manual schedules
+
+# Uploaded leave documents (personal health data — never commit)
+uploads/

@@ -50,3 +50,32 @@ test('balance counts approved as used and pending as reserved', () => {
   assert.equal(balance.vacation.remaining, 5.5);
   assert.equal(balance.other.remaining, null);
 });
+
+test('public holidays are skipped for working-day leave types only', () => {
+  const holidays = new Set(['2026-10-23']); // วันปิยมหาราช (Fri)
+  assert.equal(countLeaveDays('2026-10-19', '2026-10-23', 'vacation', 'none', holidays), 4);
+  assert.equal(countLeaveDays('2026-10-19', '2026-10-23', 'maternity', 'none', holidays), 5);
+  assert.equal(countLeaveDays('2026-10-23', '2026-10-23', 'sick', 'morning', holidays), 0);
+  assert.match(validateLeaveRequest({ leave_type: 'sick', start_date: '2026-10-23', end_date: '2026-10-23', reason: 'a' }, holidays).error, /วันทำการ/);
+});
+
+test('staff-type quotas override defaults and feed the balance', () => {
+  const { quotasForStatus } = require('../src/utils/leave');
+  const policy = { byStatus: { 'ลูกจ้างชั่วคราว': { vacation: 0, sick: 30, other: null } } };
+  const q = quotasForStatus(policy, 'ลูกจ้างชั่วคราว');
+  assert.equal(q.vacation, 0);
+  assert.equal(q.sick, 30);
+  assert.equal(q.personal, 45);
+  assert.equal(quotasForStatus(policy, 'ข้าราชการ').vacation, 10);
+  const b = summarizeBalance([{ leave_type: 'sick', days: 5, status: 'approved' }], q);
+  assert.equal(b.sick.remaining, 25);
+  assert.equal(b.vacation.remaining, 0);
+});
+
+test('medical certificate threshold for sick leave', () => {
+  const { attachmentRequired } = require('../src/utils/leave');
+  assert.equal(attachmentRequired({ attachmentSickDays: 3 }, 'sick', 3), true);
+  assert.equal(attachmentRequired({ attachmentSickDays: 3 }, 'sick', 2.5), false);
+  assert.equal(attachmentRequired({ attachmentSickDays: 3 }, 'personal', 5), false);
+  assert.equal(attachmentRequired({ attachmentSickDays: 0 }, 'sick', 10), false);
+});

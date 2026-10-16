@@ -34,6 +34,8 @@ app.use(cors({
 app.use(express.static(path.join(__dirname, '..', 'public')));
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, '..', 'views'));
+// Leave requests may carry a base64 medical certificate (≤4 MB file → ~5.4 MB JSON)
+app.post('/api/leaves', express.json({ limit: '6mb' }));
 app.use(express.json({ limit: '100kb' }));
 app.use(express.urlencoded({ extended: true, limit: '100kb' }));
 
