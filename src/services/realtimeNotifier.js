@@ -1,6 +1,8 @@
 const { pool, hosofficePool } = require('../config/db');
 const NotificationService = require('./notificationService');
 const flexBuilder = require('./flexBuilder');
+const { getLateThreshold } = require('./workSettings');
+const { isLateCheckIn, normalizeClock } = require('../utils/attendanceTime');
 
 let intervalId = null;
 const processingScans = new Set();
@@ -101,7 +103,7 @@ async function checkNewScans() {
         const dirLower = (scan.Direction || '').toLowerCase();
         const statusLower = (scan.AttendanceStatus || '').toLowerCase();
         const isCheckIn = dirLower === 'in' || dirLower === 'i' || statusLower === 'in' || statusLower === 'i' || statusLower === 'check-in';
-        const isLateScan = isCheckIn && (scan.AccessTime > '08:31:00');
+        const isLateScan = isCheckIn && isLateCheckIn(normalizeClock(scan.AccessTime) || '', await getLateThreshold());
 
         const statusText = getStatusLabel(scan.AttendanceStatus, scan.AuthenticationResult, scan.Direction, isLateScan);
         const rawName = (fullname || scan.EmployeeID).trim();

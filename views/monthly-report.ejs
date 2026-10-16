@@ -131,8 +131,13 @@
     let currentYear = Number($('yearSelector').value);
     let daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
     const dateKey = d => `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-    // Server late rule (check-in at/after 08:31), limited to morning check-ins so afternoon scans aren't flagged
-    const isLateTime = t => { const [h, m] = String(t).split(':').map(Number); return h < 12 && (h > 8 || (h === 8 && m >= 31)); };
+    // Same rule as the server (check-in later than work start + grace minutes), morning check-ins only
+    const lateThresholdMin = (() => {
+      const st = (window.loadSettings && window.loadSettings()) || {};
+      const [h, m] = String(st.workStart || '08:00').split(':').map(Number);
+      return (h * 60 + m) + (Number.isFinite(Number(st.lateMin)) ? Number(st.lateMin) : 31);
+    })();
+    const isLateTime = t => { const [h, m] = String(t).split(':').map(Number); return h < 12 && h * 60 + m > lateThresholdMin; };
 
     async function loadData() {
       currentMonth = Number($('monthSelector').value);

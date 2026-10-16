@@ -1,24 +1,24 @@
 const { pool, hosofficePool } = require('../config/db');
 const { approvedLeaveMap, leaveFor } = require('../services/leaveCalendar');
 const { getHolidaySet } = require('../services/holidays');
+const { getWorkSettings, resolveWorkSettings } = require('../services/workSettings');
+const { lateThresholdFor, isLateAt } = require('../utils/attendanceTime');
 
 exports.getData = async (req, res) => {
   try {
     const targetDateStr = req.query.date || new Date().toLocaleDateString('sv-SE', { timeZone: process.env.APP_TIMEZONE || 'Asia/Bangkok' });
-    const targetDateObj = new Date(targetDateStr);
+    // The day number is interpolated into a column name (di{day}), so the date must be strictly validated
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(targetDateStr) || Number.isNaN(new Date(`${targetDateStr}T00:00:00`).getTime())) {
+      return res.status(400).json({ employees: [], timelineData: [], scanQueue: [], error: 'Invalid date' });
+    }
+    const targetDateObj = new Date(`${targetDateStr}T00:00:00`);
     const targetMonth = targetDateStr.substring(0, 7); // YYYY-MM
     let day = targetDateObj.getDate().toString();
     const dayColumn = `di${day}`;
 
-    const lateMin = parseInt(req.query.lateMin) || 31;
-    const workStart = req.query.workStart || '08:00';
-    
-    // Calculate late threshold time
-    const [h, m] = workStart.split(':').map(Number);
-    const lateTotalMinutes = h * 60 + m + lateMin;
-    const lateH = Math.floor(lateTotalMinutes / 60).toString().padStart(2, '0');
-    const lateM = (lateTotalMinutes % 60).toString().padStart(2, '0');
-    const lateThresholdTime = `${lateH}:${lateM}:00`;
+    // Server-side settings are authoritative; query params only matter before settings are first saved
+    const workSettings = await resolveWorkSettings({ workStart: req.query.workStart, lateMin: req.query.lateMin });
+    const lateThresholdTime = lateThresholdFor(workSettings);
 
     // Load schedule mapping from the database for the requested date.
     let shiftMap = {};
@@ -209,6 +209,7 @@ exports.getData = async (req, res) => {
 async function syncIncidentsForMonth(year, month) {
   const targetMonth = `${year}-${month.toString().padStart(2, '0')}`;
   const now = new Date();
+  const workSettings = await getWorkSettings();
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth() + 1;
   const daysInMonth = new Date(year, month, 0).getDate();
@@ -332,9 +333,8 @@ async function syncIncidentsForMonth(year, month) {
       const hasCheckedIn = !!checkInTime;
 
       if (hasCheckedIn) {
-        // Check if late (Threshold 08:30)
-        const [sh, sm] = checkInTime.split(':').map(Number);
-        const isLate = (sh > 8) || (sh === 8 && sm >= 31);
+        // Same late rule as the dashboard (check-in later than work start + grace minutes)
+        const isLate = isLateAt(checkInTime, workSettings);
 
         if (isLate) {
           const excuseStatus = excusesMap[fingleId]?.[dateStr] || excusesMap[cid]?.[dateStr];

@@ -1,4 +1,5 @@
 const NotificationService = require('../services/notificationService');
+const { getLateThreshold } = require('../services/workSettings');
 const { pool, hosofficePool } = require('../config/db');
 const flexBuilder = require('../services/flexBuilder');
 const { getTimeInTimezone, isLateCheckIn } = require('../utils/attendanceTime');
@@ -33,7 +34,7 @@ exports.checkIn = async (req, res) => {
   }
   const now = new Date();
   const currentTime = getTimeInTimezone(now);
-  const lateThreshold = '08:31:00'; // Define threshold
+  const lateThreshold = await getLateThreshold();
   
   const isLate = isLateCheckIn(currentTime, lateThreshold);
   
@@ -204,7 +205,7 @@ exports.logAttendance = async (req, res) => {
 
     const normalizedStatus = (status === 'in' || status === 'check-in') ? 'check-in' : 'check-out';
     const direction = normalizedStatus === 'check-in' ? 'in' : 'out';
-    const isLate = normalizedStatus === 'check-in' && isLateCheckIn(getTimeInTimezone(now));
+    const isLate = normalizedStatus === 'check-in' && isLateCheckIn(getTimeInTimezone(now), await getLateThreshold());
     
     // 2. Save to local attendance table
     await pool.query(

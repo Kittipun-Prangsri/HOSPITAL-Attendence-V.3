@@ -2,6 +2,8 @@ const { pool, hosofficePool } = require('../config/db');
 const { logAudit } = require('../utils/audit');
 const NotificationService = require('../services/notificationService');
 const { approvedLeaveMap, leaveFor } = require('../services/leaveCalendar');
+const { getWorkSettings } = require('../services/workSettings');
+const { lateThresholdFor, isLateCheckIn, normalizeClock } = require('../utils/attendanceTime');
 
 // Format past date helper
 function getPastDateString(daysAgo) {
@@ -286,13 +288,8 @@ exports.sendReminders = async (req, res) => {
 exports.compileReminderCandidates = async () => {
   const startStr = getPastDateString(7);
   const endStr = getPastDateString(1);
-  const lateMin = 31;
-  const workStart = '08:00';
-  const [h, m] = workStart.split(':').map(Number);
-  const lateTotalMinutes = h * 60 + m + lateMin;
-  const lateH = Math.floor(lateTotalMinutes / 60).toString().padStart(2, '0');
-  const lateM = (lateTotalMinutes % 60).toString().padStart(2, '0');
-  const lateThresholdTime = `${lateH}:${lateM}:00`;
+  const workSettings = await getWorkSettings();
+  const lateThresholdTime = lateThresholdFor(workSettings);
 
   // 1. Get all local users who are registered
   const [users] = await hosofficePool.query('SELECT FINGLE_ID as employee_id, HR_CID as username, CONCAT(HR_FNAME, \' \', HR_LNAME) as fullname, LINE_YOUR_USER_ID as line_user_id, TELEGRAM_CHAT_ID as telegram_chat_id FROM hr_person WHERE USER_TYPE IS NOT NULL AND HR_CID IS NOT NULL');
@@ -348,7 +345,7 @@ exports.compileReminderCandidates = async () => {
         let exceptionType = null;
         if (!scanTime) {
           exceptionType = 'absent'; // No scan found (absent)
-        } else if (scanTime > lateThresholdTime) {
+        } else if (isLateCheckIn(normalizeClock(scanTime) || '', lateThresholdTime)) {
           exceptionType = 'late'; // Scanned but late
         }
         

@@ -1,4 +1,6 @@
 const { hosofficePool } = require('../config/db');
+const { resolveWorkSettings } = require('../services/workSettings');
+const { isLateAt } = require('../utils/attendanceTime');
 const { logAudit } = require('../utils/audit');
 
 exports.getPersonnel = async (req, res) => {
@@ -207,7 +209,7 @@ exports.getAttendanceHistory = async (req, res) => {
       }
     }
 
-    const workStart = req.query.workStart || '08:00';
+    const workSettings = await resolveWorkSettings({ workStart: req.query.workStart, lateMin: req.query.lateMin });
     const today = new Date();
     const history = [];
 
@@ -227,7 +229,8 @@ exports.getAttendanceHistory = async (req, res) => {
         const [rows] = await hosofficePool.query(`
           SELECT
             LEFT(MIN(AccessTime), 5) AS time_in,
-            LEFT(MAX(AccessTime), 5) AS time_out
+            LEFT(MAX(AccessTime), 5) AS time_out,
+            MIN(AccessTime) AS time_in_full
           FROM hikvision
           WHERE EmployeeID = ? AND AccessDate = ?
         `, [fingleId, dateStr]);
@@ -235,10 +238,8 @@ exports.getAttendanceHistory = async (req, res) => {
         if (rows.length > 0 && rows[0].time_in) {
           check_in  = rows[0].time_in;
           check_out = rows[0].time_out || '-';
-          const [lh, lm] = workStart.split(':').map(Number);
-          const [ih, im] = check_in.split(':').map(Number);
-          const lateBy   = (ih * 60 + im) - (lh * 60 + lm);
-          status = lateBy > 5 ? 'late' : 'normal';
+          // Same rule as the dashboard and reports
+          status = isLateAt(rows[0].time_in_full || rows[0].time_in, workSettings) ? 'late' : 'normal';
         }
 
         try {
