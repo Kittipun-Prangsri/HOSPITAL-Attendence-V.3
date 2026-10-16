@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+  <%- include("components/erp-head", { title: "การลา" }) %>
+</head>
+
+<% const isReviewer = locals.user && (user.role === 'admin' || user.role === 'super'); %>
+
+<body class="erp-page">
+  <%- include("components/sidebar") %>
+  <div class="main" role="main">
+    <%- include("components/topbar") %>
+
+    <div class="erp px-4 py-5 lg:px-6">
+      <section class="mb-5 flex flex-wrap items-end justify-between gap-4" aria-labelledby="leave-heading">
+        <div>
+          <h2 id="leave-heading" class="text-xl font-semibold text-slate-900">การลา</h2>
+          <p class="mt-1 text-[13px] text-slate-500">ยื่นใบลา ตรวจสอบสิทธิ์วันลาคงเหลือ<%= isReviewer ? ' และพิจารณาอนุมัติใบลาของบุคลากร' : '' %> · <span id="fyLabel">ปีงบประมาณ –</span></p>
+        </div>
+        <button type="button" class="erp-btn erp-btn-primary" onclick="openLeaveForm()"><i class="bi bi-plus-lg" aria-hidden="true"></i> ยื่นใบลา</button>
+      </section>
+
+      <!-- Balance -->
+      <section class="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3" id="balanceCards" aria-label="สิทธิ์วันลาคงเหลือ">
+        <div class="erp-panel h-[112px] animate-pulse"></div><div class="erp-panel h-[112px] animate-pulse"></div><div class="erp-panel h-[112px] animate-pulse"></div>
+      </section>
+
+      <section class="erp-panel overflow-hidden">
+        <div class="flex gap-1 overflow-x-auto border-b border-slate-200 px-3" role="tablist" id="tabBar">
+          <% const tabs = [['mine', 'bi-person', 'ใบลาของฉัน']];
+             if (isReviewer) tabs.push(['approvals', 'bi-inbox', 'รออนุมัติ'], ['all', 'bi-list-ul', 'ประวัติทั้งหมด'], ['calendar', 'bi-calendar-week', 'ใครลาช่วงนี้']); %>
+          <% tabs.forEach(([id, icon, label], i) => { %>
+            <button type="button" role="tab" class="erp-tab whitespace-nowrap <%= i === 0 ? 'active' : '' %>" data-tab="<%= id %>" aria-selected="<%= i === 0 %>">
+              <i class="bi <%= icon %>" aria-hidden="true"></i> <%= label %>
+              <% if (id === 'approvals') { %><span id="pendingBadge" class="hidden rounded bg-brand-100 px-1.5 font-mono text-2xs text-brand-700"></span><% } %>
+            </button>
+          <% }); %>
+        </div>
+
+        <!-- Filters for reviewer history -->
+        <div id="allFilters" class="hidden flex-wrap items-center gap-2 border-b border-slate-200 p-3">
+          <div class="relative min-w-[220px] flex-1 sm:max-w-sm">
+            <i class="bi bi-search pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden="true"></i>
+            <input type="search" id="allSearch" class="erp-input pl-9" placeholder="ค้นหาชื่อหรือกลุ่มงาน…" aria-label="ค้นหา">
+          </div>
+          <select id="allStatus" class="erp-input w-auto" aria-label="สถานะ">
+            <option value="">ทุกสถานะ</option><option value="approved">อนุมัติ</option><option value="rejected">ไม่อนุมัติ</option><option value="cancelled">ยกเลิก</option><option value="pending">รออนุมัติ</option>
+          </select>
+          <select id="allType" class="erp-input w-auto" aria-label="ประเภท"><option value="">ทุกประเภท</option></select>
+          <button type="button" class="erp-btn erp-btn-ghost" onclick="exportCsv()"><i class="bi bi-download" aria-hidden="true"></i> CSV</button>
+        </div>
+
+        <div class="max-h-[65vh] overflow-auto">
+          <table class="w-full border-collapse text-left text-[13px]">
+            <thead id="leaveHead" class="sticky top-0 z-10 bg-slate-50 text-2xs uppercase tracking-wide text-slate-500"></thead>
+            <tbody id="leaveBody" class="divide-y divide-slate-100">
+              <tr><td class="px-4 py-16 text-center text-slate-400">กำลังโหลด…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- NEW LEAVE DRAWER -->
+  <div id="leaveForm" class="erp fixed inset-0 z-[10000] hidden" role="dialog" aria-modal="true" aria-labelledby="leaveFormTitle">
+    <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px]" onclick="closeLeaveForm()"></div>
+    <form id="leaveFormEl" class="absolute inset-y-0 right-0 m-0 flex w-full max-w-[500px] flex-col bg-white shadow-drawer">
+      <header class="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+        <h3 id="leaveFormTitle" class="text-base font-semibold text-slate-900">ยื่นใบลา</h3>
+        <button type="button" class="erp-icon-btn" onclick="closeLeaveForm()" aria-label="ปิด"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+      </header>
+      <div class="flex-1 space-y-4 overflow-y-auto bg-slate-50/60 p-5">
+        <fieldset class="erp-panel m-0 p-4">
+          <legend class="sr-only">ประเภทการลา</legend>
+          <span class="erp-label">ประเภทการลา <span class="text-red-500">*</span></span>
+          <div class="grid grid-cols-2 gap-2" id="typeOptions"></div>
+        </fieldset>
+        <section class="erp-panel space-y-3 p-4">
+          <div class="grid grid-cols-2 gap-3">
+            <div><label class="erp-label" for="f-start">ตั้งแต่วันที่ <span class="text-red-500">*</span></label><input type="date" id="f-start" class="erp-input" required></div>
+            <div><label class="erp-label" for="f-end">ถึงวันที่ <span class="text-red-500">*</span></label><input type="date" id="f-end" class="erp-input" required></div>
+          </div>
+          <div id="halfDayRow" class="hidden">
+            <span class="erp-label">ช่วงเวลา</span>
+            <div class="inline-flex rounded-md bg-slate-100 p-0.5" role="radiogroup">
+              <% [['none','ทั้งวัน'],['morning','ครึ่งเช้า'],['afternoon','ครึ่งบ่าย']].forEach(([v, l], i) => { %>
+                <label class="cursor-pointer rounded px-3 py-1.5 text-[13px] text-slate-600 has-[:checked]:bg-white has-[:checked]:font-medium has-[:checked]:text-slate-900 has-[:checked]:shadow-sm">
+                  <input type="radio" name="half_day" value="<%= v %>" class="sr-only" <%= i === 0 ? 'checked' : '' %>> <%= l %>
+                </label>
+              <% }); %>
+            </div>
+          </div>
+          <div id="daySummary" class="rounded-md bg-slate-50 px-3 py-2.5 text-[13px] text-slate-600 ring-1 ring-inset ring-slate-200">เลือกวันที่เพื่อคำนวณจำนวนวันลา</div>
+        </section>
+        <section class="erp-panel space-y-3 p-4">
+          <div>
+            <label class="erp-label" for="f-reason">เหตุผลการลา <span class="text-red-500">*</span></label>
+            <textarea id="f-reason" rows="3" maxlength="1000" class="erp-input h-auto py-2" required placeholder="เช่น ไข้หวัด พักรักษาตัวตามคำแนะนำแพทย์"></textarea>
+          </div>
+          <div>
+            <label class="erp-label" for="f-contact">ติดต่อระหว่างลา</label>
+            <input type="text" id="f-contact" maxlength="255" class="erp-input" placeholder="เบอร์โทร หรือที่อยู่ที่ติดต่อได้">
+          </div>
+        </section>
+      </div>
+      <footer class="flex justify-end gap-2 border-t border-slate-200 px-5 py-3">
+        <button type="button" class="erp-btn erp-btn-secondary" onclick="closeLeaveForm()">ยกเลิก</button>
+        <button type="submit" id="submitLeaveBtn" class="erp-btn erp-btn-primary"><i class="bi bi-send" aria-hidden="true"></i> ส่งใบลา</button>
+      </footer>
+    </form>
+  </div>
+
+  <% if (isReviewer) { %>
+    <!-- REVIEW DRAWER -->
+    <div id="reviewDrawer" class="erp fixed inset-0 z-[10000] hidden" role="dialog" aria-modal="true" aria-labelledby="reviewTitle">
+      <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px]" onclick="closeReview()"></div>
+      <form id="reviewForm" class="absolute inset-y-0 right-0 m-0 flex w-full max-w-[500px] flex-col bg-white shadow-drawer">
+        <header class="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+          <h3 id="reviewTitle" class="text-base font-semibold text-slate-900">พิจารณาใบลา</h3>
+          <button type="button" class="erp-icon-btn" onclick="closeReview()" aria-label="ปิด"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+        </header>
+        <div class="flex-1 space-y-4 overflow-y-auto bg-slate-50/60 p-5">
+          <section class="erp-panel p-4" id="reviewDetail"></section>
+          <section class="erp-panel">
+            <h4 class="border-b border-slate-100 px-4 py-2.5 text-2xs font-semibold uppercase tracking-wide text-slate-500">สิทธิ์วันลาของผู้ยื่น (ปีงบประมาณนี้)</h4>
+            <div id="reviewBalance" class="space-y-2 p-4 text-xs text-slate-500">กำลังโหลด…</div>
+          </section>
+          <fieldset class="m-0 border-0 p-0">
+            <legend class="erp-label">ผลการพิจารณา</legend>
+            <div class="grid grid-cols-2 gap-2">
+              <label class="flex cursor-pointer items-center justify-center gap-2 rounded-md border border-slate-200 bg-white py-2.5 text-[13px] font-medium text-slate-700 has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50 has-[:checked]:text-emerald-700">
+                <input type="radio" name="reviewStatus" value="approved" class="sr-only" checked><i class="bi bi-check2-circle" aria-hidden="true"></i> อนุมัติ
+              </label>
+              <label class="flex cursor-pointer items-center justify-center gap-2 rounded-md border border-slate-200 bg-white py-2.5 text-[13px] font-medium text-slate-700 has-[:checked]:border-red-500 has-[:checked]:bg-red-50 has-[:checked]:text-red-700">
+                <input type="radio" name="reviewStatus" value="rejected" class="sr-only"><i class="bi bi-x-circle" aria-hidden="true"></i> ไม่อนุมัติ
+              </label>
+            </div>
+          </fieldset>
+          <div>
+            <label class="erp-label" for="reviewComment">ความเห็น <span class="font-normal text-slate-400">(ส่งเข้า LINE / Telegram ผู้ยื่น)</span></label>
+            <textarea id="reviewComment" rows="3" maxlength="1000" class="erp-input h-auto py-2"></textarea>
+          </div>
+        </div>
+        <footer class="flex justify-end gap-2 border-t border-slate-200 px-5 py-3">
+          <button type="button" class="erp-btn erp-btn-secondary" onclick="closeReview()">ยกเลิก</button>
+          <button type="submit" id="saveReviewBtn" class="erp-btn erp-btn-primary"><i class="bi bi-check2" aria-hidden="true"></i> บันทึกผล</button>
+        </footer>
+      </form>
+    </div>
+  <% } %>
+
+  <script>
+    const IS_REVIEWER = <%- JSON.stringify(!!isReviewer) %>;
+    const ME = String(typeof CURRENT_USER_ID !== 'undefined' ? CURRENT_USER_ID : '');
+    const STATUS = { pending: ['รออนุมัติ', 'amber'], approved: ['อนุมัติ', 'green'], rejected: ['ไม่อนุมัติ', 'red'], cancelled: ['ยกเลิก', 'slate'] };
+    const TYPE_TONE = { sick: 'sky', personal: 'violet', vacation: 'brand', maternity: 'green', ordination: 'amber', other: 'slate' };
+    const MAIN_TYPES = ['sick', 'personal', 'vacation'];
+    const $ = id => document.getElementById(id);
+    const esc = ERP.escapeHtml;
+    const fmtDays = n => { const v = Number(n) || 0; return Number.isInteger(v) ? String(v) : v.toFixed(1); };
+    const thaiDate = d => new Date(d + 'T00:00:00').toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' });
+    const range = l => (l.start_date === l.end_date ? thaiDate(l.start_date) : `${thaiDate(l.start_date)} – ${thaiDate(l.end_date)}`);
+    const halfText = h => (h === 'morning' ? ' (ครึ่งเช้า)' : h === 'afternoon' ? ' (ครึ่งบ่าย)' : '');
+
+    let TYPES = {};
+    let balance = {};
+    let myLeaves = [];
+    let allLeaves = [];
+    let currentTab = 'mine';
+    let reviewing = null;
+
+    const typeLabel = t => (TYPES[t] ? TYPES[t].label : t);
+    const typeBadge = t => ERP.badge(typeLabel(t), TYPE_TONE[t] || 'slate');
+    const statusBadge = s => ERP.badge((STATUS[s] || [s])[0], (STATUS[s] || [0, 'slate'])[1]);
+
+    async function getJson(url, opts) {
+      const res = await fetch(url, Object.assign({ headers: { Accept: 'application/json' } }, opts));
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.success === false) throw new Error(data.error || `HTTP ${res.status}`);
+      return data;
+    }
+
+    /* ---------------- Balance ---------------- */
+    function balanceCard(key, b) {
+      const pct = b.quota ? Math.min(100, ((b.used + b.pending) / b.quota) * 100) : 0;
+      const usedPct = b.quota ? Math.min(100, (b.used / b.quota) * 100) : 0;
+      return `<div class="erp-panel p-4">
+        <div class="flex items-center justify-between text-xs text-slate-500"><span>${esc(b.label)}</span>${typeBadge(key)}</div>
+        <div class="mt-1 flex items-baseline gap-1.5">
+          <span class="font-mono text-2xl font-semibold tabular-nums text-slate-900">${b.remaining == null ? '–' : fmtDays(b.remaining)}</span>
+          <span class="text-2xs text-slate-400">${b.quota == null ? 'ไม่จำกัดสิทธิ์' : `คงเหลือ จาก ${fmtDays(b.quota)} วัน`}</span>
+        </div>
+        <div class="mt-2 flex h-1.5 gap-[2px] overflow-hidden rounded-full bg-slate-100" title="ใช้แล้ว ${fmtDays(b.used)} · รออนุมัติ ${fmtDays(b.pending)}">
+          <div class="h-full bg-brand-500" style="width:${usedPct}%"></div>
+          <div class="h-full bg-brand-200" style="width:${pct - usedPct}%"></div>
+        </div>
+        <div class="mt-1 text-2xs text-slate-400">ใช้แล้ว ${fmtDays(b.used)} วัน${b.pending ? ` · รออนุมัติ ${fmtDays(b.pending)} วัน` : ''}</div>
+      </div>`;
+    }
+
+    async function loadBalance() {
+      try {
+        const data = await getJson('/api/leaves/balance');
+        balance = data.balance || {};
+        $('fyLabel').textContent = `ปีงบประมาณ ${data.fiscalYear.label} (${thaiDate(data.fiscalYear.start)} – ${thaiDate(data.fiscalYear.end)})`;
+        $('balanceCards').innerHTML = MAIN_TYPES.filter(k => balance[k]).map(k => balanceCard(k, balance[k])).join('');
+      } catch (err) {
+        $('balanceCards').innerHTML = `<div class="erp-panel col-span-full p-4 text-[13px] text-red-600"><i class="bi bi-exclamation-triangle"></i> โหลดสิทธิ์วันลาไม่สำเร็จ: ${esc(err.message)}</div>`;
+      }
+    }
+
+    /* ---------------- Tables ---------------- */
+    const HEADS = {
+      mine: ['ประเภท', 'วันที่', 'จำนวน', 'เหตุผล', 'สถานะ', 'ผู้พิจารณา / ความเห็น', ''],
+      approvals: ['ผู้ยื่น', 'ประเภท', 'วันที่', 'จำนวน', 'เหตุผล', 'ยื่นเมื่อ', ''],
+      all: ['ผู้ยื่น', 'ประเภท', 'วันที่', 'จำนวน', 'สถานะ', 'ผู้พิจารณา', 'ยื่นเมื่อ'],
+      calendar: ['ผู้ลา', 'กลุ่มงาน', 'ประเภท', 'วันที่', 'จำนวน']
+    };
+    const th = cols => `<tr class="border-b border-slate-200">${cols.map((c, i) => `<th class="${i === 0 ? 'px-4' : 'px-3'} py-2.5 font-semibold">${c}</th>`).join('')}</tr>`;
+    const person = l => `<div class="flex items-center gap-2.5">${ERP.avatar(l.fullname, l.employee_id)}
+      <div class="min-w-0"><div class="truncate font-medium text-slate-900">${esc(l.fullname)}</div><div class="truncate text-2xs text-slate-400">${esc(l.dept || l.employee_id)}</div></div></div>`;
+    const daysCell = l => `<td class="whitespace-nowrap px-3 py-2.5 font-mono text-xs">${fmtDays(l.days)} วัน<span class="font-sans text-2xs text-slate-400">${halfText(l.half_day)}</span></td>`;
+    const dt = t => (t ? new Date(t).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' }) : '—');
+
+    function render() {
+      $('leaveHead').innerHTML = th(HEADS[currentTab]);
+      $('allFilters').classList.toggle('hidden', currentTab !== 'all');
+      $('allFilters').classList.toggle('flex', currentTab === 'all');
+      const body = $('leaveBody');
+      const cols = HEADS[currentTab].length;
+
+      if (currentTab === 'mine') {
+        body.innerHTML = myLeaves.length ? myLeaves.map(l => `<tr class="hover:bg-slate-50">
+          <td class="px-4 py-2.5">${typeBadge(l.leave_type)}</td>
+          <td class="whitespace-nowrap px-3 py-2.5 text-slate-700">${range(l)}</td>
+          ${daysCell(l)}
+          <td class="max-w-[260px] px-3 py-2.5 text-slate-600"><div class="line-clamp-2" title="${esc(l.reason)}">${esc(l.reason)}</div></td>
+          <td class="px-3 py-2.5">${statusBadge(l.status)}</td>
+          <td class="max-w-[220px] px-3 py-2.5 text-xs text-slate-600">${esc(l.reviewer || '—')}${l.review_comment ? `<div class="truncate text-slate-400" title="${esc(l.review_comment)}">${esc(l.review_comment)}</div>` : ''}</td>
+          <td class="px-3 py-2.5 text-right">${l.status === 'pending' ? `<button type="button" class="erp-btn erp-btn-ghost h-8 px-2 text-red-600 hover:bg-red-50" data-cancel="${l.id}">ยกเลิก</button>` : ''}</td>
+        </tr>`).join('') : ERP.emptyRow(cols, 'ยังไม่มีประวัติการลา');
+        return;
+      }
+
+      if (currentTab === 'approvals') {
+        const pending = allLeaves.filter(l => l.status === 'pending');
+        body.innerHTML = pending.length ? pending.map(l => `<tr class="hover:bg-slate-50">
+          <td class="px-4 py-2.5">${person(l)}</td>
+          <td class="px-3 py-2.5">${typeBadge(l.leave_type)}</td>
+          <td class="whitespace-nowrap px-3 py-2.5 text-slate-700">${range(l)}</td>
+          ${daysCell(l)}
+          <td class="max-w-[240px] px-3 py-2.5 text-slate-600"><div class="line-clamp-2" title="${esc(l.reason)}">${esc(l.reason)}</div></td>
+          <td class="whitespace-nowrap px-3 py-2.5 text-xs text-slate-500">${dt(l.submitted_at)}</td>
+          <td class="px-3 py-2.5 text-right">${l.employee_id === ME
+            ? '<span class="text-2xs text-slate-400">ใบลาของคุณ</span>'
+            : `<button type="button" class="erp-btn erp-btn-secondary h-8 px-2.5" data-review="${l.id}"><i class="bi bi-shield-check"></i> พิจารณา</button>`}</td>
+        </tr>`).join('') : ERP.emptyRow(cols, 'ไม่มีใบลารออนุมัติ', 'bi-check2-circle');
+        return;
+      }
+
+      if (currentTab === 'all') {
+        const q = $('allSearch').value.trim().toLowerCase();
+        const st = $('allStatus').value;
+        const ty = $('allType').value;
+        const rows = filteredAll(q, st, ty);
+        body.innerHTML = rows.length ? rows.map(l => `<tr class="hover:bg-slate-50">
+          <td class="px-4 py-2.5">${person(l)}</td>
+          <td class="px-3 py-2.5">${typeBadge(l.leave_type)}</td>
+          <td class="whitespace-nowrap px-3 py-2.5 text-slate-700">${range(l)}</td>
+          ${daysCell(l)}
+          <td class="px-3 py-2.5">${statusBadge(l.status)}</td>
+          <td class="px-3 py-2.5 text-xs text-slate-600">${esc(l.reviewer || '—')}</td>
+          <td class="whitespace-nowrap px-3 py-2.5 text-xs text-slate-500">${dt(l.submitted_at)}</td>
+        </tr>`).join('') : ERP.emptyRow(cols, 'ไม่พบใบลา');
+        return;
+      }
+
+      // calendar: approved leave overlapping today → +14 days
+      const from = ERP.todayIso();
+      const toDate = new Date(from + 'T12:00:00'); toDate.setDate(toDate.getDate() + 14);
+      const to = toDate.toLocaleDateString('sv-SE');
+      const rows = allLeaves.filter(l => l.status === 'approved' && l.start_date <= to && l.end_date >= from)
+        .sort((a, b) => a.start_date.localeCompare(b.start_date));
+      body.innerHTML = rows.length ? rows.map(l => {
+        const now = l.start_date <= from && l.end_date >= from;
+        return `<tr class="hover:bg-slate-50">
+          <td class="px-4 py-2.5">${person(l)}</td>
+          <td class="max-w-[220px] px-3 py-2.5"><div class="truncate text-slate-600">${esc(l.dept || '—')}</div></td>
+          <td class="px-3 py-2.5">${typeBadge(l.leave_type)}</td>
+          <td class="whitespace-nowrap px-3 py-2.5 text-slate-700">${range(l)} ${now ? ERP.badge('ลาวันนี้', 'brand') : ''}</td>
+          ${daysCell(l)}
+        </tr>`;
+      }).join('') : ERP.emptyRow(cols, 'ไม่มีบุคลากรลาในอีก 14 วันข้างหน้า', 'bi-calendar-check');
+    }
+
+    const filteredAll = (q, st, ty) => allLeaves.filter(l => (!st || l.status === st) && (!ty || l.leave_type === ty) &&
+      (!q || `${l.fullname} ${l.dept || ''}`.toLowerCase().includes(q)));
+
+    async function loadLists() {
+      try {
+        const mine = await getJson('/api/leaves');
+        myLeaves = mine.leaves || [];
+        if (IS_REVIEWER) {
+          const all = await getJson('/api/leaves?scope=all');
+          allLeaves = all.leaves || [];
+          const n = allLeaves.filter(l => l.status === 'pending' && l.employee_id !== ME).length;
+          $('pendingBadge').textContent = n;
+          $('pendingBadge').classList.toggle('hidden', n === 0);
+        }
+        render();
+      } catch (err) {
+        $('leaveBody').innerHTML = ERP.emptyRow(7, 'โหลดข้อมูลไม่สำเร็จ: ' + err.message, 'bi-exclamation-triangle');
+      }
+    }
+    const loadData = () => { loadBalance(); loadLists(); };
+
+    function showTab(tab) {
+      currentTab = tab;
+      document.querySelectorAll('#tabBar [data-tab]').forEach(b => {
+        b.classList.toggle('active', b.dataset.tab === tab);
+        b.setAttribute('aria-selected', String(b.dataset.tab === tab));
+      });
+      render();
+    }
+
+    /* ---------------- New leave form ---------------- */
+    function countDays(start, end, type, half) {
+      const t = TYPES[type];
+      if (!start || !end || !t || end < start) return 0;
+      if (half !== 'none') {
+        if (start !== end) return 0;
+        const dow = new Date(start + 'T12:00:00').getDay();
+        return t.countCalendarDays || (dow !== 0 && dow !== 6) ? 0.5 : 0;
+      }
+      let n = 0;
+      for (let d = new Date(start + 'T12:00:00'); d.toLocaleDateString('sv-SE') <= end; d.setDate(d.getDate() + 1)) {
+        const dow = d.getDay();
+        if (t.countCalendarDays || (dow !== 0 && dow !== 6)) n++;
+      }
+      return n;
+    }
+
+    function updateSummary() {
+      const type = (document.querySelector('input[name="leave_type"]:checked') || {}).value;
+      const start = $('f-start').value;
+      const end = $('f-end').value;
+      const single = start && start === end;
+      $('halfDayRow').classList.toggle('hidden', !single);
+      if (!single) document.querySelector('input[name="half_day"][value="none"]').checked = true;
+      const half = (document.querySelector('input[name="half_day"]:checked') || {}).value || 'none';
+      const el = $('daySummary');
+      if (!start || !end) { el.textContent = 'เลือกวันที่เพื่อคำนวณจำนวนวันลา'; el.className = 'rounded-md bg-slate-50 px-3 py-2.5 text-[13px] text-slate-600 ring-1 ring-inset ring-slate-200'; return; }
+      if (end < start) { el.textContent = 'วันที่สิ้นสุดต้องไม่ก่อนวันที่เริ่ม'; el.className = 'rounded-md bg-red-50 px-3 py-2.5 text-[13px] text-red-700 ring-1 ring-inset ring-red-200'; return; }
+      const days = countDays(start, end, type, half);
+      const b = balance[type];
+      const after = b && b.remaining != null ? b.remaining - days : null;
+      const over = after != null && after < 0;
+      const basis = TYPES[type] && TYPES[type].countCalendarDays ? 'นับรวมวันหยุด' : 'นับเฉพาะวันทำการ จ.–ศ.';
+      el.className = `rounded-md px-3 py-2.5 text-[13px] ring-1 ring-inset ${over || !days ? 'bg-red-50 text-red-700 ring-red-200' : 'bg-brand-50 text-brand-800 ring-brand-200'}`;
+      el.innerHTML = !days
+        ? 'ช่วงที่เลือกไม่มีวันทำการ'
+        : `ลา <strong class="font-mono">${fmtDays(days)}</strong> วัน <span class="text-2xs opacity-70">(${basis})</span>` +
+          (after != null ? `<br>สิทธิ์คงเหลือหลังลา: <strong class="font-mono">${fmtDays(Math.max(after, 0))}</strong> วัน${over ? ' — <strong>สิทธิ์ไม่พอ</strong>' : ''}` : '');
+    }
+
+    function openLeaveForm() {
+      $('leaveFormEl').reset();
+      $('f-start').value = ERP.todayIso();
+      $('f-end').value = ERP.todayIso();
+      updateSummary();
+      ERP.showOverlay($('leaveForm'), true);
+    }
+    function closeLeaveForm() { ERP.showOverlay($('leaveForm'), false); }
+
+    $('leaveFormEl').addEventListener('input', updateSummary);
+    $('leaveFormEl').addEventListener('change', e => {
+      if (e.target.id === 'f-start' && $('f-end').value < e.target.value) $('f-end').value = e.target.value;
+      updateSummary();
+    });
+    $('leaveFormEl').addEventListener('submit', async e => {
+      e.preventDefault();
+      const btn = $('submitLeaveBtn');
+      btn.disabled = true;
+      try {
+        const data = await getJson('/api/leaves', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({
+            leave_type: document.querySelector('input[name="leave_type"]:checked').value,
+            start_date: $('f-start').value,
+            end_date: $('f-end').value,
+            half_day: document.querySelector('input[name="half_day"]:checked').value,
+            reason: $('f-reason').value.trim(),
+            contact: $('f-contact').value.trim()
+          })
+        });
+        ERP.toast(data.message || 'ส่งใบลาแล้ว', 'success');
+        closeLeaveForm();
+        showTab('mine');
+        loadData();
+        if (window.loadInbox) window.loadInbox();
+      } catch (err) {
+        ERP.toast(err.message, 'error');
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    async function cancelLeave(id) {
+      if (!confirm('ยืนยันยกเลิกใบลานี้?')) return;
+      try {
+        const data = await getJson(`/api/leaves/${id}/cancel`, { method: 'POST' });
+        ERP.toast(data.message, 'success');
+        loadData();
+      } catch (err) {
+        ERP.toast(err.message, 'error');
+      }
+    }
+
+    /* ---------------- Review (admin / super) ---------------- */
+    async function openReview(id) {
+      reviewing = allLeaves.find(l => String(l.id) === String(id));
+      if (!reviewing) return;
+      const l = reviewing;
+      $('reviewDetail').innerHTML = `<div class="mb-3">${person(l)}</div>
+        <dl class="m-0 grid grid-cols-2 gap-x-4 gap-y-3 text-[13px]">
+          <div><dt class="text-2xs text-slate-500">ประเภท</dt><dd class="m-0 mt-0.5">${typeBadge(l.leave_type)}</dd></div>
+          <div><dt class="text-2xs text-slate-500">จำนวน</dt><dd class="m-0 font-medium text-slate-900">${fmtDays(l.days)} วัน${halfText(l.half_day)}</dd></div>
+          <div class="col-span-2"><dt class="text-2xs text-slate-500">วันที่</dt><dd class="m-0 font-medium text-slate-900">${range(l)}</dd></div>
+          <div class="col-span-2"><dt class="mb-1 text-2xs text-slate-500">เหตุผล</dt><dd class="m-0 whitespace-pre-wrap rounded-md bg-slate-50 p-3 text-slate-700 ring-1 ring-inset ring-slate-200">${esc(l.reason)}</dd></div>
+          ${l.contact ? `<div class="col-span-2"><dt class="text-2xs text-slate-500">ติดต่อระหว่างลา</dt><dd class="m-0 text-slate-700">${esc(l.contact)}</dd></div>` : ''}
+        </dl>`;
+      $('reviewComment').value = '';
+      document.querySelector('input[name="reviewStatus"][value="approved"]').checked = true;
+      $('reviewBalance').textContent = 'กำลังโหลด…';
+      ERP.showOverlay($('reviewDrawer'), true);
+      try {
+        const data = await getJson(`/api/leaves/balance?employee_id=${encodeURIComponent(l.employee_id)}&date=${l.start_date}`);
+        const b = data.balance[l.leave_type];
+        $('reviewBalance').innerHTML = MAIN_TYPES.concat(MAIN_TYPES.includes(l.leave_type) ? [] : [l.leave_type]).map(k => {
+          const r = data.balance[k];
+          const hl = k === l.leave_type;
+          return `<div class="flex items-center justify-between gap-3 ${hl ? 'font-medium text-slate-900' : ''}">
+            <span>${esc(r.label)}</span>
+            <span class="font-mono">${r.quota == null ? 'ไม่จำกัด' : `ใช้ ${fmtDays(r.used)} · รอ ${fmtDays(r.pending)} · เหลือ ${fmtDays(r.remaining)} / ${fmtDays(r.quota)}`}</span>
+          </div>`;
+        }).join('') + (b && b.quota != null && b.remaining < 0 ? '<p class="mt-2 text-red-600">สิทธิ์ไม่พอ</p>' : '');
+      } catch (err) {
+        $('reviewBalance').textContent = 'โหลดสิทธิ์ไม่สำเร็จ';
+      }
+    }
+    function closeReview() { ERP.showOverlay($('reviewDrawer'), false); reviewing = null; }
+
+    if (IS_REVIEWER) {
+      $('reviewForm').addEventListener('submit', async e => {
+        e.preventDefault();
+        if (!reviewing) return;
+        const btn = $('saveReviewBtn');
+        btn.disabled = true;
+        try {
+          const data = await getJson(`/api/leaves/${reviewing.id}/review`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({ status: document.querySelector('input[name="reviewStatus"]:checked').value, comment: $('reviewComment').value.trim() })
+          });
+          ERP.toast(data.message, 'success');
+          closeReview();
+          loadData();
+          if (window.loadInbox) window.loadInbox();
+        } catch (err) {
+          ERP.toast(err.message, 'error');
+        } finally {
+          btn.disabled = false;
+        }
+      });
+      ['allSearch', 'allStatus', 'allType'].forEach(id => $(id).addEventListener('input', render));
+    }
+
+    function exportCsv() {
+      const rows = filteredAll($('allSearch').value.trim().toLowerCase(), $('allStatus').value, $('allType').value);
+      if (!rows.length) return ERP.toast('ไม่มีข้อมูลสำหรับส่งออก');
+      ERP.downloadCsv(`leave-requests-${ERP.todayIso()}.csv`,
+        ['ชื่อ-นามสกุล', 'กลุ่มงาน', 'ประเภท', 'ตั้งแต่', 'ถึง', 'ช่วงเวลา', 'จำนวนวัน', 'เหตุผล', 'สถานะ', 'ผู้พิจารณา', 'ความเห็น', 'ยื่นเมื่อ'],
+        rows.map(l => [l.fullname, l.dept, typeLabel(l.leave_type), l.start_date, l.end_date, halfText(l.half_day).trim() || 'ทั้งวัน',
+          fmtDays(l.days), l.reason, (STATUS[l.status] || [l.status])[0], l.reviewer, l.review_comment, l.submitted_at]));
+    }
+
+    /* ---------------- Events & boot ---------------- */
+    $('tabBar').addEventListener('click', e => { const b = e.target.closest('[data-tab]'); if (b) showTab(b.dataset.tab); });
+    $('leaveBody').addEventListener('click', e => {
+      const c = e.target.closest('[data-cancel]');
+      const r = e.target.closest('[data-review]');
+      if (c) cancelLeave(c.dataset.cancel);
+      if (r) openReview(r.dataset.review);
+    });
+    document.addEventListener('keydown', e => {
+      if (e.key !== 'Escape') return;
+      if (!$('leaveForm').classList.contains('hidden')) closeLeaveForm();
+      if (IS_REVIEWER && !$('reviewDrawer').classList.contains('hidden')) closeReview();
+    });
+
+    (async function boot() {
+      try {
+        TYPES = (await getJson('/api/leaves/types')).types || {};
+      } catch { TYPES = {}; }
+      $('typeOptions').innerHTML = Object.entries(TYPES).map(([k, t], i) => `
+        <label class="flex cursor-pointer items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-[13px] text-slate-700 hover:border-slate-300 has-[:checked]:border-brand-500 has-[:checked]:bg-brand-50 has-[:checked]:text-brand-800">
+          <input type="radio" name="leave_type" value="${esc(k)}" class="sr-only" ${i === 0 ? 'checked' : ''}>
+          <span class="min-w-0"><span class="block truncate font-medium">${esc(t.label)}</span>
+          <span class="block text-2xs text-slate-400">${t.quota == null ? 'ไม่จำกัดสิทธิ์' : `สิทธิ์ ${t.quota} วัน/ปี`}</span></span>
+        </label>`).join('');
+      if (IS_REVIEWER) {
+        Object.entries(TYPES).forEach(([k, t]) => $('allType').add(new Option(t.label, k)));
+      }
+      if (IS_REVIEWER && location.hash === '#approvals') showTab('approvals');
+      loadData();
+    })();
+  </script>
+</body>
+
+</html>

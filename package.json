@@ -7,6 +7,8 @@
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
     "build": "echo \"No build step required for Node.js Express server\"",
+    "build:css": "tailwindcss -c tailwind.config.js -i src/styles/erp.css -o public/css/erp.css --minify",
+    "watch:css": "tailwindcss -c tailwind.config.js -i src/styles/erp.css -o public/css/erp.css --watch",
     "init-db": "node scripts/init_db.js",
     "migrate": "node scripts/migrations.js",
     "import-legacy-schedules": "node scripts/import_legacy_schedules.js",
@@ -35,6 +37,7 @@
     "node-telegram-bot-api": "^0.67.0"
   },
   "devDependencies": {
-    "nodemon": "^3.1.14"
+    "nodemon": "^3.1.14",
+    "tailwindcss": "^3.4.17"
   }
 }

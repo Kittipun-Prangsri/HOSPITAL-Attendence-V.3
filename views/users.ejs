@@ -2,833 +2,634 @@
 <html lang="th">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- <title>จัดการสิทธิ์ผู้ใช้งาน - KHH Attendance</title> -->
-    <!-- Google Fonts: Sarabun -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&subset=thai&display=swap"
-        rel="stylesheet">
-    <!-- Bootstrap Icons -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <link rel="stylesheet" href="/css/style.css">
-    <link rel="stylesheet" href="/css/ui-refresh.css">
-    <style>
-        .user-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-            gap: 24px;
-        }
-
-        .user-card {
-            background: #fff;
-            border-radius: 16px;
-            border: 1px solid var(--border);
-            padding: 24px;
-            transition: all 0.3s ease;
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-            box-shadow: 0 4px 12px rgba(11, 48, 96, 0.04);
-        }
-
-        .user-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 12px 24px rgba(11, 48, 96, 0.1);
-            border-color: var(--primary);
-        }
-
-        .user-card h5 {
-            margin: 0;
-            font-size: 18px;
-            font-weight: 800;
-            color: var(--primary);
-            letter-spacing: -0.02em;
-        }
-
-        .user-card p {
-            font-size: 13.5px;
-            color: var(--muted);
-            margin: 0;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .role-badge {
-            padding: 4px 12px;
-            border-radius: 8px;
-            font-size: 11px;
-            font-weight: 800;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .role-super {
-            background: #fee2e2;
-            color: #dc2626;
-            border: 1px solid #fecaca;
-        }
-
-        .role-admin {
-            background: #dcfce7;
-            color: #16a34a;
-            border: 1px solid #bbf7d0;
-        }
-
-        .role-manager {
-            background: #dcfce7;
-            color: #16a34a;
-            border: 1px solid #bbf7d0;
-        }
-
-        .role-staff {
-            background: #e0f2fe;
-            color: #0284c7;
-            border: 1px solid #bae6fd;
-        }
-
-        .role-user {
-            background: #f1f5f9;
-            color: #475569;
-            border: 1px solid #e2e8f0;
-        }
-
-        .actions {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-            border-top: 1px solid var(--border);
-            padding-top: 16px;
-            margin-top: auto;
-        }
-
-        /* Modern Button Styles */
-        button,
-        .btn {
-            min-height: 38px;
-            display: inline-flex !important;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            padding: 8px 16px;
-            border-radius: 8px;
-            font-size: 13.5px;
-            font-weight: 700;
-            transition: all 0.25s ease !important;
-            cursor: pointer;
-        }
-
-        button:hover,
-        .btn:hover {
-            transform: translateY(-1.5px);
-            box-shadow: 0 4px 12px rgba(11, 48, 96, 0.08);
-        }
-
-        .actions button,
-        .actions .btn {
-            flex: 1 1 calc(50% - 4px);
-            min-width: 120px;
-            min-height: 36px;
-            font-size: 12.5px;
-            padding: 6px 12px;
-            display: inline-flex !important;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-            border-radius: 8px;
-            font-weight: 700;
-            transition: all 0.25s ease !important;
-            cursor: pointer;
-            border: 1px solid var(--border);
-        }
-
-        .btn-teal {
-            background-color: var(--accent);
-            color: #fff;
-            border: none;
-            box-shadow: 0 4px 12px rgba(0, 184, 169, 0.15);
-        }
-
-        .btn-teal:hover {
-            background-color: var(--accent);
-            filter: brightness(1.05);
-            box-shadow: 0 6px 16px rgba(0, 184, 169, 0.3);
-        }
-
-        .btn-outline-danger {
-            background-color: rgba(220, 38, 38, 0.04) !important;
-            color: #dc2626 !important;
-            border: 1px solid rgba(220, 38, 38, 0.15) !important;
-        }
-
-        .btn-outline-danger:hover {
-            background-color: #dc2626 !important;
-            color: #fff !important;
-            border-color: #dc2626 !important;
-            box-shadow: 0 6px 16px rgba(220, 38, 38, 0.2) !important;
-        }
-
-        .btn-outline-dark {
-            background-color: #fff !important;
-            color: #475569 !important;
-            border: 1px solid var(--border) !important;
-        }
-
-        .btn-outline-dark:hover {
-            background-color: #f8fafc !important;
-            color: #0f172a !important;
-            border-color: var(--border-focus) !important;
-            box-shadow: 0 4px 12px rgba(11, 48, 96, 0.05) !important;
-        }
-
-        /* Modal for Add User */
-        .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(15, 23, 42, 0.45);
-            backdrop-filter: blur(10px);
-            z-index: 1000;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            visibility: hidden;
-            opacity: 0;
-            transition: all 0.3s;
-        }
-
-        .modal-overlay.active {
-            visibility: visible;
-            opacity: 1;
-        }
-
-        .modal-box {
-            background: #fff;
-            width: 95%;
-            max-width: 450px;
-            border-radius: 16px;
-            padding: 28px;
-            box-shadow: 0 20px 50px rgba(11, 48, 96, 0.15);
-            max-height: 90vh;
-            overflow-y: auto;
-        }
-
-        .modal-box h3 {
-            margin-top: 0;
-            font-size: 20px;
-            color: var(--primary);
-            margin-bottom: 24px;
-            font-weight: 800;
-            letter-spacing: -0.02em;
-        }
-
-        .form-group {
-            margin-bottom: 18px;
-            position: relative;
-        }
-
-        .form-group label {
-            display: block;
-            font-size: 12.5px;
-            margin-bottom: 6px;
-            color: var(--muted);
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .form-group input,
-        .form-group select {
-            width: 100%;
-            padding: 10px 14px;
-            border-radius: 8px;
-            border: 1px solid var(--border);
-            font-family: inherit;
-            font-size: 13.5px;
-            transition: var(--transition-smooth);
-        }
-
-        .form-group input:focus,
-        .form-group select:focus {
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(11, 48, 96, 0.08);
-            outline: none;
-        }
-
-        /* Search Suggestions */
-        .search-results {
-            position: absolute;
-            top: 100%;
-            left: 0;
-            width: 100%;
-            background: #fff;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            z-index: 100;
-            max-height: 200px;
-            overflow-y: auto;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-            display: none;
-        }
-
-        .search-item {
-            padding: 10px 12px;
-            cursor: pointer;
-            border-bottom: 1px solid #f8fafc;
-            font-size: 13px;
-        }
-
-        .search-item:hover {
-            background: #f1f5f9;
-        }
-
-        .search-item small {
-            display: block;
-            color: var(--muted);
-            font-size: 11px;
-        }
-
-        /* Tabs */
-        .tab-nav {
-            display: flex;
-            border-bottom: 2px solid var(--border);
-            margin-bottom: 20px;
-            gap: 20px;
-        }
-
-        .tab-btn {
-            background: none;
-            border: none;
-            padding: 10px 5px;
-            font-size: 14px;
-            font-weight: 600;
-            color: var(--muted);
-            cursor: pointer;
-            position: relative;
-        }
-
-        .tab-btn.active {
-            color: var(--primary);
-        }
-
-        .tab-btn.active::after {
-            content: '';
-            position: absolute;
-            bottom: -2px;
-            left: 0;
-            right: 0;
-            height: 2px;
-            background: var(--primary);
-        }
-
-        .fail-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 13.5px;
-        }
-
-        .fail-table th {
-            text-align: left;
-            color: var(--muted);
-            font-weight: 700;
-            font-size: 12px;
-            padding: 10px 12px;
-            border-bottom: 1px solid var(--border);
-        }
-
-        .fail-table td {
-            padding: 10px 12px;
-            border-bottom: 1px solid var(--border);
-            vertical-align: top;
-        }
-    </style>
+  <%- include("components/erp-head", { title: "จัดการผู้เข้าใช้" }) %>
 </head>
 
-<body>
-    <%- include('components/sidebar') %>
+<body class="erp-page">
+  <%- include('components/sidebar') %>
+  <div class="main" role="main">
+    <%- include('components/topbar') %>
 
-        <div class="main" role="main">
-            <%- include('components/topbar') %>
+    <div class="erp px-4 py-5 lg:px-6">
 
-                <div class="page">
-                    <section class="workspace-hero" aria-labelledby="users-heading">
-                        <div>
-                            <div class="workspace-eyebrow"><i class="bi bi-shield-lock" aria-hidden="true"></i> การดูแลระบบ</div>
-                            <h1 id="users-heading">จัดการผู้เข้าใช้งาน</h1>
-                            <p>กำหนดสิทธิ์การเข้าถึงข้อมูลและจัดการบัญชีผู้ใช้งานในระบบ</p>
-                        </div>
-                        <div class="workspace-hero-actions">
-                        <button type="button" class="btn-teal" onclick="openModal()"><i class="bi bi-person-plus-fill" aria-hidden="true"></i>
-                            เพิ่มผู้ใช้งาน</button>
-                        </div>
-                    </section>
-
-                    <div class="tab-nav">
-                        <button class="tab-btn active" onclick="switchUsersTab('users')"><i
-                                class="bi bi-people"></i> ผู้ใช้งาน</button>
-                        <button class="tab-btn" onclick="switchUsersTab('failed')"><i
-                                class="bi bi-exclamation-triangle"></i> การแจ้งเตือนที่ล้มเหลว</button>
-                    </div>
-
-                    <!-- TAB 1: USERS -->
-                    <div id="tab-users" class="tab-content">
-                        <!-- FILTER BAR -->
-                        <div class="filter-bar"
-                            style="display:flex; align-items:center; gap:12px; margin-bottom:20px; flex-wrap:wrap; background:#fff; padding:16px; border-radius:12px; border:1px solid var(--border);">
-                            <div style="display:flex; align-items:center; gap:8px; flex:1; flex-wrap:wrap;">
-                                <!-- Text Search -->
-                                <div class="input-group"
-                                    style="max-width:250px; display:flex; align-items:center; border:1px solid var(--border); border-radius:8px; background:#fff; overflow:hidden;">
-                                    <span
-                                        style="padding:8px 12px; background:#f8fafc; border-right:1px solid var(--border); color:var(--muted);"><i
-                                            class="bi bi-search"></i></span>
-                                    <input type="text" id="userSearchInput" placeholder="ค้นหาชื่อ / ชื่อผู้ใช้..."
-                                        style="border:none; padding:8px 12px; outline:none; font-size:13.5px; width:100%;"
-                                        oninput="applyFilters()" />
-                                </div>
-
-                                <!-- Department Dropdown -->
-                                <select class="form-select" id="userDeptFilter"
-                                    style="max-width:250px; padding:8px 12px; border-radius:8px; border:1px solid var(--border); font-size:13.5px; outline:none;"
-                                    onchange="applyFilters()">
-                                    <option value="all">ทุกแผนก / กลุ่มงาน</option>
-                                </select>
-                            </div>
-                            <div style="font-size:12px; color:var(--muted); font-weight:600;">
-                                แสดง <span id="userCountSpan" style="color:var(--primary);">0</span> รายการ
-                            </div>
-                        </div>
-
-                        <div class="user-grid" id="userList">
-                            <!-- User Cards will be injected here -->
-                        </div>
-                    </div>
-
-                    <!-- TAB 2: FAILED NOTIFICATIONS -->
-                    <div id="tab-failed" class="tab-content" style="display:none;">
-                        <div style="background:#fff; border-radius:12px; border:1px solid var(--border); overflow-x:auto;">
-                            <table class="fail-table">
-                                <thead>
-                                    <tr>
-                                        <th>พนักงาน</th>
-                                        <th>วันที่ / เวลาสแกน</th>
-                                        <th>จำนวนครั้งที่ลอง</th>
-                                        <th>ข้อผิดพลาดล่าสุด</th>
-                                        <th>อัปเดตล่าสุด</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="failedNotifBody"></tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
+      <!-- Page header -->
+      <section class="mb-5 flex flex-wrap items-end justify-between gap-4" aria-labelledby="users-heading">
+        <div>
+          <h2 id="users-heading" class="text-xl font-semibold text-slate-900">จัดการผู้เข้าใช้งาน</h2>
+          <p class="mt-1 text-[13px] text-slate-500">กำหนดระดับสิทธิ์ ช่องทางแจ้งเตือน และดูแลบัญชีผู้ใช้งานระบบ</p>
         </div>
+        <button type="button" class="erp-btn erp-btn-primary" onclick="openModal()">
+          <i class="bi bi-person-plus" aria-hidden="true"></i> เพิ่มผู้ใช้งาน
+        </button>
+      </section>
 
-        <!-- Add/Edit Modal -->
-        <div class="modal-overlay" id="userModal">
-            <div class="modal-box">
-                <h3 id="modalTitle">เพิ่มผู้ใช้งานใหม่</h3>
-                <form id="userForm" accept-charset="UTF-8">
-                    <input type="hidden" id="userId">
-                    <div class="form-group">
-                        <label>ค้นหาและเลือกบุคลากร (พิมพ์เลข CID หรือชื่อ)</label>
-                        <div style="display:flex; gap:8px;">
-                            <input type="text" id="personSearch" placeholder="ระบุเลขบัตร 13 หลัก หรือ ชื่อ-นามสกุล..."
-                                oninput="searchPersonnel(this.value)">
-                        </div>
-                        <div id="searchResults" class="search-results"></div>
-                    </div>
-                    <hr style="border:0; border-top:1px dashed var(--border); margin:20px 0;">
-                    <div class="form-group">
-                        <label>ชื่อเต็ม</label>
-                        <input type="text" id="fullname" placeholder="ระบบจะเติมให้อัตโนมัติเมื่อเลือกคน" required>
-                    </div>
-                    <div class="form-group">
-                        <label>ชื่อผู้ใช้งาน (CID / Username)</label>
-                        <input type="text" id="username" placeholder="ระบบจะใช้เลข CID อัตโนมัติ" required>
-                    </div>
-                    <div class="form-group">
-                        <label id="passLabel">รหัสผ่าน</label>
-                        <input type="password" id="password" placeholder="อย่างน้อย 8 ตัวอักษร" minlength="8">
-                        <small id="passHint"
-                            style="display:none; color:var(--muted); font-size:10px;">(เว้นว่างไว้หากไม่ต้องการเปลี่ยน)</small>
-                    </div>
-                    <div class="form-group">
-                        <label>LINE User ID (สำหรับการแจ้งเตือน)</label>
-                        <div style="display:flex; gap:8px; align-items:center;">
-                            <input type="text" id="line_user_id"
-                                placeholder="พิมพ์หรือวาง LINE User ID (ขึ้นต้นด้วย U...)">
-                            <button type="button" class="btn btn-outline-dark"
-                                style="padding: 0 10px; min-height: 38px; font-size: 12px; white-space: nowrap; margin-bottom: 0px;"
-                                onclick="showHowToGetLineId()"><i class="bi bi-question-circle"></i> วิธีขอ ID</button>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label>Telegram Chat ID (สำหรับการแจ้งเตือนคู่ขนาน/สำรอง)</label>
-                        <div style="display:flex; gap:8px; align-items:center;">
-                            <input type="text" id="telegram_chat_id"
-                                placeholder="พิมพ์หรือวาง Telegram Chat ID (ตัวเลข)">
-                            <button type="button" class="btn btn-outline-dark"
-                                style="padding: 0 10px; min-height: 38px; font-size: 12px; white-space: nowrap; margin-bottom: 0px;"
-                                onclick="showHowToGetTelegramId()"><i class="bi bi-question-circle"></i> วิธีขอ
-                                ID</button>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label>ระดับสิทธิ์ (Role / Layer)</label>
-                        <select id="role" class="form-select">
-                            <option value="super">Super Admin (สิทธิ์สูงสุด)</option>
-                            <option value="admin">Administrator / Staff Admin (เจ้าหน้าที่ดูแลระบบ)</option>
-                            <option value="user">General User (พนักงานทั่วไป)</option>
-                        </select>
-                    </div>
-                    <div class="actions"
-                        style="border:none; margin:0; padding:0; display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
-                        <button type="button" class="btn btn-outline-dark" onclick="closeModal()"><i
-                                class="bi bi-x-circle"></i> ยกเลิก</button>
-                        <button type="submit" class="btn btn-teal"><i class="bi bi-floppy-fill"></i>
-                            บันทึกข้อมูล</button>
-                    </div>
-                </form>
+      <!-- KPI strip -->
+      <section class="mb-5 grid grid-cols-2 gap-3 xl:grid-cols-4" aria-label="สรุปผู้ใช้งาน">
+        <% const kpis = [
+          { id: 'kpiUsers', label: 'บัญชีผู้ใช้ทั้งหมด', icon: 'bi-person-badge', tone: 'bg-brand-50 text-brand-600' },
+          { id: 'kpiSuper', label: 'Super Admin', icon: 'bi-shield-lock', tone: 'bg-red-50 text-red-600' },
+          { id: 'kpiAdmin', label: 'ผู้ดูแลระบบ', icon: 'bi-person-gear', tone: 'bg-amber-50 text-amber-600' },
+          { id: 'kpiLinked', label: 'เชื่อมช่องทางแจ้งเตือน', icon: 'bi-bell', tone: 'bg-sky-50 text-sky-600' }
+        ]; %>
+        <% kpis.forEach(k => { %>
+          <div class="erp-panel flex items-center gap-3 p-4">
+            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-lg <%= k.tone %>"><i class="bi <%= k.icon %>" aria-hidden="true"></i></div>
+            <div class="min-w-0">
+              <div class="truncate text-xs text-slate-500"><%= k.label %></div>
+              <div class="flex items-baseline gap-1.5">
+                <span id="<%= k.id %>" class="font-mono text-xl font-semibold tabular-nums text-slate-900">–</span>
+                <span id="<%= k.id %>Sub" class="truncate text-2xs text-slate-400"></span>
+              </div>
             </div>
+          </div>
+        <% }); %>
+      </section>
+
+      <section class="erp-panel overflow-hidden">
+        <div class="flex gap-1 border-b border-slate-200 px-3" role="tablist">
+          <button type="button" role="tab" class="erp-tab tab-btn active" id="tabBtn-users" onclick="switchUsersTab('users')">
+            <i class="bi bi-people" aria-hidden="true"></i> ผู้ใช้งาน
+            <span id="userCountSpan" class="rounded bg-slate-100 px-1.5 font-mono text-2xs text-slate-500">0</span>
+          </button>
+          <button type="button" role="tab" class="erp-tab tab-btn" id="tabBtn-failed" onclick="switchUsersTab('failed')">
+            <i class="bi bi-exclamation-triangle" aria-hidden="true"></i> การแจ้งเตือนที่ล้มเหลว
+            <span id="failedCountSpan" class="hidden rounded bg-red-100 px-1.5 font-mono text-2xs text-red-600"></span>
+          </button>
         </div>
 
-        <script>
-            let allUsers = [];
-            let allPersonnel = [];
-            let failedNotifLoaded = false;
+        <!-- TAB 1: USERS -->
+        <div id="tab-users" class="tab-content">
+          <div class="flex flex-wrap items-center gap-2 border-b border-slate-200 p-3">
+            <div class="relative min-w-[220px] flex-1 sm:max-w-sm">
+              <i class="bi bi-search pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden="true"></i>
+              <input type="search" id="userSearchInput" class="erp-input pl-9" placeholder="ค้นหาชื่อ / ชื่อผู้ใช้…" oninput="applyFilters()" aria-label="ค้นหาผู้ใช้งาน">
+            </div>
+            <select id="userDeptFilter" class="erp-input w-auto min-w-[200px] max-w-[280px]" onchange="applyFilters()" aria-label="กรองตามกลุ่มงาน">
+              <option value="">ทุกกลุ่มงาน</option>
+            </select>
+            <select id="userRoleFilter" class="erp-input w-auto min-w-[150px]" onchange="applyFilters()" aria-label="กรองตามระดับสิทธิ์">
+              <option value="">ทุกระดับสิทธิ์</option>
+              <option value="super">Super Admin</option>
+              <option value="admin">ผู้ดูแลระบบ</option>
+              <option value="user">ผู้ใช้ทั่วไป</option>
+            </select>
+          </div>
 
-            function switchUsersTab(tabId) {
-                document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-                document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+          <div class="max-h-[calc(100vh-360px)] min-h-[320px] overflow-auto">
+            <table class="w-full border-collapse text-left text-[13px]">
+              <thead class="sticky top-0 z-10 bg-slate-50 text-2xs uppercase tracking-wide text-slate-500">
+                <tr class="border-b border-slate-200">
+                  <th class="px-4 py-2.5 font-semibold">ผู้ใช้งาน</th>
+                  <th class="px-3 py-2.5 font-semibold">กลุ่มงาน</th>
+                  <th class="px-3 py-2.5 font-semibold">ระดับสิทธิ์</th>
+                  <th class="px-3 py-2.5 font-semibold">LINE</th>
+                  <th class="px-3 py-2.5 font-semibold">Telegram</th>
+                  <th class="px-4 py-2.5 text-right font-semibold">จัดการ</th>
+                </tr>
+              </thead>
+              <tbody id="userList" class="divide-y divide-slate-100">
+                <tr><td colspan="6" class="px-4 py-16 text-center text-slate-400"><i class="bi bi-hourglass-split mr-1"></i> กำลังโหลดข้อมูล…</td></tr>
+              </tbody>
+            </table>
+          </div>
 
-                const activeBtn = Array.from(document.querySelectorAll('.tab-btn')).find(btn => btn.getAttribute('onclick').includes(`'${tabId}'`));
-                if (activeBtn) activeBtn.classList.add('active');
+          <div class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 bg-slate-50/70 px-4 py-2.5 text-xs text-slate-500">
+            <span id="pagerInfo">แสดง 0 รายการ</span>
+            <nav aria-label="เปลี่ยนหน้า"><ul id="pagination" class="m-0 flex list-none items-center gap-1 p-0"></ul></nav>
+          </div>
+        </div>
 
-                const content = document.getElementById('tab-' + tabId);
-                if (content) content.style.display = 'block';
+        <!-- TAB 2: FAILED NOTIFICATIONS -->
+        <div id="tab-failed" class="tab-content" style="display:none;">
+          <div class="flex items-center justify-between border-b border-slate-200 p-3">
+            <p class="text-xs text-slate-500">รายการแจ้งเตือนการสแกนที่ส่งไม่สำเร็จ ระบบจะลองส่งซ้ำอัตโนมัติ</p>
+            <button type="button" class="erp-btn erp-btn-secondary h-8" onclick="fetchFailedNotifications()"><i class="bi bi-arrow-clockwise" aria-hidden="true"></i> โหลดใหม่</button>
+          </div>
+          <div class="max-h-[calc(100vh-360px)] min-h-[320px] overflow-auto">
+            <table class="w-full border-collapse text-left text-[13px]">
+              <thead class="sticky top-0 z-10 bg-slate-50 text-2xs uppercase tracking-wide text-slate-500">
+                <tr class="border-b border-slate-200">
+                  <th class="px-4 py-2.5 font-semibold">พนักงาน</th>
+                  <th class="px-3 py-2.5 font-semibold">วันที่ / เวลาสแกน</th>
+                  <th class="px-3 py-2.5 text-center font-semibold">ลองส่ง (ครั้ง)</th>
+                  <th class="px-3 py-2.5 font-semibold">ข้อผิดพลาดล่าสุด</th>
+                  <th class="px-4 py-2.5 font-semibold">อัปเดตล่าสุด</th>
+                </tr>
+              </thead>
+              <tbody id="failedNotifBody" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
 
-                if (tabId === 'failed' && !failedNotifLoaded) fetchFailedNotifications();
-            }
+  <!-- ADD / EDIT DRAWER -->
+  <div id="userModal" class="erp fixed inset-0 z-[10000] hidden" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px]" onclick="closeModal()"></div>
+    <form id="userForm" accept-charset="UTF-8" autocomplete="off"
+      class="absolute inset-y-0 right-0 m-0 flex w-full max-w-[520px] flex-col bg-white shadow-drawer">
+      <header class="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+        <div>
+          <h3 id="modalTitle" class="text-base font-semibold text-slate-900">เพิ่มผู้ใช้งานใหม่</h3>
+          <p class="text-2xs text-slate-500">ข้อมูลบุคลากรดึงจากทะเบียน HR</p>
+        </div>
+        <button type="button" class="erp-icon-btn" onclick="closeModal()" aria-label="ปิด"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+      </header>
 
-            async function fetchFailedNotifications() {
-                const tbody = document.getElementById('failedNotifBody');
-                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--muted);">กำลังโหลด...</td></tr>';
-                try {
-                    const res = await fetch('/api/notifications/failed', { headers: { Accept: 'application/json' } });
-                    const data = await res.json();
-                    const failures = (data && data.failures) || [];
-                    failedNotifLoaded = true;
-                    if (failures.length === 0) {
-                        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--muted);">ไม่มีการแจ้งเตือนที่ล้มเหลว</td></tr>';
-                        return;
-                    }
-                    tbody.innerHTML = failures.map(f => `
-                        <tr>
-                            <td><strong>${f.employeeName}</strong></td>
-                            <td>${f.accessDate} ${f.accessTime}</td>
-                            <td>${f.attempts}</td>
-                            <td style="color:#dc2626;">${f.lastError || '—'}</td>
-                            <td>${new Date(f.updatedAt).toLocaleString('th-TH')}</td>
-                        </tr>
-                    `).join('');
-                } catch (err) {
-                    console.error('Fetch failed notifications error:', err);
-                    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:#dc2626;">โหลดข้อมูลไม่สำเร็จ</td></tr>';
-                }
-            }
+      <div class="flex-1 space-y-4 overflow-y-auto bg-slate-50/60 p-5">
+        <input type="hidden" id="userId">
 
-            async function fetchUsers() {
-                try {
-                    const res = await fetch('/api/users', { headers: { 'Accept-Charset': 'utf-8' } });
-                    const data = await res.json();
-                    allUsers = data.users;
-                    populateDepartmentFilter();
-                    applyFilters();
-                } catch (err) { console.error('Fetch error:', err); }
-            }
+        <section class="erp-panel p-4" id="personPickSection">
+          <label class="erp-label" for="personSearch">ค้นหาและเลือกบุคลากร</label>
+          <div class="relative">
+            <i class="bi bi-search pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden="true"></i>
+            <input type="text" id="personSearch" class="erp-input pl-9" placeholder="พิมพ์เลขบัตร 13 หลัก หรือชื่อ-นามสกุล…" oninput="searchPersonnel(this.value)">
+            <div id="searchResults" class="absolute left-0 right-0 top-full z-20 mt-1 hidden max-h-60 overflow-y-auto rounded-md border border-slate-200 bg-white shadow-lg"></div>
+          </div>
+          <p class="mt-1.5 text-2xs text-slate-400">เลือกแล้วระบบจะเติมชื่อและชื่อผู้ใช้ให้อัตโนมัติ</p>
+        </section>
 
-            async function fetchPersonnel() {
-                try {
-                    const res = await fetch('/api/personnel', { headers: { 'Accept-Charset': 'utf-8' } });
-                    const data = await res.json();
-                    allPersonnel = data.personnel || [];
-                } catch (err) { console.error('Personnel Fetch error:', err); }
-            }
+        <section class="erp-panel">
+          <h4 class="border-b border-slate-100 px-4 py-2.5 text-2xs font-semibold uppercase tracking-wide text-slate-500">ข้อมูลบัญชี</h4>
+          <div class="space-y-3 p-4">
+            <div>
+              <label class="erp-label" for="fullname">ชื่อ-นามสกุล <span class="text-red-500">*</span></label>
+              <input type="text" id="fullname" class="erp-input" placeholder="ระบบจะเติมให้อัตโนมัติเมื่อเลือกคน" required>
+            </div>
+            <div>
+              <label class="erp-label" for="username">ชื่อผู้ใช้ (เลขบัตรประชาชน) <span class="text-red-500">*</span></label>
+              <input type="text" id="username" class="erp-input font-mono" placeholder="ระบบจะใช้เลข CID อัตโนมัติ" required>
+            </div>
+            <div>
+              <label class="erp-label" for="password" id="passLabel">รหัสผ่าน</label>
+              <input type="password" id="password" class="erp-input" placeholder="อย่างน้อย 8 ตัวอักษร" minlength="8" autocomplete="new-password">
+              <p id="passHint" class="mt-1 text-2xs text-slate-400" style="display:none;">เว้นว่างไว้หากไม่ต้องการเปลี่ยนรหัสผ่าน</p>
+            </div>
+          </div>
+        </section>
 
-            function populateDepartmentFilter() {
-                const select = document.getElementById('userDeptFilter');
-                select.innerHTML = '<option value="all">ทุกแผนก / กลุ่มงาน</option>';
-                const depts = [...new Set(allUsers.map(u => u.dept).filter(Boolean))].sort();
-                depts.forEach(d => {
-                    const opt = document.createElement('option');
-                    opt.value = d;
-                    opt.textContent = d;
-                    select.appendChild(opt);
-                });
-            }
+        <section class="erp-panel">
+          <h4 class="border-b border-slate-100 px-4 py-2.5 text-2xs font-semibold uppercase tracking-wide text-slate-500">ระดับสิทธิ์</h4>
+          <div class="grid gap-2 p-4" id="roleOptions">
+            <% const roles = [
+              { value: 'super', label: 'Super Admin', desc: 'จัดการผู้ใช้ สิทธิ์ และการตั้งค่าระบบทั้งหมด', icon: 'bi-shield-lock', tone: 'text-red-600' },
+              { value: 'admin', label: 'ผู้ดูแลระบบ', desc: 'ดูรายงาน ทะเบียนบุคลากร และจัดตารางเวร', icon: 'bi-person-gear', tone: 'text-amber-600' },
+              { value: 'user', label: 'ผู้ใช้ทั่วไป', desc: 'ดูตารางเวรและแจ้งสาเหตุการลงเวลาของตนเอง', icon: 'bi-person', tone: 'text-slate-500' }
+            ]; %>
+            <% roles.forEach(r => { %>
+              <label class="flex cursor-pointer items-start gap-3 rounded-md border border-slate-200 bg-white p-3 transition-colors hover:border-slate-300 has-[:checked]:border-brand-500 has-[:checked]:bg-brand-50/60">
+                <input type="radio" name="role" value="<%= r.value %>" class="mt-1 accent-brand-600" <%= r.value === 'user' ? 'checked' : '' %>>
+                <i class="bi <%= r.icon %> mt-0.5 <%= r.tone %>" aria-hidden="true"></i>
+                <span>
+                  <span class="block text-[13px] font-medium text-slate-800"><%= r.label %></span>
+                  <span class="block text-2xs text-slate-500"><%= r.desc %></span>
+                </span>
+              </label>
+            <% }); %>
+          </div>
+        </section>
 
-            function applyFilters() {
-                const query = document.getElementById('userSearchInput').value.toLowerCase().trim();
-                const dept = document.getElementById('userDeptFilter').value;
+        <section class="erp-panel">
+          <h4 class="border-b border-slate-100 px-4 py-2.5 text-2xs font-semibold uppercase tracking-wide text-slate-500">ช่องทางแจ้งเตือน</h4>
+          <div class="space-y-3 p-4">
+            <div>
+              <div class="mb-1.5 flex items-center justify-between">
+                <label class="erp-label mb-0" for="line_user_id"><i class="bi bi-line text-[#06C755]" aria-hidden="true"></i> LINE User ID</label>
+                <button type="button" class="text-2xs text-brand-600 hover:underline" onclick="showHowToGetLineId()">วิธีหา ID?</button>
+              </div>
+              <input type="text" id="line_user_id" class="erp-input font-mono" placeholder="ขึ้นต้นด้วย U…">
+            </div>
+            <div>
+              <div class="mb-1.5 flex items-center justify-between">
+                <label class="erp-label mb-0" for="telegram_chat_id"><i class="bi bi-telegram text-sky-500" aria-hidden="true"></i> Telegram Chat ID</label>
+                <button type="button" class="text-2xs text-brand-600 hover:underline" onclick="showHowToGetTelegramId()">วิธีหา ID?</button>
+              </div>
+              <input type="text" id="telegram_chat_id" class="erp-input font-mono" placeholder="ตัวเลข Chat ID (ช่องทางสำรอง)">
+            </div>
+          </div>
+        </section>
+      </div>
 
-                const filtered = allUsers.filter(u => {
-                    const matchDept = (dept === 'all' || u.dept === dept);
-                    const matchSearch = (!query ||
-                        (u.fullname || '').toLowerCase().includes(query) ||
-                        (u.username || '').toLowerCase().includes(query)
-                    );
-                    return matchDept && matchSearch;
-                });
+      <footer class="flex justify-end gap-2 border-t border-slate-200 px-5 py-3">
+        <button type="button" class="erp-btn erp-btn-secondary" onclick="closeModal()">ยกเลิก</button>
+        <button type="submit" class="erp-btn erp-btn-primary" id="saveUserBtn"><i class="bi bi-check2" aria-hidden="true"></i> บันทึกข้อมูล</button>
+      </footer>
+    </form>
+  </div>
 
-                renderUsers(filtered);
-                document.getElementById('userCountSpan').textContent = filtered.length;
-            }
+  <!-- TEMPORARY PASSWORD DIALOG -->
+  <div id="tempPassModal" class="erp fixed inset-0 z-[10001] hidden items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="tempPassTitle">
+    <div class="w-full max-w-sm rounded-lg bg-white p-5 shadow-2xl ring-1 ring-slate-200">
+      <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-md bg-amber-50 text-amber-600"><i class="bi bi-key" aria-hidden="true"></i></div>
+      <h3 id="tempPassTitle" class="text-base font-semibold text-slate-900">รหัสผ่านชั่วคราว</h3>
+      <p id="tempPassFor" class="mt-1 text-xs text-slate-500"></p>
+      <div class="mt-4 flex items-center gap-2 rounded-md border border-slate-200 bg-slate-50 p-2 pl-3">
+        <code id="tempPassValue" class="flex-1 select-all break-all font-mono text-sm font-semibold text-slate-900"></code>
+        <button type="button" class="erp-btn erp-btn-secondary h-8 px-2.5" onclick="copyTempPass()"><i class="bi bi-clipboard" aria-hidden="true"></i> คัดลอก</button>
+      </div>
+      <p class="mt-3 text-2xs text-amber-700"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i> แสดงเพียงครั้งเดียว โปรดส่งให้ผู้ใช้ผ่านช่องทางที่ปลอดภัย</p>
+      <div class="mt-4 flex justify-end">
+        <button type="button" class="erp-btn erp-btn-primary" onclick="closeTempPass()">เสร็จสิ้น</button>
+      </div>
+    </div>
+  </div>
 
-            function renderUsers(usersList = allUsers) {
-                const container = document.getElementById('userList');
-                container.innerHTML = usersList.map(u => {
-                    let roleLabel = u.role.toUpperCase();
-                    if (u.role === 'super') roleLabel = 'Super Admin';
-                    if (u.role === 'admin') roleLabel = 'Administrator';
-                    if (u.role === 'manager') roleLabel = 'Manager';
-                    if (u.role === 'staff') roleLabel = 'Staff Admin';
-                    if (u.role === 'user') roleLabel = 'Common User';
+  <script>
+    const PER_PAGE = 25;
+    const ROLE_META = {
+      super: ['Super Admin', 'red'],
+      admin: ['ผู้ดูแลระบบ', 'amber'],
+      manager: ['ผู้ดูแลระบบ', 'amber'],
+      staff: ['ผู้ดูแลระบบ', 'amber'],
+      user: ['ผู้ใช้ทั่วไป', 'slate']
+    };
+    const $ = id => document.getElementById(id);
+    const esc = ERP.escapeHtml;
+    const normRole = r => (r === 'manager' || r === 'staff' ? 'admin' : (ROLE_META[r] ? r : 'user'));
+    // Username is the national ID — show only the edges in lists
+    const maskCid = v => {
+      const s = String(v || '');
+      return s.length >= 10 ? `${s.slice(0, 1)}-xxxx-xxxx${s.slice(-4)}` : s;
+    };
 
-                    return `
-                <div class="user-card">
-                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                        <div>
-                            <h5>${u.fullname}</h5>
-                            <p><i class="bi bi-person-circle"></i> @${u.username}</p>
-                            <p style="margin-top: 4px; font-size: 12px; color: var(--muted);"><i class="bi bi-building"></i> แผนก: ${u.dept || '—'}</p>
-                            <p style="margin-top: 6px; font-size: 12px; color: ${u.line_user_id ? 'var(--primary)' : 'var(--muted)'};">
-                                <i class="bi bi-line"></i> LINE ID: ${u.line_user_id ? `<span style="font-family: monospace;">${u.line_user_id.substring(0, 12)}...</span>` : '<span style="font-style: italic; color:#94a3b8;">ยังไม่ได้เชื่อมต่อ</span>'}
-                            </p>
-                            <p style="margin-top: 4px; font-size: 12px; color: ${u.telegram_chat_id ? 'var(--primary)' : 'var(--muted)'};">
-                                <i class="bi bi-telegram"></i> Telegram ID: ${u.telegram_chat_id ? `<span style="font-family: monospace;">${u.telegram_chat_id}</span>` : '<span style="font-style: italic; color:#94a3b8;">ยังไม่ได้เชื่อมต่อ</span>'}
-                            </p>
-                        </div>
-                        <span class="role-badge role-${u.role}">${roleLabel}</span>
-                    </div>
-                    <div class="actions">
-                        <button class="btn btn-sm btn-outline-dark" onclick="editUser(${u.id})"><i class="bi bi-pencil-square"></i> แก้ไข</button>
-                        <button class="btn btn-sm btn-outline-warning" style="color: #d97706 !important; border-color: rgba(217, 119, 6, 0.2) !important; background-color: rgba(217, 119, 6, 0.05) !important;" onclick="resetUserPassword(${u.id}, '${u.fullname}')"><i class="bi bi-key-fill"></i> รีเซ็ตรหัสผ่าน</button>
-                        ${u.line_user_id ? `<button class="btn btn-sm btn-outline-dark" style="color: #0d9488 !important; border-color: rgba(13, 148, 136, 0.2) !important; background-color: rgba(13, 148, 136, 0.05) !important;" onclick="testLine(${u.id})"><i class="bi bi-line"></i> ทดสอบ LINE</button>` : ''}
-                        ${u.telegram_chat_id ? `<button class="btn btn-sm btn-outline-dark" style="color: #229ED9 !important; border-color: rgba(34, 158, 217, 0.2) !important; background-color: rgba(34, 158, 217, 0.05) !important;" onclick="testTelegram(${u.id})"><i class="bi bi-telegram"></i> ทดสอบ Telegram</button>` : ''}
-                        <button class="btn btn-sm btn-outline-danger" onclick="deleteUser(${u.id})"><i class="bi bi-trash"></i> ลบ</button>
-                    </div>
-                </div>
-                `;
-                }).join('');
-            }
+    let allUsers = [];
+    let allPersonnel = [];
+    let filteredUsers = [];
+    let currentPage = 1;
+    let failedNotifLoaded = false;
 
-            function searchPersonnel(query) {
-                const resultsBox = document.getElementById('searchResults');
-                if (!query || query.length < 2) {
-                    resultsBox.style.display = 'none';
-                    return;
-                }
+    function switchUsersTab(tabId) {
+      ['users', 'failed'].forEach(t => {
+        $('tabBtn-' + t).classList.toggle('active', t === tabId);
+        $('tabBtn-' + t).setAttribute('aria-selected', String(t === tabId));
+        $('tab-' + t).style.display = t === tabId ? '' : 'none';
+      });
+      if (tabId === 'failed' && !failedNotifLoaded) fetchFailedNotifications();
+    }
 
-                const term = query.toLowerCase();
-                const matches = allPersonnel.filter(p => {
-                    const fullName = (p.HR_FNAME + ' ' + p.HR_LNAME).toLowerCase();
-                    const cid = (p.HR_CID || '').toLowerCase();
-                    return fullName.includes(term) || cid.includes(term);
-                }).slice(0, 10);
+    async function fetchFailedNotifications() {
+      const tbody = $('failedNotifBody');
+      tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-12 text-center text-slate-400">กำลังโหลด…</td></tr>';
+      try {
+        const res = await fetch('/api/notifications/failed', { headers: { Accept: 'application/json' } });
+        const data = await res.json();
+        const failures = (data && data.failures) || [];
+        failedNotifLoaded = true;
+        const badge = $('failedCountSpan');
+        badge.textContent = failures.length;
+        badge.classList.toggle('hidden', failures.length === 0);
+        if (!failures.length) {
+          tbody.innerHTML = ERP.emptyRow(5, 'ไม่มีการแจ้งเตือนที่ล้มเหลว', 'bi-check2-circle');
+          return;
+        }
+        tbody.innerHTML = failures.map(f => `
+          <tr class="hover:bg-slate-50">
+            <td class="px-4 py-2.5 font-medium text-slate-900">${esc(f.employeeName)}</td>
+            <td class="px-3 py-2.5 font-mono text-xs text-slate-600">${esc(f.accessDate)} ${esc(f.accessTime)}</td>
+            <td class="px-3 py-2.5 text-center font-mono text-xs">${esc(f.attempts)}</td>
+            <td class="max-w-[320px] px-3 py-2.5"><div class="truncate text-xs text-red-600" title="${esc(f.lastError || '')}">${esc(f.lastError || '—')}</div></td>
+            <td class="whitespace-nowrap px-4 py-2.5 text-xs text-slate-500">${f.updatedAt ? new Date(f.updatedAt).toLocaleString('th-TH') : '—'}</td>
+          </tr>`).join('');
+      } catch (err) {
+        console.error('Fetch failed notifications error:', err);
+        tbody.innerHTML = ERP.emptyRow(5, 'โหลดข้อมูลไม่สำเร็จ', 'bi-exclamation-triangle');
+      }
+    }
 
-                if (matches.length > 0) {
-                    resultsBox.innerHTML = matches.map(p => `
-                    <div class="search-item" onclick="selectPersonnel(${JSON.stringify(p).replace(/"/g, '&quot;')})">
-                        <strong>${p.HR_FNAME} ${p.HR_LNAME}</strong>
-                        <small>เลข CID: ${p.HR_CID || '—'} | แผนก: ${p.HR_DEPARTMENT_NAME || '—'}</small>
-                    </div>
-                `).join('');
-                    resultsBox.style.display = 'block';
-                } else {
-                    resultsBox.style.display = 'none';
-                }
-            }
+    async function fetchUsers() {
+      try {
+        const res = await fetch('/api/users', { headers: { Accept: 'application/json' } });
+        const data = await res.json();
+        allUsers = data.users || [];
+        renderKpis();
+        ERP.fillSelect($('userDeptFilter'), ERP.uniqueSorted(allUsers, 'dept'));
+        applyFilters();
+      } catch (err) {
+        console.error('Fetch error:', err);
+        $('userList').innerHTML = ERP.emptyRow(6, 'โหลดข้อมูลผู้ใช้ไม่สำเร็จ', 'bi-exclamation-triangle');
+      }
+    }
 
-            function selectPersonnel(p) {
-                document.getElementById('fullname').value = `${p.HR_FNAME} ${p.HR_LNAME}`;
-                document.getElementById('username').value = p.HR_CID || '';
-                document.getElementById('personSearch').value = `${p.HR_FNAME} ${p.HR_LNAME}`;
-                document.getElementById('searchResults').style.display = 'none';
-            }
+    async function fetchPersonnel() {
+      try {
+        const res = await fetch('/api/personnel', { headers: { Accept: 'application/json' } });
+        const data = await res.json();
+        allPersonnel = data.personnel || [];
+      } catch (err) { console.error('Personnel Fetch error:', err); }
+    }
+    // Topbar refresh hook
+    const loadData = () => { fetchUsers(); if (failedNotifLoaded) fetchFailedNotifications(); };
 
-            function openModal() {
-                document.getElementById('userModal').classList.add('active');
-                const form = document.getElementById('userForm');
-                form.reset();
-                document.getElementById('userId').value = '';
-                document.getElementById('modalTitle').innerText = 'เพิ่มผู้ใช้งานใหม่';
-                document.getElementById('passLabel').innerText = 'รหัสผ่าน';
-                document.getElementById('passHint').style.display = 'none';
-                document.getElementById('password').required = true;
-                document.getElementById('searchResults').style.display = 'none';
-            }
+    function renderKpis() {
+      const count = r => allUsers.filter(u => normRole(u.role) === r).length;
+      const linked = allUsers.filter(u => u.line_user_id || u.telegram_chat_id).length;
+      $('kpiUsers').textContent = allUsers.length.toLocaleString('th-TH');
+      $('kpiUsersSub').textContent = 'บัญชี';
+      $('kpiSuper').textContent = count('super');
+      $('kpiAdmin').textContent = count('admin');
+      $('kpiLinked').textContent = linked.toLocaleString('th-TH');
+      $('kpiLinkedSub').textContent = allUsers.length ? Math.round((linked / allUsers.length) * 100) + '%' : '';
+    }
 
-            function closeModal() {
-                document.getElementById('userModal').classList.remove('active');
-            }
+    function applyFilters() {
+      const query = $('userSearchInput').value.toLowerCase().trim();
+      const dept = $('userDeptFilter').value;
+      const role = $('userRoleFilter').value;
+      filteredUsers = allUsers.filter(u => {
+        if (dept && u.dept !== dept) return false;
+        if (role && normRole(u.role) !== role) return false;
+        return !query || (u.fullname || '').toLowerCase().includes(query) || (u.username || '').toLowerCase().includes(query);
+      });
+      $('userCountSpan').textContent = filteredUsers.length;
+      currentPage = 1;
+      renderUsers();
+    }
 
-            function editUser(id) {
-                const user = allUsers.find(u => u.id === id);
-                if (!user) return;
+    function actionBtn(action, id, icon, label, extra = '') {
+      return `<button type="button" data-action="${action}" data-id="${esc(id)}" title="${label}" aria-label="${label}"
+        class="erp-icon-btn h-8 w-8 ${extra}"><i class="bi ${icon}"></i></button>`;
+    }
 
-                openModal();
-                document.getElementById('modalTitle').innerText = 'แก้ไขผู้ใช้งาน';
-                document.getElementById('userId').value = user.id;
-                document.getElementById('fullname').value = user.fullname;
-                document.getElementById('username').value = user.username;
-                document.getElementById('line_user_id').value = user.line_user_id || '';
-                document.getElementById('telegram_chat_id').value = user.telegram_chat_id || '';
-                document.getElementById('role').value = user.role;
-                document.getElementById('passLabel').innerText = 'เปลี่ยนรหัสผ่าน';
-                document.getElementById('passHint').style.display = 'block';
-                document.getElementById('password').required = false;
-            }
+    // Keeps action icons in fixed columns when a row has no LINE/Telegram test button
+    const ACTION_SPACER = '<span class="inline-block h-8 w-8 align-middle" aria-hidden="true"></span>';
 
-            async function deleteUser(id) {
-                if (!confirm('ยืนยันหน้าการลบผู้ใช้งานนี้หรือไม่?')) return;
-                try {
-                    const res = await fetch(`/api/users/${id}`, {
-                        method: 'DELETE',
-                        headers: { 'Accept-Charset': 'utf-8' }
-                    });
-                    const result = await res.json();
-                    if (result.success) fetchUsers();
-                } catch (err) { alert('เกิดข้อผิดพลาดในการลบ'); }
-            }
+    function channelCell(value, icon, color) {
+      return value
+        ? `<span class="inline-flex items-center gap-1.5 text-xs text-slate-700"><i class="bi ${icon} ${color}"></i><span class="font-mono">${esc(String(value).slice(0, 10))}${String(value).length > 10 ? '…' : ''}</span></span>`
+        : '<span class="text-xs italic text-slate-300">ยังไม่เชื่อม</span>';
+    }
 
-            document.getElementById('userForm').addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const id = document.getElementById('userId').value;
-                const data = {
-                    id: id || undefined,
-                    fullname: document.getElementById('fullname').value,
-                    username: document.getElementById('username').value,
-                    password: document.getElementById('password').value || undefined,
-                    line_user_id: document.getElementById('line_user_id').value || null,
-                    telegram_chat_id: document.getElementById('telegram_chat_id').value || null,
-                    role: document.getElementById('role').value
-                };
+    function renderUsers() {
+      const tbody = $('userList');
+      currentPage = ERP.pager($('pagination'), {
+        page: currentPage, total: filteredUsers.length, perPage: PER_PAGE,
+        onChange: p => { currentPage = p; renderUsers(); }
+      });
+      const start = (currentPage - 1) * PER_PAGE;
+      const pageData = filteredUsers.slice(start, start + PER_PAGE);
+      $('pagerInfo').textContent = ERP.pagerText(start, pageData.length, filteredUsers.length);
 
-                try {
-                    const res = await fetch('/api/users', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Accept-Charset': 'utf-8'
-                        },
-                        body: JSON.stringify(data)
-                    });
-                    const result = await res.json();
-                    if (result.success) {
-                        closeModal();
-                        fetchUsers();
-                    } else {
-                        alert(result.error || 'เกิดข้อผิดพลาด');
-                    }
-                } catch (err) { alert('เกิดข้อผิดพลาดในการบันทึก'); }
-            });
+      if (!pageData.length) {
+        tbody.innerHTML = ERP.emptyRow(6, 'ไม่พบผู้ใช้งานตามเงื่อนไขที่เลือก');
+        return;
+      }
 
-            function showHowToGetLineId() {
-                alert(
-                    "💬 วิธีหา LINE User ID:\n\n" +
-                    "1. แอดไลน์บอทของระบบเป็นเพื่อน\n" +
-                    "2. พิมพ์ข้อความอะไรก็ได้ส่งให้บอท (เช่น 'ขอไอดี' หรือ 'hello')\n" +
-                    "3. บอทจะตอบกลับเป็น LINE User ID ของคุณทันที (ขึ้นต้นด้วยตัว U ยาวๆ)\n" +
-                    "4. คัดลอก ID นั้นมาใส่ในช่องนี้เพื่อบันทึกและเชื่อมต่อระบบ"
-                );
-            }
+      tbody.innerHTML = pageData.map(u => {
+        const [roleLabel, tone] = ROLE_META[u.role] || ROLE_META.user;
+        return `<tr class="transition-colors hover:bg-slate-50">
+          <td class="px-4 py-2.5">
+            <div class="flex items-center gap-2.5">
+              ${ERP.avatar(u.fullname, u.username)}
+              <div class="min-w-0">
+                <div class="truncate font-medium text-slate-900">${esc(u.fullname || '—')}</div>
+                <div class="font-mono text-2xs text-slate-400">${esc(maskCid(u.username))}</div>
+              </div>
+            </div>
+          </td>
+          <td class="max-w-[240px] px-3 py-2.5"><div class="truncate text-slate-600" title="${esc(u.dept || '')}">${esc(u.dept || '—')}</div></td>
+          <td class="px-3 py-2.5">${ERP.badge(roleLabel, tone)}</td>
+          <td class="px-3 py-2.5">${channelCell(u.line_user_id, 'bi-line', 'text-[#06C755]')}</td>
+          <td class="px-3 py-2.5">${channelCell(u.telegram_chat_id, 'bi-telegram', 'text-sky-500')}</td>
+          <td class="whitespace-nowrap px-4 py-1.5 text-right">
+            ${actionBtn('edit', u.id, 'bi-pencil-square', 'แก้ไข')}
+            ${actionBtn('reset', u.id, 'bi-key', 'รีเซ็ตรหัสผ่าน', 'hover:text-amber-600')}
+            ${u.line_user_id ? actionBtn('test-line', u.id, 'bi-line', 'ทดสอบส่ง LINE', 'hover:text-[#06C755]') : ACTION_SPACER}
+            ${u.telegram_chat_id ? actionBtn('test-telegram', u.id, 'bi-telegram', 'ทดสอบส่ง Telegram', 'hover:text-sky-500') : ACTION_SPACER}
+            ${actionBtn('delete', u.id, 'bi-trash3', 'ลบผู้ใช้', 'hover:bg-red-50 hover:text-red-600')}
+          </td>
+        </tr>`;
+      }).join('');
+    }
 
-            function showHowToGetTelegramId() {
-                alert(
-                    "💬 วิธีหา Telegram Chat ID:\n\n" +
-                    "1. แอดบอทของระบบหรือแอดบอท @userinfobot ใน Telegram\n" +
-                    "2. พิมพ์ข้อความหรือส่งคำสั่ง /start ไปยังบอท\n" +
-                    "3. บอทจะตอบกลับข้อมูลพร้อมระบุ ID ของคุณ (ตัวเลขยาวๆ เช่น 123456789)\n" +
-                    "4. คัดลอกตัวเลข ID นั้นมาใส่ในช่องนี้เพื่อบันทึกและเชื่อมต่อระบบ"
-                );
-            }
+    /* ---------- Personnel picker ---------- */
+    let personMatches = [];
+    function searchPersonnel(query) {
+      const resultsBox = $('searchResults');
+      if (!query || query.trim().length < 2) {
+        resultsBox.classList.add('hidden');
+        return;
+      }
+      const term = query.trim().toLowerCase();
+      personMatches = allPersonnel.filter(p => {
+        const fullName = `${p.HR_FNAME || ''} ${p.HR_LNAME || ''}`.toLowerCase();
+        return fullName.includes(term) || (p.HR_CID || '').toLowerCase().includes(term);
+      }).slice(0, 10);
 
-            async function testTelegram(userId) {
-                try {
-                    const res = await fetch('/api/users/test-telegram', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Accept-Charset': 'utf-8'
-                        },
-                        body: JSON.stringify({ userId })
-                    });
-                    const result = await res.json();
-                    if (result.success) {
-                        alert('✅ ' + result.message);
-                    } else {
-                        alert('❌ ส่งข้อความล้มเหลว: ' + (result.error || 'ไม่ทราบสาเหตุ'));
-                    }
-                } catch (err) {
-                    alert('❌ เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์');
-                }
-            }
+      resultsBox.innerHTML = personMatches.length
+        ? personMatches.map((p, i) => `
+          <button type="button" data-pick="${i}" class="flex w-full items-center gap-2.5 border-b border-slate-100 px-3 py-2 text-left last:border-0 hover:bg-brand-50/60">
+            ${ERP.avatar(p.HR_FNAME, p.FINGLE_ID || p.ID, 'h-7 w-7 text-2xs')}
+            <span class="min-w-0">
+              <span class="block truncate text-[13px] font-medium text-slate-800">${esc(`${p.HR_FNAME || ''} ${p.HR_LNAME || ''}`)}</span>
+              <span class="block truncate text-2xs text-slate-500">CID ${esc(maskCid(p.HR_CID) || '—')} · ${esc(p.HR_DEPARTMENT_NAME || '—')}</span>
+            </span>
+          </button>`).join('')
+        : '<div class="px-3 py-4 text-center text-xs text-slate-400">ไม่พบบุคลากร</div>';
+      resultsBox.classList.remove('hidden');
+    }
 
-            async function testLine(userId) {
-                try {
-                    const res = await fetch('/api/users/test-line', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Accept-Charset': 'utf-8'
-                        },
-                        body: JSON.stringify({ userId })
-                    });
-                    const result = await res.json();
-                    if (result.success) {
-                        alert('✅ ' + result.message);
-                    } else {
-                        alert('❌ ส่งข้อความล้มเหลว: ' + (result.error || 'ไม่ทราบสาเหตุ'));
-                    }
-                } catch (err) {
-                    alert('❌ เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์');
-                }
-            }
+    function selectPersonnel(p) {
+      const name = `${p.HR_FNAME || ''} ${p.HR_LNAME || ''}`.trim();
+      $('fullname').value = name;
+      $('username').value = p.HR_CID || '';
+      $('personSearch').value = name;
+      $('line_user_id').value = $('line_user_id').value || p.line_user_id || '';
+      $('telegram_chat_id').value = $('telegram_chat_id').value || p.telegram_chat_id || '';
+      $('searchResults').classList.add('hidden');
+    }
 
-            async function resetUserPassword(userId, fullname) {
-                if (!confirm(`คุณต้องการสร้างรหัสผ่านชั่วคราวแบบสุ่มสำหรับ ${fullname} หรือไม่?`)) return;
-                try {
-                    const res = await fetch(`/api/users/${userId}/reset-password`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'Accept-Charset': 'utf-8' }
-                    });
-                    const result = await res.json();
-                    if (result.success) {
-                        alert(`✅ ${result.message}\n\nรหัสผ่านชั่วคราว: ${result.temporaryPassword}\n\nโปรดบันทึกไว้ทันทีและส่งให้ผู้ใช้ผ่านช่องทางที่ปลอดภัย`);
-                    } else {
-                        alert('❌ เกิดข้อผิดพลาด: ' + (result.error || 'ไม่สามารถรีเซ็ตได้'));
-                    }
-                } catch (err) {
-                    alert('❌ เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์');
-                }
-            }
+    /* ---------- Drawer ---------- */
+    function setRole(value) {
+      const radio = document.querySelector(`input[name="role"][value="${normRole(value)}"]`);
+      if (radio) radio.checked = true;
+    }
 
-            // Close search results when clicking outside
-            document.addEventListener('click', (e) => {
-                if (!e.target.closest('.form-group')) {
-                    document.getElementById('searchResults').style.display = 'none';
-                }
-            });
+    function openModal() {
+      $('userForm').reset();
+      $('userId').value = '';
+      $('modalTitle').textContent = 'เพิ่มผู้ใช้งานใหม่';
+      $('passLabel').textContent = 'รหัสผ่าน';
+      $('passHint').style.display = 'none';
+      $('password').required = true;
+      $('personPickSection').style.display = '';
+      $('searchResults').classList.add('hidden');
+      setRole('user');
+      ERP.showOverlay($('userModal'), true);
+      setTimeout(() => $('personSearch').focus(), 0);
+    }
 
-            // Initial Load
-            fetchUsers();
-            fetchPersonnel();
-        </script>
+    function closeModal() {
+      ERP.showOverlay($('userModal'), false);
+    }
+
+    function editUser(id) {
+      const user = allUsers.find(u => String(u.id) === String(id));
+      if (!user) return;
+      openModal();
+      $('modalTitle').textContent = 'แก้ไขผู้ใช้งาน';
+      $('personPickSection').style.display = 'none';
+      $('userId').value = user.id;
+      $('fullname').value = user.fullname || '';
+      $('username').value = user.username || '';
+      $('line_user_id').value = user.line_user_id || '';
+      $('telegram_chat_id').value = user.telegram_chat_id || '';
+      setRole(user.role);
+      $('passLabel').textContent = 'เปลี่ยนรหัสผ่าน';
+      $('passHint').style.display = '';
+      $('password').required = false;
+    }
+
+    async function deleteUser(id) {
+      const user = allUsers.find(u => String(u.id) === String(id));
+      if (!confirm(`ยืนยันการลบผู้ใช้งาน ${user ? user.fullname : ''} หรือไม่?`)) return;
+      try {
+        const res = await fetch(`/api/users/${encodeURIComponent(id)}`, { method: 'DELETE', headers: { Accept: 'application/json' } });
+        const result = await res.json();
+        if (result.success) { ERP.toast('ลบผู้ใช้งานแล้ว', 'success'); fetchUsers(); }
+        else ERP.toast(result.error || 'ลบไม่สำเร็จ', 'error');
+      } catch (err) { ERP.toast('เกิดข้อผิดพลาดในการลบ', 'error'); }
+    }
+
+    $('userForm').addEventListener('submit', async e => {
+      e.preventDefault();
+      const id = $('userId').value;
+      const data = {
+        id: id || undefined,
+        fullname: $('fullname').value.trim(),
+        username: $('username').value.trim(),
+        password: $('password').value || undefined,
+        line_user_id: $('line_user_id').value.trim() || null,
+        telegram_chat_id: $('telegram_chat_id').value.trim() || null,
+        role: (document.querySelector('input[name="role"]:checked') || {}).value || 'user'
+      };
+      const btn = $('saveUserBtn');
+      btn.disabled = true;
+      try {
+        const res = await fetch('/api/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify(data)
+        });
+        const result = await res.json();
+        if (result.success) {
+          closeModal();
+          ERP.toast(id ? 'บันทึกการแก้ไขแล้ว' : 'เพิ่มผู้ใช้งานแล้ว', 'success');
+          fetchUsers();
+        } else {
+          ERP.toast(result.error || 'เกิดข้อผิดพลาด', 'error');
+        }
+      } catch (err) {
+        ERP.toast('เกิดข้อผิดพลาดในการบันทึก', 'error');
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    function showHowToGetLineId() {
+      alert(
+        "💬 วิธีหา LINE User ID:\n\n" +
+        "1. แอดไลน์บอทของระบบเป็นเพื่อน\n" +
+        "2. พิมพ์ข้อความอะไรก็ได้ส่งให้บอท (เช่น 'ขอไอดี' หรือ 'hello')\n" +
+        "3. บอทจะตอบกลับเป็น LINE User ID ของคุณทันที (ขึ้นต้นด้วยตัว U ยาวๆ)\n" +
+        "4. คัดลอก ID นั้นมาใส่ในช่องนี้เพื่อบันทึกและเชื่อมต่อระบบ"
+      );
+    }
+
+    function showHowToGetTelegramId() {
+      alert(
+        "💬 วิธีหา Telegram Chat ID:\n\n" +
+        "1. แอดบอทของระบบหรือแอดบอท @userinfobot ใน Telegram\n" +
+        "2. พิมพ์ข้อความหรือส่งคำสั่ง /start ไปยังบอท\n" +
+        "3. บอทจะตอบกลับข้อมูลพร้อมระบุ ID ของคุณ (ตัวเลขยาวๆ เช่น 123456789)\n" +
+        "4. คัดลอกตัวเลข ID นั้นมาใส่ในช่องนี้เพื่อบันทึกและเชื่อมต่อระบบ"
+      );
+    }
+
+    async function postTest(url, userId, channel) {
+      ERP.toast(`กำลังส่งข้อความทดสอบ ${channel}…`);
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ userId })
+        });
+        const result = await res.json();
+        if (result.success) ERP.toast(result.message || `ส่ง ${channel} สำเร็จ`, 'success');
+        else ERP.toast(`ส่ง ${channel} ล้มเหลว: ${result.error || 'ไม่ทราบสาเหตุ'}`, 'error');
+      } catch (err) {
+        ERP.toast('เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์', 'error');
+      }
+    }
+    const testLine = userId => postTest('/api/users/test-line', userId, 'LINE');
+    const testTelegram = userId => postTest('/api/users/test-telegram', userId, 'Telegram');
+
+    async function resetUserPassword(userId) {
+      const user = allUsers.find(u => String(u.id) === String(userId));
+      const fullname = user ? user.fullname : '';
+      if (!confirm(`ต้องการสร้างรหัสผ่านชั่วคราวแบบสุ่มสำหรับ ${fullname} หรือไม่?`)) return;
+      try {
+        const res = await fetch(`/api/users/${encodeURIComponent(userId)}/reset-password`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' }
+        });
+        const result = await res.json();
+        if (!result.success) return ERP.toast('รีเซ็ตไม่สำเร็จ: ' + (result.error || 'ไม่ทราบสาเหตุ'), 'error');
+        $('tempPassFor').textContent = `${result.message || 'รีเซ็ตรหัสผ่านแล้ว'} — ${fullname}`;
+        $('tempPassValue').textContent = result.temporaryPassword || '';
+        $('tempPassModal').classList.remove('hidden');
+        $('tempPassModal').classList.add('flex');
+      } catch (err) {
+        ERP.toast('เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์', 'error');
+      }
+    }
+
+    async function copyTempPass() {
+      try {
+        await navigator.clipboard.writeText($('tempPassValue').textContent);
+        ERP.toast('คัดลอกรหัสผ่านแล้ว', 'success');
+      } catch {
+        ERP.toast('คัดลอกไม่สำเร็จ กรุณาเลือกข้อความแล้วคัดลอกเอง', 'error');
+      }
+    }
+
+    function closeTempPass() {
+      $('tempPassValue').textContent = '';
+      $('tempPassModal').classList.add('hidden');
+      $('tempPassModal').classList.remove('flex');
+    }
+
+    const ACTIONS = {
+      edit: editUser,
+      reset: resetUserPassword,
+      'test-line': testLine,
+      'test-telegram': testTelegram,
+      delete: deleteUser
+    };
+
+    $('userList').addEventListener('click', e => {
+      const btn = e.target.closest('button[data-action]');
+      if (btn && ACTIONS[btn.dataset.action]) ACTIONS[btn.dataset.action](btn.dataset.id);
+    });
+
+    $('searchResults').addEventListener('click', e => {
+      const item = e.target.closest('[data-pick]');
+      if (item) selectPersonnel(personMatches[Number(item.dataset.pick)]);
+    });
+
+    document.addEventListener('click', e => {
+      if (!e.target.closest('#personPickSection')) $('searchResults').classList.add('hidden');
+    });
+
+    document.addEventListener('keydown', e => {
+      if (e.key !== 'Escape') return;
+      if (!$('tempPassModal').classList.contains('hidden')) closeTempPass();
+      else if (!$('userModal').classList.contains('hidden')) closeModal();
+    });
+
+    fetchUsers();
+    fetchPersonnel();
+  </script>
 </body>
 
 </html>

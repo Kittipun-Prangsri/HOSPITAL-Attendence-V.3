@@ -1,0 +1,52 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const { countLeaveDays, fiscalYearOf, validateLeaveRequest, summarizeBalance } = require('../src/utils/leave');
+
+test('counts working days only for sick leave', () => {
+  // 2026-10-16 is a Friday → Fri + Mon + Tue
+  assert.equal(countLeaveDays('2026-10-16', '2026-10-20', 'sick'), 3);
+});
+
+test('counts calendar days for maternity leave', () => {
+  assert.equal(countLeaveDays('2026-10-16', '2026-10-20', 'maternity'), 5);
+});
+
+test('half day counts 0.5 and only on a single working day', () => {
+  assert.equal(countLeaveDays('2026-10-16', '2026-10-16', 'personal', 'morning'), 0.5);
+  assert.equal(countLeaveDays('2026-10-17', '2026-10-17', 'personal', 'morning'), 0);
+  assert.equal(countLeaveDays('2026-10-16', '2026-10-19', 'personal', 'morning'), 0);
+});
+
+test('fiscal year starts in October', () => {
+  assert.deepEqual(fiscalYearOf('2026-10-01'), { label: 2570, start: '2026-10-01', end: '2027-09-30' });
+  assert.deepEqual(fiscalYearOf('2026-09-30'), { label: 2569, start: '2025-10-01', end: '2026-09-30' });
+});
+
+test('rejects invalid leave requests', () => {
+  assert.match(validateLeaveRequest({ leave_type: 'x', start_date: '2026-10-16', end_date: '2026-10-16', reason: 'a' }).error, /ประเภท/);
+  assert.match(validateLeaveRequest({ leave_type: 'sick', start_date: '2026-10-20', end_date: '2026-10-16', reason: 'a' }).error, /สิ้นสุด/);
+  assert.match(validateLeaveRequest({ leave_type: 'sick', start_date: '2026-10-17', end_date: '2026-10-18', reason: 'a' }).error, /วันทำการ/);
+  assert.match(validateLeaveRequest({ leave_type: 'sick', start_date: '2026-09-30', end_date: '2026-10-01', reason: 'a' }).error, /ปีงบประมาณ/);
+  assert.match(validateLeaveRequest({ leave_type: 'sick', start_date: '2026-10-16', end_date: '2026-10-16', reason: ' ' }).error, /เหตุผล/);
+  assert.match(validateLeaveRequest({ leave_type: 'sick', start_date: '2026-02-30', end_date: '2026-03-01', reason: 'a' }).error, /วันที่/);
+});
+
+test('accepts a valid request and computes days', () => {
+  const { value } = validateLeaveRequest({ leave_type: 'vacation', start_date: '2026-10-19', end_date: '2026-10-23', reason: ' พักผ่อน ' });
+  assert.equal(value.days, 5);
+  assert.equal(value.reason, 'พักผ่อน');
+  assert.equal(value.halfDay, 'none');
+});
+
+test('balance counts approved as used and pending as reserved', () => {
+  const balance = summarizeBalance([
+    { leave_type: 'vacation', days: '3.0', status: 'approved' },
+    { leave_type: 'vacation', days: '1.5', status: 'pending' },
+    { leave_type: 'vacation', days: '2.0', status: 'rejected' },
+    { leave_type: 'other', days: '1.0', status: 'approved' }
+  ]);
+  assert.equal(balance.vacation.used, 3);
+  assert.equal(balance.vacation.pending, 1.5);
+  assert.equal(balance.vacation.remaining, 5.5);
+  assert.equal(balance.other.remaining, null);
+});

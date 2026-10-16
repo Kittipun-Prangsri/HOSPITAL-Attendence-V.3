@@ -1,4 +1,5 @@
 const { pool, hosofficePool } = require('../config/db');
+const { approvedLeaveMap, leaveFor } = require('../services/leaveCalendar');
 
 exports.getData = async (req, res) => {
   try {
@@ -164,6 +165,24 @@ exports.getData = async (req, res) => {
 
     const [serviceWorkData] = await hosofficePool.query(serviceWorkQuery, serviceWorkParams);
 
+    // 3b. Approved leave requests from the in-app leave module
+    const appLeaves = await approvedLeaveMap(targetDateStr, targetDateStr);
+    if (appLeaves.size) {
+      const listed = new Set(serviceWorkData.map(s => s.name));
+      employees.forEach(e => {
+        const lv = leaveFor(appLeaves, [e.id], targetDateStr);
+        if (!lv) return;
+        const label = lv.halfDay !== 'none' ? `${lv.label} (ครึ่งวัน${lv.halfDay === 'morning' ? 'เช้า' : 'บ่าย'})` : lv.label;
+        if (e.status === 'none') {
+          e.status = 'leave';
+          e.leave_status = label;
+        }
+        if (!listed.has(e.name)) {
+          serviceWorkData.push({ name: e.name, dept: e.dept, morning: lv.halfDay === 'afternoon' ? null : label, afternoon: lv.halfDay === 'morning' ? null : label });
+        }
+      });
+    }
+
     // 4. Count failed face-scan attempts for the day
     let faceFailQuery = `
       SELECT COUNT(*) as failCount
@@ -243,6 +262,7 @@ async function syncIncidentsForMonth(year, month) {
   for (const l of leaves) {
     leavesMap[l.hr_person_id] = l;
   }
+  const appLeaves = await approvedLeaveMap(`${targetMonth}-01`, `${targetMonth}-${String(daysInMonth).padStart(2, '0')}`);
 
   // 4. Get excuses from local DB (using pool)
   const [excuses] = await pool.query(`
@@ -254,7 +274,8 @@ async function syncIncidentsForMonth(year, month) {
   const excusesMap = {};
   for (const e of excuses) {
     if (!excusesMap[e.username]) excusesMap[e.username] = {};
-    const dateKey = e.date instanceof Date ? e.date.toISOString().split('T')[0] : e.date;
+    // Local formatting: toISOString() shifts +07:00 DATE values to the previous day
+    const dateKey = e.date instanceof Date ? e.date.toLocaleDateString('sv-SE') : String(e.date).slice(0, 10);
     excusesMap[e.username][dateKey] = e.status;
   }
 
@@ -267,7 +288,7 @@ async function syncIncidentsForMonth(year, month) {
 
   const incidentsMap = {};
   for (const inc of incidents) {
-    const dateKey = inc.incident_date instanceof Date ? inc.incident_date.toISOString().split('T')[0] : inc.incident_date;
+    const dateKey = inc.incident_date instanceof Date ? inc.incident_date.toLocaleDateString('sv-SE') : String(inc.incident_date).slice(0, 10);
     if (!incidentsMap[inc.employee_id]) incidentsMap[inc.employee_id] = {};
     if (!incidentsMap[inc.employee_id][dateKey]) {
       incidentsMap[inc.employee_id][dateKey] = {};
@@ -300,7 +321,7 @@ async function syncIncidentsForMonth(year, month) {
       const leaveVal = leaveRow ? leaveRow[`di${d}`] : null;
       const isScheduledLeave = leaveVal && leaveVal.trim() !== '' && !/^\d{2}:\d{2}/.test(leaveVal);
 
-      if (isScheduledLeave) {
+      if (isScheduledLeave || leaveFor(appLeaves, [fingleId, cid], dateStr)) {
         continue;
       }
 
@@ -313,7 +334,7 @@ async function syncIncidentsForMonth(year, month) {
         const isLate = (sh > 8) || (sh === 8 && sm >= 31);
 
         if (isLate) {
-          const excuseStatus = excusesMap[cid]?.[dateStr];
+          const excuseStatus = excusesMap[fingleId]?.[dateStr] || excusesMap[cid]?.[dateStr];
           const currentStatus = incidentsMap[fingleId]?.[dateStr]?.['LATE'];
 
           let status = 'PENDING';
@@ -328,7 +349,7 @@ async function syncIncidentsForMonth(year, month) {
       } else {
         // No check-in
         if (templateId === 2 || !isWeekend) {
-          const excuseStatus = excusesMap[cid]?.[dateStr];
+          const excuseStatus = excusesMap[fingleId]?.[dateStr] || excusesMap[cid]?.[dateStr];
           const currentStatus = incidentsMap[fingleId]?.[dateStr]?.['ABSENT'];
 
           let status = 'PENDING';
@@ -453,20 +474,34 @@ exports.getMonthlyReport = async (req, res) => {
     `, [targetMonth]);
 
     const leavesCountMap = {};
+    const leaveDaysByPerson = {};
     for (const l of leaves) {
-      let count = 0;
+      const days = new Set();
       for (let d = 1; d <= 31; d++) {
         const val = l[`di${d}`];
         if (val && val.trim() !== '' && !/^\d{2}:\d{2}/.test(val)) {
-          count++;
+          days.add(d);
         }
       }
-      leavesCountMap[l.hr_person_id] = count;
+      leavesCountMap[l.hr_person_id] = days.size;
+      leaveDaysByPerson[l.hr_person_id] = days;
     }
+
+    // Add approved in-app leave days not already recorded in HOSoffice (avoids double counting)
+    const daysInMonth = new Date(yearNum, monthNum, 0).getDate();
+    const appLeaves = await approvedLeaveMap(`${targetMonth}-01`, `${targetMonth}-${String(daysInMonth).padStart(2, '0')}`);
+    const extraLeaveDays = person => {
+      let extra = 0;
+      const known = leaveDaysByPerson[person.ID] || new Set();
+      for (let d = 1; d <= daysInMonth; d++) {
+        if (!known.has(d) && leaveFor(appLeaves, [person.id], `${targetMonth}-${String(d).padStart(2, '0')}`)) extra++;
+      }
+      return extra;
+    };
 
     // Merge leaves count into reportData
     const finalReport = reportData.map(person => {
-      const leaveCount = leavesCountMap[person.ID] || 0;
+      const leaveCount = (leavesCountMap[person.ID] || 0) + (appLeaves.size ? extraLeaveDays(person) : 0);
       const daysPresent = Number(person.daysPresent || 0);
       const lateCount = Number(person.lateCount || 0);
       const absentCount = Number(person.absentCount || 0);

@@ -1,11 +1,19 @@
 const { pool, hosofficePool } = require('../config/db');
 const NotificationService = require('../services/notificationService');
+const { approvedLeaveMap, leaveFor } = require('../services/leaveCalendar');
 
 // Format past date helper
 function getPastDateString(daysAgo) {
   const d = new Date();
   d.setDate(d.getDate() - daysAgo);
-  return d.toISOString().split('T')[0];
+  return localDateKey(d);
+}
+
+// DATE columns come back as local-midnight Date objects (pool timezone +07:00);
+// toISOString() would shift them to the previous day, so format in local time.
+function localDateKey(value) {
+  if (value instanceof Date) return value.toLocaleDateString('sv-SE');
+  return String(value).slice(0, 10);
 }
 
 /**
@@ -30,12 +38,14 @@ exports.getExcuses = async (req, res) => {
     if (rows.length > 0) {
       const usernames = rows.map(r => r.username);
       const [personRows] = await hosofficePool.query(
-        "SELECT HR_CID as username, CONCAT(HR_FNAME, ' ', HR_LNAME) as real_fullname FROM hr_person WHERE HR_CID IN (?)",
-        [usernames]
+        "SELECT HR_CID as cid, FINGLE_ID as fingle_id, CONCAT(HR_FNAME, ' ', HR_LNAME) as real_fullname FROM hr_person WHERE HR_CID IN (?) OR FINGLE_ID IN (?)",
+        [usernames, usernames]
       );
+      // excuses.username holds the session username (FINGLE_ID, or HR_CID when no FINGLE_ID)
       const nameMap = {};
       personRows.forEach(p => {
-        nameMap[p.username] = p.real_fullname;
+        if (p.cid) nameMap[p.cid] = p.real_fullname;
+        if (p.fingle_id) nameMap[p.fingle_id] = p.real_fullname;
       });
       rows.forEach(r => {
         if (nameMap[r.username]) {
@@ -136,7 +146,7 @@ exports.updateExcuse = async (req, res) => {
 exports.reviewExcuse = async (req, res) => {
   const { id, status, admin_comment } = req.body;
   
-  if (!id || !status) {
+  if (!id || !['approved', 'rejected'].includes(status)) {
     return res.status(400).json({ success: false, error: 'ข้อมูลไม่ครบถ้วนสำหรับการอนุมัติ' });
   }
   
@@ -151,7 +161,7 @@ exports.reviewExcuse = async (req, res) => {
     const [rows] = await pool.query('SELECT username, date, issue_type FROM attendance_excuses WHERE id = ?', [id]);
     if (rows.length > 0) {
       const excuse = rows[0];
-      const [userRows] = await hosofficePool.query('SELECT LINE_YOUR_USER_ID as line_user_id, TELEGRAM_CHAT_ID as telegram_chat_id, CONCAT(HR_FNAME, \' \', HR_LNAME) as fullname FROM hr_person WHERE HR_CID = ?', [excuse.username]);
+      const [userRows] = await hosofficePool.query('SELECT LINE_YOUR_USER_ID as line_user_id, TELEGRAM_CHAT_ID as telegram_chat_id, CONCAT(HR_FNAME, \' \', HR_LNAME) as fullname FROM hr_person WHERE HR_CID = ? OR FINGLE_ID = ? LIMIT 1', [excuse.username, excuse.username]);
       if (userRows.length > 0) {
         const { line_user_id, telegram_chat_id, fullname } = userRows[0];
         
@@ -241,7 +251,7 @@ exports.sendReminders = async (req, res) => {
   try {
     for (const c of candidates) {
       // Find notification IDs of candidate
-      const [userRows] = await hosofficePool.query('SELECT LINE_YOUR_USER_ID as line_user_id, TELEGRAM_CHAT_ID as telegram_chat_id FROM hr_person WHERE HR_CID = ?', [c.username]);
+      const [userRows] = await hosofficePool.query('SELECT LINE_YOUR_USER_ID as line_user_id, TELEGRAM_CHAT_ID as telegram_chat_id FROM hr_person WHERE HR_CID = ? OR FINGLE_ID = ? LIMIT 1', [c.username, c.username]);
       if (userRows.length > 0) {
         const { line_user_id, telegram_chat_id } = userRows[0];
         const thaiIssue = c.issue_type === 'late' ? 'มาสาย' : 'ขาดงาน / ไม่แสกนเข้างาน';
@@ -291,7 +301,7 @@ exports.compileReminderCandidates = async () => {
   );
   const excusesMap = {};
   excuses.forEach(ex => {
-    const key = `${ex.username}_${ex.date.toISOString().split('T')[0]}`;
+    const key = `${ex.username}_${localDateKey(ex.date)}`;
     excusesMap[key] = ex.status;
   });
 
@@ -302,7 +312,7 @@ exports.compileReminderCandidates = async () => {
   );
   const scansMap = {};
   scans.forEach(s => {
-    scansMap[`${s.EmployeeID}_${s.AccessDate}`] = s.time_in;
+    scansMap[`${s.EmployeeID}_${localDateKey(s.AccessDate)}`] = s.time_in;
   });
 
   const [scheduleRows] = await pool.query(
@@ -314,6 +324,8 @@ exports.compileReminderCandidates = async () => {
 
   const remindersList = [];
   const todayObj = new Date();
+  // People on approved in-app leave are not asked for an excuse
+  const appLeaves = await approvedLeaveMap(startStr, endStr);
   
   // 4. Evaluate each user for each day in past 7 days
   for (let i = 7; i >= 1; i--) {
@@ -323,10 +335,10 @@ exports.compileReminderCandidates = async () => {
     
     for (const user of users) {
       const shift = scheduleMap.get(`${user.employee_id}_${targetDateStr}`);
-      if (shift) {
-        // Person is scheduled to work! Let's check their scan
-        const key = `${user.username}_${targetDateStr}`;
-        const scanTime = scansMap[key];
+      if (shift && !leaveFor(appLeaves, [user.employee_id, user.username], targetDateStr)) {
+        // Person is scheduled to work! Scans are keyed by FINGLE_ID (employee_id);
+        // excuses by the session username, which is FINGLE_ID or HR_CID.
+        const scanTime = scansMap[`${user.employee_id}_${targetDateStr}`];
         
         let exceptionType = null;
         if (!scanTime) {
@@ -337,7 +349,7 @@ exports.compileReminderCandidates = async () => {
         
         if (exceptionType) {
           // Check if they have an approved excuse
-          const excuseStatus = excusesMap[key];
+          const excuseStatus = excusesMap[`${user.employee_id}_${targetDateStr}`] || excusesMap[`${user.username}_${targetDateStr}`];
           if (excuseStatus !== 'approved') {
             remindersList.push({
               username: user.username,

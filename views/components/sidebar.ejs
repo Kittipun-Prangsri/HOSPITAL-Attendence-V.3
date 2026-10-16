@@ -1,137 +1,86 @@
 <%
   const route = typeof activeRoute !== 'undefined' ? activeRoute : '/';
-  const isAdmin = locals.RBAC_ENABLED === false || (locals.user && (user.role === 'admin' || user.role === 'super'));
-  const isSuper = locals.RBAC_ENABLED === false || (locals.user && user.role === 'super');
-  const isDepartmentRoute = route.startsWith('/department/');
-  const departments = [
-    { id: 'srt', name: 'ประกันสุขภาพยุทธศาสตร์', icon: 'bi-clipboard2-data' },
-    { id: 'gen', name: 'บริหารทั่วไป', icon: 'bi-briefcase' },
-    { id: 'pri', name: 'บริการด้านปฐมภูมิฯ', icon: 'bi-house-heart' },
-    { id: 'pha', name: 'เภสัชกรรมฯ', icon: 'bi-capsule' },
-    { id: 'dig', name: 'สุขภาพดิจิทัล', icon: 'bi-pc-display' },
-    { id: 'nur', name: 'การพยาบาล', icon: 'bi-heart-pulse' },
-    { id: 'den', name: 'ทันตกรรม', icon: 'bi-bandaid' },
-    { id: 'medtech', name: 'เทคนิคการแพทย์', icon: 'bi-eyedropper' },
-    { id: 'rehab', name: 'เวชกรรมฟื้นฟู', icon: 'bi-person-wheelchair' },
-    { id: 'altmed', name: 'แพทย์แผนไทยฯ', icon: 'bi-flower1' },
-    { id: 'rad', name: 'รังสีวิทยา', icon: 'bi-x-diamond' },
-    { id: 'psy', name: 'จิตเวชและยาเสพติด', icon: 'bi-person-hearts' },
-    { id: 'med', name: 'การแพทย์', icon: 'bi-clipboard2-pulse' }
-  ];
+  const navRole = locals.RBAC_ENABLED === false ? 'super' : (locals.user && user.role ? user.role : 'staff');
+  const sections = locals.NAV_SECTIONS || [];
+  const allowed = access => (locals.navCanAccess ? navCanAccess(access, navRole) : access === 'all');
+  const fullname = locals.user && user.fullname ? user.fullname : 'ผู้ใช้งาน';
+  const roleMeta = {
+    super: { label: 'ผู้ดูแลระบบสูงสุด', cls: 'bg-brand-400/20 text-brand-200' },
+    admin: { label: 'ผู้ดูแลระบบ', cls: 'bg-amber-400/20 text-amber-200' }
+  }[navRole] || { label: 'เจ้าหน้าที่', cls: 'bg-white/10 text-slate-300' };
 %>
+<%# ERP shell stylesheet is linked here so every page picks it up after its own CSS %>
+<link rel="stylesheet" href="/css/erp.css" />
 
-<nav class="sidebar" id="sidebar" aria-label="เมนูหลัก">
-  <button type="button" class="sb-toggle-btn" onclick="toggleGlobalSidebar()"
-    aria-label="ย่อหรือขยายเมนูนำทาง" aria-controls="sidebar" aria-expanded="true">
-    <i class="bi bi-layout-sidebar-inset" aria-hidden="true"></i>
-  </button>
-
-  <a class="sb-logo" href="/" aria-label="โรงพยาบาลคลองหาด หน้าหลัก">
-    <span class="sb-logo-icon">
-      <img src="/images/LOGO%20KHH.jpg" alt="" />
+<nav class="erp erp-sidebar" id="sidebar" aria-label="เมนูหลัก">
+  <a href="/" class="flex h-14 shrink-0 items-center gap-3 border-b border-white/10 px-4" aria-label="โรงพยาบาลคลองหาด หน้าหลัก">
+    <span class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-md bg-white ring-1 ring-white/20">
+      <img src="/images/LOGO%20KHH.jpg" alt="" class="h-full w-full object-cover" />
     </span>
-    <span class="sb-brand-copy">
-      <span class="sb-brand-name">โรงพยาบาลคลองหาด</span>
-      <small>ระบบบริหารเวลาปฏิบัติงาน</small>
+    <span class="erp-hide-collapsed min-w-0 leading-tight">
+      <span class="block truncate text-[13px] font-semibold text-white">KHH · HRM</span>
+      <span class="block truncate text-2xs text-plum-300/70">โรงพยาบาลคลองหาด</span>
     </span>
   </a>
 
-  <div class="sb-nav">
-    <div class="sb-sec">ภาพรวม</div>
-    <a href="/" class="sb-link <%= route === '/' ? 'active' : '' %>" <%- route === '/' ? 'aria-current="page"' : '' %>>
-      <i class="bi bi-grid-1x2-fill" aria-hidden="true"></i><span>แดชบอร์ด</span>
-    </a>
-
-    <div class="sb-sec">งานประจำ</div>
-    <a href="/schedule" class="sb-link <%= route === '/schedule' ? 'active' : '' %>" <%- route === '/schedule' ? 'aria-current="page"' : '' %>>
-      <i class="bi bi-calendar-check" aria-hidden="true"></i><span>ตารางเวรของฉัน</span>
-    </a>
-    <a href="/excuses" class="sb-link <%= route === '/excuses' ? 'active' : '' %>" <%- route === '/excuses' ? 'aria-current="page"' : '' %>>
-      <i class="bi bi-clipboard2-pulse" aria-hidden="true"></i><span>แจ้งสาเหตุการลงเวลา</span>
-    </a>
-
-    <% if (isAdmin) { %>
-      <div class="sb-sec">บุคลากรและเวลา</div>
-      <a href="/attendance" class="sb-link <%= route === '/attendance' ? 'active' : '' %>" <%- route === '/attendance' ? 'aria-current="page"' : '' %>>
-        <i class="bi bi-person-check-fill" aria-hidden="true"></i><span>ตรวจสอบเข้า–ออกงาน</span>
-      </a>
-      <a href="/personnel" class="sb-link <%= route === '/personnel' ? 'active' : '' %>" <%- route === '/personnel' ? 'aria-current="page"' : '' %>>
-        <i class="bi bi-people-fill" aria-hidden="true"></i><span>ข้อมูลบุคลากร</span>
-      </a>
-      <a href="/scheduling" class="sb-link <%= route === '/scheduling' ? 'active' : '' %>" <%- route === '/scheduling' ? 'aria-current="page"' : '' %>>
-        <i class="bi bi-calendar2-week-fill" aria-hidden="true"></i><span>จัดตารางเวร</span>
-      </a>
-
-      <div class="sb-sec">รายงาน</div>
-      <a href="/reports" class="sb-link <%= route === '/reports' ? 'active' : '' %>" <%- route === '/reports' ? 'aria-current="page"' : '' %>>
-        <i class="bi bi-graph-up-arrow" aria-hidden="true"></i><span>ภาพรวมการวิเคราะห์</span>
-      </a>
-      <a href="/report/daily" class="sb-link <%= route === '/report/daily' ? 'active' : '' %>" <%- route === '/report/daily' ? 'aria-current="page"' : '' %>>
-        <i class="bi bi-bar-chart-line" aria-hidden="true"></i><span>รายงานรายวัน</span>
-      </a>
-      <a href="/report/monthly" class="sb-link <%= route === '/report/monthly' ? 'active' : '' %>" <%- route === '/report/monthly' ? 'aria-current="page"' : '' %>>
-        <i class="bi bi-calendar3" aria-hidden="true"></i><span>รายงานรายเดือน</span>
-      </a>
-      <a href="/report/hours" class="sb-link <%= route === '/report/hours' ? 'active' : '' %>" <%- route === '/report/hours' ? 'aria-current="page"' : '' %>>
-        <i class="bi bi-clock-history" aria-hidden="true"></i><span>สรุปชั่วโมงทำงาน</span>
-      </a>
-
-      <details class="sb-group" <%= isDepartmentRoute ? 'open' : '' %>>
-        <summary class="sb-group-summary <%= isDepartmentRoute ? 'active' : '' %>">
-          <i class="bi bi-diagram-3-fill" aria-hidden="true"></i>
-          <span>ข้อมูลตามกลุ่มงาน</span>
-          <i class="bi bi-chevron-down sb-group-chevron" aria-hidden="true"></i>
-        </summary>
-        <div class="sb-group-links">
-          <% departments.forEach(department => { const departmentRoute = '/department/' + department.id; %>
-            <a href="<%= departmentRoute %>" class="sb-link sb-link-nested <%= route === departmentRoute ? 'active' : '' %>"
-              <%- route === departmentRoute ? 'aria-current="page"' : '' %>>
-              <i class="bi <%= department.icon %>" aria-hidden="true"></i><span><%= department.name %></span>
-            </a>
-          <% }); %>
-        </div>
-      </details>
-    <% } %>
-
-    <% if (isSuper) { %>
-      <div class="sb-sec">บริหารระบบ</div>
-      <a href="/admin/users" class="sb-link <%= route === '/admin/users' ? 'active' : '' %>" <%- route === '/admin/users' ? 'aria-current="page"' : '' %>>
-        <i class="bi bi-person-gear" aria-hidden="true"></i><span>จัดการผู้เข้าใช้</span>
-      </a>
-      <a href="/admin/permissions" class="sb-link <%= route === '/admin/permissions' ? 'active' : '' %>" <%- route === '/admin/permissions' ? 'aria-current="page"' : '' %>>
-        <i class="bi bi-shield-lock-fill" aria-hidden="true"></i><span>ระดับสิทธิ์</span>
-      </a>
-      <a href="/flex-preview" class="sb-link <%= route === '/flex-preview' ? 'active' : '' %>" <%- route === '/flex-preview' ? 'aria-current="page"' : '' %>>
-        <i class="bi bi-line" aria-hidden="true"></i><span>จำลอง LINE Flex</span>
-      </a>
-    <% } %>
+  <div class="erp-nav flex-1 overflow-y-auto overflow-x-hidden py-2">
+    <% sections.forEach(section => {
+         const items = section.items.filter(i => allowed(i.access));
+         const showGroup = section.group && allowed(section.group.access);
+         if (!items.length && !showGroup) return; %>
+      <div class="erp-sec"><%= section.title %></div>
+      <% items.forEach(item => { const active = locals.navIsActive ? navIsActive(item, route) : route === item.href; %>
+        <a href="<%= item.href %>" class="erp-nav-link <%= active ? 'active' : '' %>" title="<%= item.label %>"
+          data-nav-label="<%= item.label %>" data-nav-section="<%= section.title %>" <%- active ? 'aria-current="page"' : '' %>>
+          <i class="bi <%= item.icon %>" aria-hidden="true"></i>
+          <span class="erp-hide-collapsed truncate"><%= item.label %></span>
+        </a>
+      <% }); %>
+      <% if (showGroup) {
+           const groupActive = section.group.items.some(i => i.href === route); %>
+        <details class="erp-nav-group" <%= groupActive ? 'open' : '' %>>
+          <summary class="<%= groupActive ? 'active' : '' %>" title="<%= section.group.label %>">
+            <i class="bi <%= section.group.icon %> w-5 shrink-0 text-center text-[15px]" aria-hidden="true"></i>
+            <span class="erp-hide-collapsed flex-1 truncate"><%= section.group.label %></span>
+            <i class="erp-chevron erp-hide-collapsed bi bi-chevron-down text-xs transition-transform" aria-hidden="true"></i>
+          </summary>
+          <div class="erp-nav-sub">
+            <% section.group.items.forEach(item => { const active = route === item.href; %>
+              <a href="<%= item.href %>" class="erp-nav-link <%= active ? 'active' : '' %>"
+                data-nav-label="<%= item.label %>" data-nav-section="<%= section.group.label %>" <%- active ? 'aria-current="page"' : '' %>>
+                <span class="truncate"><%= item.label %></span>
+              </a>
+            <% }); %>
+          </div>
+        </details>
+      <% } %>
+    <% }); %>
   </div>
 
-  <div class="sb-foot">
-    <div class="sb-user">
-      <div class="sb-av" aria-hidden="true"><%= locals.user && user.fullname ? user.fullname.charAt(0).toUpperCase() : 'U' %></div>
-      <div class="sb-user-copy">
-        <div class="sb-uname"><%= locals.user && user.fullname ? user.fullname : 'ผู้ใช้งาน' %></div>
-        <div class="sb-urole">
-          <% if (locals.user && user.role === 'super') { %>
-            <span class="badge" style="background-color:#056839;font-size:10px;font-weight:700;">ผู้ดูแลระบบสูงสุด</span>
-          <% } else if (locals.user && user.role === 'admin') { %>
-            <span class="badge bg-danger" style="font-size:10px;font-weight:700;">ผู้ดูแลระบบ</span>
-          <% } else { %>
-            <span class="badge bg-success" style="font-size:10px;font-weight:700;">เจ้าหน้าที่</span>
-          <% } %>
-        </div>
+  <div class="shrink-0 border-t border-white/10 p-3">
+    <div class="flex items-center gap-2.5 rounded-md bg-white/5 p-2">
+      <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-brand-500 text-[13px] font-semibold text-white" aria-hidden="true">
+        <%= fullname.charAt(0).toUpperCase() %>
       </div>
-      <a href="/logout" class="sb-logout" title="ออกจากระบบ" aria-label="ออกจากระบบ">
+      <div class="erp-hide-collapsed min-w-0 flex-1">
+        <div class="truncate text-xs font-medium text-white"><%= fullname %></div>
+        <span class="erp-badge mt-0.5 <%= roleMeta.cls %>"><%= roleMeta.label %></span>
+      </div>
+      <a href="/logout" class="erp-hide-collapsed erp-icon-btn h-8 w-8 text-slate-400 hover:bg-white/10 hover:text-white" title="ออกจากระบบ" aria-label="ออกจากระบบ">
         <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
       </a>
     </div>
+    <button type="button" onclick="toggleGlobalSidebar()" aria-controls="sidebar" aria-expanded="true"
+      class="mt-2 hidden w-full items-center justify-center gap-2 rounded-md py-1.5 text-2xs text-slate-400 transition-colors hover:bg-white/5 hover:text-white lg:flex"
+      aria-label="ย่อหรือขยายเมนูนำทาง">
+      <i class="bi bi-chevron-bar-left" aria-hidden="true"></i><span class="erp-hide-collapsed">ย่อเมนู</span>
+    </button>
   </div>
 </nav>
 
-<div class="sb-overlay" id="sidebar-overlay" onclick="toggleGlobalSidebar()" aria-hidden="true"></div>
+<div class="erp-overlay fixed inset-0 z-[998] bg-slate-900/50 backdrop-blur-sm" id="sidebar-overlay" onclick="toggleGlobalSidebar()" aria-hidden="true"></div>
 
-<button type="button" id="scrollToTopBtn" class="scroll-to-top" onclick="scrollToTop()"
+<button type="button" id="scrollToTopBtn" class="erp erp-scroll-top" onclick="scrollToTop()"
   title="กลับไปข้างบน" aria-label="กลับไปด้านบนของหน้า">
   <i class="bi bi-chevron-up" aria-hidden="true"></i>
 </button>

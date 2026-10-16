@@ -7,6 +7,9 @@ const personnelController = require('../controllers/personnelController');
 const scheduleController = require('../controllers/scheduleController');
 const attendanceController = require('../controllers/attendanceController');
 const excuseController = require('../controllers/excuseController');
+const leaveController = require('../controllers/leaveController');
+const settingsController = require('../controllers/settingsController');
+const inboxController = require('../controllers/inboxController');
 
 // Data endpoints
 router.get('/data', checkAuth, apiController.getData);
@@ -52,5 +55,20 @@ router.delete('/excuses/:id', checkAuth, excuseController.deleteExcuse);
 router.post('/excuses/review', checkAuth, checkAdmin, excuseController.reviewExcuse);
 router.get('/excuses/reminders', checkAuth, checkAdmin, excuseController.getRemindersList);
 router.post('/excuses/send-reminders', checkAuth, checkAdmin, excuseController.sendReminders);
+
+// Leave management
+router.get('/leaves/types', checkAuth, leaveController.getTypes);
+router.get('/leaves/balance', checkAuth, leaveController.getBalance);
+router.get('/leaves', checkAuth, leaveController.listLeaves);
+router.post('/leaves', checkAuth, leaveController.createLeave);
+router.post('/leaves/:id(\\d+)/cancel', checkAuth, leaveController.cancelLeave);
+router.post('/leaves/:id(\\d+)/review', checkAuth, leaveController.reviewLeave);
+
+// Shared work settings (read: everyone, write: admin/super — enforced in controller)
+router.get('/settings', checkAuth, settingsController.getSettings);
+router.put('/settings', checkAuth, settingsController.saveSettings);
+
+// Topbar notification inbox
+router.get('/notifications/inbox', checkAuth, inboxController.getInbox);
 
 module.exports = router;

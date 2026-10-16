@@ -2,243 +2,214 @@
 <html lang="th">
 
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>
-    <%= deptName %>
-  </title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
-  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&display=swap"
-    rel="stylesheet" />
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/style.css" />
-  <link rel="stylesheet" href="/css/ui-refresh.css" />
-  <style>
-    .stat-row {
-      display: flex;
-      gap: 16px;
-      margin-bottom: 24px;
-      flex-wrap: wrap;
-    }
-
-    .stat-box {
-      background: white;
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 20px;
-      flex: 1;
-      min-width: 200px;
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
-    }
-
-    .stat-ico {
-      width: 48px;
-      height: 48px;
-      border-radius: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 24px;
-    }
-
-    .stat-val {
-      font-size: 24px;
-      font-weight: 800;
-      color: var(--dark);
-      line-height: 1;
-      margin-bottom: 4px;
-    }
-
-    .stat-lbl {
-      font-size: 13px;
-      color: var(--muted);
-      font-weight: 500;
-    }
-
-    .s1 {
-      background: #EEF2FF;
-      color: #4F46E5;
-    }
-
-    .s2 {
-      background: #ECFDF5;
-      color: #059669;
-    }
-
-    .s3 {
-      background: #FFFBEB;
-      color: #D97706;
-    }
-
-    .s4 {
-      background: #FEF2F2;
-      color: #DC2626;
-    }
-  </style>
+  <%- include("components/erp-head", { title: deptName || 'กลุ่มงาน' }) %>
 </head>
 
-<body>
+<body class="erp-page">
   <%- include("components/sidebar") %>
-    <div class="main" role="main">
-      <%- include("components/topbar") %>
-        <div class="page">
-          <section class="workspace-hero" aria-labelledby="department-heading">
-            <div>
-              <span class="workspace-eyebrow"><i class="bi bi-diagram-3-fill"></i> กลุ่มงาน</span>
-              <h1 id="department-heading"><%= deptName %></h1>
-              <p>สรุปข้อมูลการลงเวลาและรายชื่อบุคลากรประจำกลุ่มงาน</p>
-            </div>
-          </section>
+  <div class="main" role="main">
+    <%- include("components/topbar") %>
 
-          <!-- STAT ROW -->
-          <div class="stat-row">
-            <div class="stat-box">
-              <div class="stat-ico s1"><i class="bi bi-people-fill"></i></div>
-              <div>
-                <div class="stat-val" id="totalStaff">0</div>
-                <div class="stat-lbl">บุคลากรในกลุ่มงาน</div>
-              </div>
-            </div>
-            <div class="stat-box">
-              <div class="stat-ico s2"><i class="bi bi-check-circle-fill"></i></div>
-              <div>
-                <div class="stat-val" id="totalIn">0</div>
-                <div class="stat-lbl">เข้างานแล้ววันนี้</div>
-              </div>
-            </div>
-            <div class="stat-box">
-              <div class="stat-ico s3"><i class="bi bi-clock-fill"></i></div>
-              <div>
-                <div class="stat-val" id="totalLate">0</div>
-                <div class="stat-lbl">มาสาย</div>
-              </div>
-            </div>
-            <div class="stat-box">
-              <div class="stat-ico s4"><i class="bi bi-x-circle-fill"></i></div>
-              <div>
-                <div class="stat-val" id="totalAbsent">0</div>
-                <div class="stat-lbl">ขาดงาน / ยังไม่มา</div>
-              </div>
-            </div>
-          </div>
-
-          <!-- TABLE -->
-          <div class="table-card">
-            <div class="table-toolbar">
-              <div>
-                <div class="card-title">รายชื่อและการลงเวลาวันนี้</div>
-              </div>
-              <div>
-                <input type="text" id="searchInput" class="form-control form-control-sm" placeholder="ค้นหาชื่อ..."
-                  oninput="applyFilter()" style="width: 200px;">
-              </div>
-            </div>
-            <div class="data-table-wrap">
-              <table class="att-tbl">
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th>บุคลากร</th>
-                    <th>กะ</th>
-                    <th>สถานะ</th>
-                    <th>เวลาเข้า</th>
-                    <th>เวลาออก</th>
-                  </tr>
-                </thead>
-                <tbody id="tableBody">
-                  <tr>
-                    <td colspan="6" class="text-center" style="padding: 30px; color: var(--muted);">กำลังโหลดข้อมูล...
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-
+    <div class="erp px-4 py-5 lg:px-6">
+      <section class="mb-5 flex flex-wrap items-end justify-between gap-4" aria-labelledby="department-heading">
+        <div>
+          <p class="text-xs text-slate-500"><i class="bi bi-diagram-3" aria-hidden="true"></i> ข้อมูลตามกลุ่มงาน</p>
+          <h2 id="department-heading" class="text-xl font-semibold text-slate-900"><%= deptName %></h2>
         </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <div class="flex items-center rounded-md border border-slate-300 bg-white">
+            <button type="button" class="erp-icon-btn h-9 rounded-r-none" onclick="shiftDate(-1)" aria-label="วันก่อนหน้า"><i class="bi bi-chevron-left" aria-hidden="true"></i></button>
+            <input type="date" id="dateInput" class="h-9 border-x border-slate-200 bg-transparent px-2 text-[13px] text-slate-800 outline-none" style="font-family:inherit;" onchange="loadData()" aria-label="เลือกวันที่">
+            <button type="button" class="erp-icon-btn h-9 rounded-l-none" onclick="shiftDate(1)" aria-label="วันถัดไป"><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+          </div>
+          <button type="button" class="erp-btn erp-btn-secondary" onclick="setToday()">วันนี้</button>
+          <button type="button" class="erp-btn erp-btn-secondary" onclick="exportRecords()"><i class="bi bi-download" aria-hidden="true"></i> ส่งออก CSV</button>
+        </div>
+      </section>
+
+      <section class="erp-panel mb-5 grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 xl:divide-x xl:divide-slate-100" aria-label="สรุปกลุ่มงาน">
+        <% [['totalStaff','บุคลากรในกลุ่มงาน','bi-people','text-brand-600'],['totalIn','มาปฏิบัติงาน','bi-person-check','text-emerald-600'],
+            ['totalLate','มาสาย','bi-alarm','text-amber-600'],['totalLeave','ลา / ไปราชการ','bi-calendar-x','text-violet-600'],
+            ['totalAbsent','ยังไม่บันทึกเวลา','bi-question-circle','text-slate-500']].forEach(([id, label, icon, tone]) => { %>
+          <div class="p-4">
+            <div class="flex items-center justify-between text-xs text-slate-500"><span class="truncate"><%= label %></span><i class="bi <%= icon %> <%= tone %>" aria-hidden="true"></i></div>
+            <div class="mt-1 flex items-baseline gap-1.5">
+              <span id="<%= id %>" class="font-mono text-2xl font-semibold tabular-nums text-slate-900">–</span>
+              <% if (id === 'totalIn') { %><span id="rateSub" class="text-2xs text-slate-400"></span><% } %>
+            </div>
+          </div>
+        <% }); %>
+      </section>
+
+      <section class="erp-panel overflow-hidden" aria-label="รายชื่อและการลงเวลา">
+        <div class="flex gap-1 overflow-x-auto border-b border-slate-200 px-3" role="tablist" id="statusTabs">
+          <% [['', 'ทั้งหมด'], ['in', 'กำลังทำงาน'], ['late', 'มาสาย'], ['out', 'ออกงานแล้ว'], ['leave', 'ลา/ราชการ'], ['none', 'ยังไม่บันทึก']].forEach(([value, label], i) => { %>
+            <button type="button" role="tab" class="erp-tab whitespace-nowrap <%= i === 0 ? 'active' : '' %>" data-status="<%= value %>">
+              <%= label %> <span class="rounded bg-slate-100 px-1.5 font-mono text-2xs text-slate-500" data-count="<%= value || 'all' %>">0</span>
+            </button>
+          <% }); %>
+        </div>
+        <div class="flex flex-wrap items-center gap-2 border-b border-slate-200 p-3">
+          <div class="relative min-w-[220px] flex-1 sm:max-w-sm">
+            <i class="bi bi-search pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden="true"></i>
+            <input type="search" id="searchInput" class="erp-input pl-9" placeholder="ค้นหาชื่อหรือรหัส…" oninput="applyFilter()" aria-label="ค้นหาบุคลากร">
+          </div>
+          <span class="ml-auto text-xs text-slate-500">พบ <span id="rowCount" class="font-semibold text-slate-800">0</span> รายการ</span>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full border-collapse text-left text-[13px]">
+            <thead class="bg-slate-50 text-2xs uppercase tracking-wide text-slate-500">
+              <tr class="border-b border-slate-200">
+                <th class="px-4 py-2.5 font-semibold">บุคลากร</th>
+                <th class="px-3 py-2.5 font-semibold">กะ</th>
+                <th class="px-3 py-2.5 font-semibold">สถานะ</th>
+                <th class="px-3 py-2.5 text-center font-semibold">เข้า</th>
+                <th class="px-3 py-2.5 text-center font-semibold">ออก</th>
+                <th class="px-4 py-2.5 text-right font-semibold">ชั่วโมง</th>
+              </tr>
+            </thead>
+            <tbody id="tableBody" class="divide-y divide-slate-100">
+              <tr><td colspan="6" class="px-4 py-16 text-center text-slate-400"><i class="bi bi-hourglass-split mr-1"></i> กำลังโหลดข้อมูล…</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 bg-slate-50/70 px-4 py-2.5 text-xs text-slate-500">
+          <span id="pagerInfo">แสดง 0 รายการ</span>
+          <nav aria-label="เปลี่ยนหน้า"><ul id="pagination" class="m-0 flex list-none items-center gap-1 p-0"></ul></nav>
+        </div>
+      </section>
     </div>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-      const deptName = "<%= deptName %>";
-      const AV_COLORS = ['#4F46E5', '#059669', '#D97706', '#DC2626', '#7C3AED', '#0891B2', '#DB2777', '#16A34A'];
+  </div>
 
-      let employees = [];
-      let filteredData = [];
+  <script>
+    const deptName = <%- JSON.stringify(deptName || '') %>;
+    const PER_PAGE = 50;
+    const STATUS = {
+      in: ['กำลังทำงาน', 'green'], late: ['มาสาย', 'amber'], out: ['ออกงานแล้ว', 'sky'],
+      leave: ['ลา / ไปราชการ', 'violet'], none: ['ยังไม่บันทึกเวลา', 'slate']
+    };
+    const SHIFT_LABEL = { morning: 'เช้า', afternoon: 'บ่าย', night: 'ดึก' };
+    const $ = id => document.getElementById(id);
+    const esc = ERP.escapeHtml;
+    const key = e => (STATUS[e.status] ? e.status : 'none');
+    const timeOf = v => (v ? String(v).slice(0, 5) : '');
+    const fmt = n => Number(n || 0).toLocaleString('th-TH');
 
-      async function loadData() {
-        try {
-          const res = await fetch('/api/data');
-          if (res.ok) {
-            const db = await res.json();
-            // Filter only employees in THIS department
-            employees = (db.employees || []).filter(e => e.dept === deptName);
+    let employees = [];
+    let filteredData = [];
+    let statusFilter = '';
+    let currentPage = 1;
 
-            calculateStats();
-            applyFilter();
-          }
-        } catch (e) {
-          console.error(e);
-        }
+    function shiftDate(days) {
+      const d = new Date(($('dateInput').value || ERP.todayIso()) + 'T00:00:00');
+      d.setDate(d.getDate() + days);
+      $('dateInput').value = d.toLocaleDateString('sv-SE');
+      loadData();
+    }
+
+    function setToday() {
+      $('dateInput').value = ERP.todayIso();
+      loadData();
+    }
+
+    async function loadData() {
+      if (window.updateTopbarClock) window.updateTopbarClock();
+      const s = (window.loadSettings && window.loadSettings()) || {};
+      const qs = new URLSearchParams({ date: $('dateInput').value });
+      if (s.workStart) qs.set('workStart', s.workStart);
+      if (s.lateMin) qs.set('lateMin', s.lateMin);
+      try {
+        const res = await fetch(`/api/data?${qs}`, { headers: { Accept: 'application/json' } });
+        if (!res.ok) throw new Error(res.status);
+        const db = await res.json();
+        employees = (db.employees || []).filter(e => e.dept === deptName);
+        calculateStats();
+        applyFilter();
+      } catch (err) {
+        console.error(err);
+        $('tableBody').innerHTML = ERP.emptyRow(6, 'โหลดข้อมูลไม่สำเร็จ', 'bi-exclamation-triangle');
       }
+    }
+    const fetchData = loadData;
 
-      function calculateStats() {
-        document.getElementById('totalStaff').textContent = employees.length;
-        document.getElementById('totalIn').textContent = employees.filter(e => e.status === 'in' || e.status === 'out' || e.status === 'late').length;
-        document.getElementById('totalLate').textContent = employees.filter(e => e.status === 'late').length;
-        document.getElementById('totalAbsent').textContent = employees.filter(e => e.status === 'none' || !e.status || e.status === '').length;
+    function calculateStats() {
+      const count = s => employees.filter(e => key(e) === s).length;
+      const came = employees.filter(e => ['in', 'late', 'out'].includes(e.status)).length;
+      const expected = employees.length - count('leave');
+      $('totalStaff').textContent = fmt(employees.length);
+      $('totalIn').textContent = fmt(came);
+      $('rateSub').textContent = expected > 0 ? Math.round((came / expected) * 100) + '%' : '';
+      $('totalLate').textContent = fmt(count('late'));
+      $('totalLeave').textContent = fmt(count('leave'));
+      $('totalAbsent').textContent = fmt(count('none'));
+    }
+
+    function applyFilter() {
+      const q = $('searchInput').value.trim().toLowerCase();
+      const base = employees.filter(e => !q || (e.name || '').toLowerCase().includes(q) || String(e.id || '').includes(q));
+      document.querySelectorAll('[data-count]').forEach(el => {
+        const k = el.dataset.count;
+        el.textContent = fmt(k === 'all' ? base.length : base.filter(e => key(e) === k).length);
+      });
+      filteredData = statusFilter ? base.filter(e => key(e) === statusFilter) : base;
+      currentPage = 1;
+      renderTable();
+    }
+
+    function renderTable() {
+      $('rowCount').textContent = fmt(filteredData.length);
+      currentPage = ERP.pager($('pagination'), {
+        page: currentPage, total: filteredData.length, perPage: PER_PAGE,
+        onChange: p => { currentPage = p; renderTable(); }
+      });
+      const start = (currentPage - 1) * PER_PAGE;
+      const pageData = filteredData.slice(start, start + PER_PAGE);
+      $('pagerInfo').textContent = ERP.pagerText(start, pageData.length, filteredData.length);
+      if (!pageData.length) {
+        $('tableBody').innerHTML = ERP.emptyRow(6, 'ไม่พบข้อมูล');
+        return;
       }
+      $('tableBody').innerHTML = pageData.map(e => {
+        const k = key(e);
+        const label = k === 'leave' && e.leave_status ? e.leave_status : STATUS[k][0];
+        const hours = Number(e.hours) || 0;
+        const tout = e.out && e.out !== e.in ? timeOf(e.out) : '';
+        return `<tr class="hover:bg-slate-50">
+          <td class="px-4 py-2.5">
+            <div class="flex items-center gap-2.5">${ERP.avatar(e.name, e.id)}
+              <div class="min-w-0"><div class="truncate font-medium text-slate-900">${esc(e.name || 'ไม่มีชื่อ')}</div>
+              <div class="font-mono text-2xs text-slate-400">${esc(e.id || '')}</div></div>
+            </div>
+          </td>
+          <td class="px-3 py-2.5 text-xs text-slate-600">${esc(SHIFT_LABEL[e.shift] || e.shift || '—')}</td>
+          <td class="whitespace-nowrap px-3 py-2.5">${ERP.badge(label, STATUS[k][1])}</td>
+          <td class="px-3 py-2.5 text-center font-mono text-xs ${k === 'late' ? 'font-semibold text-amber-700' : 'text-slate-700'}">${esc(timeOf(e.in) || '--:--')}</td>
+          <td class="px-3 py-2.5 text-center font-mono text-xs text-slate-700">${esc(tout || '--:--')}</td>
+          <td class="px-4 py-2.5 text-right font-mono text-xs ${hours ? 'text-slate-800' : 'text-slate-300'}">${hours ? hours.toFixed(1) : '–'}</td>
+        </tr>`;
+      }).join('');
+    }
 
-      function applyFilter() {
-        const keyword = document.getElementById('searchInput').value.toLowerCase();
-        filteredData = employees.filter(e => e.name.toLowerCase().includes(keyword));
-        renderTable();
-      }
+    function exportRecords() {
+      if (!filteredData.length) return ERP.toast('ไม่มีข้อมูลสำหรับส่งออก');
+      const date = $('dateInput').value;
+      ERP.downloadCsv(`department-${date}.csv`,
+        ['วันที่', 'รหัส', 'ชื่อ-นามสกุล', 'กะ', 'สถานะ', 'เวลาเข้า', 'เวลาออก', 'ชั่วโมงทำงาน'],
+        filteredData.map(e => [date, e.id, e.name, SHIFT_LABEL[e.shift] || e.shift || '', STATUS[key(e)][0],
+          timeOf(e.in), e.out && e.out !== e.in ? timeOf(e.out) : '', Number(e.hours) ? Number(e.hours).toFixed(1) : '']));
+    }
 
-      function renderTable() {
-        const tbody = document.getElementById('tableBody');
-        if (filteredData.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="6" class="text-center" style="padding: 30px; color: var(--muted);">ไม่พบข้อมูล</td></tr>';
-          return;
-        }
+    $('statusTabs').addEventListener('click', e => {
+      const tab = e.target.closest('[data-status]');
+      if (!tab) return;
+      statusFilter = tab.dataset.status;
+      document.querySelectorAll('#statusTabs [data-status]').forEach(t => t.classList.toggle('active', t === tab));
+      applyFilter();
+    });
 
-        const STATUS_CHIP = {
-          'in': '<span class="status-chip chip-in"><span class="s-dot dot-in"></span>เข้างาน</span>',
-          'out': '<span class="status-chip chip-out"><span class="s-dot dot-out"></span>ออกงาน</span>',
-          'late': '<span class="status-chip chip-late"><span class="s-dot dot-late"></span>มาสาย</span>',
-          'none': '<span class="status-chip chip-absent"><span class="s-dot dot-absent"></span>ยังไม่มา</span>',
-          '': '<span style="color:var(--muted)">-</span>'
-        };
-
-        tbody.innerHTML = filteredData.map((e, i) => {
-          const color = AV_COLORS[i % AV_COLORS.length];
-          const init = e.name && e.name.length > 0 ? e.name.charAt(0) : '?';
-          const outCls = e.out && e.out !== '' && e.out !== '-' ? 'out' : 'none';
-
-          // Fallback status if empty
-          const stat = e.status || '';
-          const shiftDisplay = (e.shift && e.shift !== '') ? (e.shift === 'morning' ? 'เช้า' : e.shift) : '-';
-
-          return `<tr>
-      <td style="color:var(--muted);font-size:11.5px;">${i + 1}</td>
-      <td>
-        <div style="display:flex;align-items:center;gap:9px;">
-          <div class="av" style="background:${color}; width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:white; font-weight:bold;">${init}</div>
-          <div><div style="font-size:13px;font-weight:600;">${e.name || 'ไม่มีชื่อ'}</div><div style="font-size:11px;color:var(--muted);">${e.id || ''}</div></div>
-        </div>
-      </td>
-      <td><span style="font-weight:500; color:var(--muted);">${shiftDisplay}</span></td>
-      <td>${STATUS_CHIP[stat] || stat}</td>
-      <td><span class="time-tag">${e.in || '-'}</span></td>
-      <td><span class="time-tag ${outCls}">${e.out || '-'}</span></td>
-    </tr>`;
-        }).join('');
-      }
-
-      document.addEventListener('DOMContentLoaded', loadData);
-    </script>
+    $('dateInput').value = ERP.todayIso();
+    loadData();
+  </script>
 </body>
 
 </html>

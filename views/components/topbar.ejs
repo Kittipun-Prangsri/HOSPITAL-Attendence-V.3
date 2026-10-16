@@ -1,99 +1,254 @@
 <%
-  let pageTitle = "Dashboard";
   const currentRoute = typeof activeRoute !== 'undefined' ? activeRoute : '/';
-  
-  if (currentRoute === '/') {
-    pageTitle = "Dashboard";
-  } else if (currentRoute === '/schedule') {
-    pageTitle = "ตารางเวรตัวเอง";
-  } else if (currentRoute === '/excuses') {
-    pageTitle = "แจ้งสาเหตุ / ขาด ลา สาย";
-  } else if (currentRoute === '/attendance') {
-    pageTitle = "บันทึกเข้า-ออกงาน";
-  } else if (currentRoute === '/personnel') {
-    pageTitle = "ข้อมูลบุคลากร";
-  } else if (currentRoute === '/scheduling') {
-    pageTitle = "จัดตารางเวรพยาบาล";
-  } else if (currentRoute === '/reports') {
-    pageTitle = "แดชบอร์ดวิเคราะห์";
-  } else if (currentRoute === '/report/daily') {
-    pageTitle = "รายงานสรุปรายวัน";
-  } else if (currentRoute === '/report/monthly') {
-    pageTitle = "รายงานสรุปรายเดือน";
-  } else if (currentRoute === '/report/hours') {
-    pageTitle = "สรุปชั่วโมงทำงาน";
-  } else if (currentRoute === '/admin/users') {
-    pageTitle = "จัดการผู้เข้าใช้";
-  } else if (currentRoute === '/admin/permissions') {
-    pageTitle = "ตั้งค่าระดับสิทธิ์";
-  } else if (currentRoute.startsWith('/department/')) {
-    pageTitle = "กลุ่มงาน" + (typeof deptName !== 'undefined' && deptName ? deptName : '');
+  const match = locals.navMatch || null;
+  let pageTitle = match ? match.item.label : 'แดชบอร์ด';
+  if (currentRoute.startsWith('/department/')) {
+    pageTitle = typeof deptName !== 'undefined' && deptName ? deptName : 'ข้อมูลตามกลุ่มงาน';
   }
+  const crumbs = [];
+  if (match && currentRoute !== '/') {
+    crumbs.push(match.section);
+    if (match.group) crumbs.push(match.group);
+  }
+  const topbarName = locals.user && user.fullname ? user.fullname : 'ผู้ใช้งาน';
 %>
 
 <!-- TOPBAR -->
-<header class="topbar" role="banner">
-  <div class="d-flex align-items-center gap-3">
-    <button type="button" class="icon-btn me-2 topbar-toggle-btn" onclick="toggleGlobalSidebar()" aria-label="เปิดหรือปิดเมนูนำทาง" aria-controls="sidebar">
-      <i class="bi bi-list"></i>
-    </button>
+<header class="erp erp-topbar" role="banner">
+  <button type="button" class="erp-icon-btn lg:hidden" onclick="toggleGlobalSidebar()" aria-label="เปิดหรือปิดเมนูนำทาง" aria-controls="sidebar">
+    <i class="bi bi-list" aria-hidden="true"></i>
+  </button>
 
-    <script>
-      function toggleGlobalSidebar() {
-        const sidebar = document.getElementById('sidebar');
-        const main = document.querySelector('.main');
-        const overlay = document.getElementById('sidebar-overlay');
-        const toggles = document.querySelectorAll('[aria-controls="sidebar"]');
-        
-        if (window.innerWidth < 992) {
-          sidebar.classList.toggle('mobile-active');
-          if (overlay) overlay.classList.toggle('active');
-          document.body.classList.toggle('sidebar-open', sidebar.classList.contains('mobile-active'));
-          toggles.forEach(button => button.setAttribute('aria-expanded', String(sidebar.classList.contains('mobile-active'))));
-        } else {
-          if (sidebar) sidebar.classList.toggle('collapsed');
-          if (main) main.classList.toggle('expanded');
-          const expanded = !sidebar.classList.contains('collapsed');
-          toggles.forEach(button => button.setAttribute('aria-expanded', String(expanded)));
-          localStorage.setItem('khhSidebarCollapsed', String(!expanded));
-        }
-      }
-
-      document.addEventListener('DOMContentLoaded', () => {
-        if (window.innerWidth >= 992 && localStorage.getItem('khhSidebarCollapsed') === 'true') {
-          const sidebar = document.getElementById('sidebar');
-          const main = document.querySelector('.main');
-          if (sidebar) sidebar.classList.add('collapsed');
-          if (main) main.classList.add('expanded');
-          document.querySelectorAll('[aria-controls="sidebar"]').forEach(button => button.setAttribute('aria-expanded', 'false'));
-        }
-      });
-    </script>
-    <div class="topbar-left">
-      <h6 id="page-title" style="font-weight: 700; color: var(--primary, #0D9488); margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px;"><%= pageTitle %><span class="d-none d-md-inline"> - KHH (<%= locals.user ? user.role.toUpperCase() : 'USER' %>)</span></h6>
-      <small id="currentDate" class="text-muted" style="white-space: nowrap;" aria-live="polite">กำลังโหลด...</small>
+  <div class="min-w-0 flex-1">
+    <nav aria-label="breadcrumb" class="hidden sm:block">
+      <ol class="m-0 flex list-none items-center gap-1.5 p-0 text-2xs text-slate-400">
+        <li><a href="/" class="text-slate-400 hover:text-brand-600"><i class="bi bi-house-door" aria-hidden="true"></i> หน้าหลัก</a></li>
+        <% crumbs.forEach(c => { %>
+          <li class="flex items-center gap-1.5"><i class="bi bi-chevron-right text-[9px]" aria-hidden="true"></i><span><%= c %></span></li>
+        <% }); %>
+      </ol>
+    </nav>
+    <div class="flex min-w-0 items-baseline gap-3">
+      <h1 id="page-title" class="truncate text-[15px] font-semibold leading-tight text-slate-900"><%= pageTitle %></h1>
+      <small id="currentDate" class="hidden truncate text-2xs text-slate-400 md:inline" aria-live="polite">กำลังโหลด...</small>
     </div>
   </div>
 
-  <style>
-    .topbar-toggle-btn {
-      display: none !important;
-    }
-    @media (max-width: 991px) {
-      .topbar-toggle-btn {
-        display: flex !important;
-      }
-    }
-  </style>
-  <div class="d-flex align-items:center gap-2" style="display:flex;align-items:center;gap:8px;">
-    <div class="live-pill" style="white-space: nowrap;" role="status"><span class="live-dot"></span> <span class="d-none d-sm-inline">ระบบออนไลน์</span></div>
-    <button type="button" class="icon-btn" title="แจ้งเตือน" aria-label="แจ้งเตือน"><i class="bi bi-bell" aria-hidden="true"></i></button>
-    <button type="button" class="icon-btn" title="รีเฟรชข้อมูล" aria-label="รีเฟรชข้อมูล" onclick="refreshData(this)"><i class="bi bi-arrow-clockwise" aria-hidden="true"></i></button>
-    <button type="button" class="icon-btn" title="ตั้งค่า" aria-label="ตั้งค่า" onclick="openSettings()"><i class="bi bi-gear" aria-hidden="true"></i></button>
+  <button type="button" onclick="openCommandMenu()"
+    class="hidden h-9 w-64 items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 text-left text-[13px] text-slate-400 transition-colors hover:border-slate-300 hover:bg-white md:flex"
+    aria-label="ค้นหาเมนู">
+    <i class="bi bi-search" aria-hidden="true"></i>
+    <span class="flex-1">ค้นหาเมนู…</span>
+    <kbd class="erp-kbd">⌘K</kbd>
+  </button>
+
+  <div class="flex items-center gap-1">
+    <span class="mr-1 hidden items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-2xs font-medium text-emerald-700 ring-1 ring-emerald-100 sm:inline-flex" role="status">
+      <span class="relative flex h-2 w-2"><span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60"></span><span class="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span></span>
+      ออนไลน์
+    </span>
+    <button type="button" class="erp-icon-btn md:hidden" onclick="openCommandMenu()" title="ค้นหาเมนู" aria-label="ค้นหาเมนู"><i class="bi bi-search" aria-hidden="true"></i></button>
+    <div class="relative" id="inboxWrap">
+      <button type="button" id="inboxBtn" class="erp-icon-btn relative" title="แจ้งเตือน" aria-label="แจ้งเตือน" aria-haspopup="true" aria-expanded="false" aria-controls="inboxPanel">
+        <i class="bi bi-bell" aria-hidden="true"></i>
+        <span id="inboxBadge" class="absolute right-1 top-1 hidden min-w-[16px] rounded-full bg-red-600 px-1 text-center font-mono text-[10px] font-semibold leading-4 text-white"></span>
+      </button>
+      <div id="inboxPanel" class="absolute right-0 top-11 z-[200] hidden w-[360px] max-w-[calc(100vw-24px)] overflow-hidden rounded-lg bg-white shadow-2xl ring-1 ring-slate-200" role="menu" aria-label="การแจ้งเตือน">
+        <div class="flex items-center justify-between border-b border-slate-200 px-4 py-2.5">
+          <span class="text-[13px] font-semibold text-slate-800">การแจ้งเตือน</span>
+          <button type="button" class="text-2xs text-brand-700 hover:underline" onclick="loadInbox()">รีเฟรช</button>
+        </div>
+        <ul id="inboxList" class="m-0 max-h-[60vh] list-none divide-y divide-slate-100 overflow-y-auto p-0">
+          <li class="px-4 py-8 text-center text-xs text-slate-400">กำลังโหลด…</li>
+        </ul>
+      </div>
+    </div>
+    <button type="button" class="erp-icon-btn" title="รีเฟรชข้อมูล" aria-label="รีเฟรชข้อมูล"
+      onclick="typeof refreshData === 'function' ? refreshData(this) : (typeof loadData === 'function' ? loadData() : location.reload())"><i class="bi bi-arrow-clockwise" aria-hidden="true"></i></button>
+    <button type="button" class="erp-icon-btn" title="ตั้งค่า" aria-label="ตั้งค่า" onclick="openSettings()"><i class="bi bi-gear" aria-hidden="true"></i></button>
+    <span class="mx-1 hidden h-6 w-px bg-slate-200 sm:block" aria-hidden="true"></span>
+    <div class="hidden h-8 w-8 items-center justify-center rounded-md bg-brand-600 text-[13px] font-semibold text-white sm:flex" title="<%= topbarName %>" aria-hidden="true">
+      <%= topbarName.charAt(0).toUpperCase() %>
+    </div>
   </div>
 </header>
 
+<!-- QUICK MENU SEARCH (⌘K / Ctrl+K) -->
+<div id="commandMenu" class="erp fixed inset-0 z-[10001] hidden items-start justify-center bg-slate-900/40 px-4 pb-4 backdrop-blur-sm" style="padding-top:12vh;" role="dialog" aria-modal="true" aria-label="ค้นหาเมนู">
+  <div class="w-full max-w-lg overflow-hidden rounded-lg bg-white shadow-2xl ring-1 ring-slate-200">
+    <div class="flex items-center gap-3 border-b border-slate-200 px-4">
+      <i class="bi bi-search text-slate-400" aria-hidden="true"></i>
+      <input id="commandInput" type="text" autocomplete="off" placeholder="พิมพ์ชื่อเมนู เช่น บุคลากร, รายงาน…"
+        class="h-12 flex-1 border-0 bg-transparent text-sm text-slate-800 placeholder:text-slate-400 !shadow-none !outline-none" style="font-family:inherit;">
+      <kbd class="erp-kbd">Esc</kbd>
+    </div>
+    <ul id="commandList" class="m-0 max-h-80 list-none overflow-y-auto p-2" role="listbox"></ul>
+  </div>
+</div>
+
 <script>
+  function toggleGlobalSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const main = document.querySelector('.main');
+    const overlay = document.getElementById('sidebar-overlay');
+    const toggles = document.querySelectorAll('[aria-controls="sidebar"]');
+
+    if (window.innerWidth < 992) {
+      sidebar.classList.toggle('mobile-active');
+      if (overlay) overlay.classList.toggle('active');
+      document.body.classList.toggle('sidebar-open', sidebar.classList.contains('mobile-active'));
+      toggles.forEach(button => button.setAttribute('aria-expanded', String(sidebar.classList.contains('mobile-active'))));
+    } else {
+      if (sidebar) sidebar.classList.toggle('collapsed');
+      if (main) main.classList.toggle('expanded');
+      const expanded = !sidebar.classList.contains('collapsed');
+      toggles.forEach(button => button.setAttribute('aria-expanded', String(expanded)));
+      localStorage.setItem('khhSidebarCollapsed', String(!expanded));
+    }
+  }
+
+  // Restore collapsed state immediately (script runs after sidebar markup) to avoid a layout jump
+  (function restoreSidebar() {
+    try {
+      if (window.innerWidth >= 992 && localStorage.getItem('khhSidebarCollapsed') === 'true') {
+        const sidebar = document.getElementById('sidebar');
+        const main = document.querySelector('.main');
+        if (sidebar) sidebar.classList.add('collapsed');
+        if (main) main.classList.add('expanded');
+        document.querySelectorAll('[aria-controls="sidebar"]').forEach(button => button.setAttribute('aria-expanded', 'false'));
+      }
+    } catch (e) { /* storage unavailable */ }
+  })();
+
+  /* ---------- Quick menu search ---------- */
+  (function initCommandMenu() {
+    const menu = document.getElementById('commandMenu');
+    const input = document.getElementById('commandInput');
+    const list = document.getElementById('commandList');
+    let items = [];
+    let cursor = 0;
+
+    function collect() {
+      items = Array.from(document.querySelectorAll('#sidebar [data-nav-label]')).map(a => ({
+        href: a.getAttribute('href'),
+        label: a.dataset.navLabel,
+        section: a.dataset.navSection,
+        icon: (a.querySelector('i.bi') || {}).className || 'bi bi-dot'
+      }));
+    }
+
+    function render() {
+      const q = input.value.trim().toLowerCase();
+      const hits = items.filter(i => !q || (i.label + ' ' + i.section).toLowerCase().includes(q));
+      cursor = Math.min(cursor, Math.max(hits.length - 1, 0));
+      list.innerHTML = '';
+      if (!hits.length) {
+        list.innerHTML = '<li class="px-3 py-6 text-center text-[13px] text-slate-400">ไม่พบเมนูที่ค้นหา</li>';
+        return;
+      }
+      hits.forEach((hit, idx) => {
+        const li = document.createElement('li');
+        const a = document.createElement('a');
+        a.href = hit.href;
+        a.setAttribute('role', 'option');
+        a.className = 'flex items-center gap-3 rounded-md px-3 py-2 text-[13px] ' +
+          (idx === cursor ? 'bg-brand-50 text-brand-700' : 'text-slate-700 hover:bg-slate-50');
+        const icon = document.createElement('i');
+        icon.className = hit.icon + ' w-5 text-center text-slate-400';
+        const label = document.createElement('span');
+        label.className = 'flex-1';
+        label.textContent = hit.label;
+        const section = document.createElement('span');
+        section.className = 'text-2xs text-slate-400';
+        section.textContent = hit.section;
+        a.append(icon, label, section);
+        li.appendChild(a);
+        list.appendChild(li);
+      });
+    }
+
+    window.openCommandMenu = function () {
+      collect();
+      cursor = 0;
+      input.value = '';
+      render();
+      menu.classList.remove('hidden');
+      menu.classList.add('flex');
+      setTimeout(() => input.focus(), 0);
+    };
+
+    window.closeCommandMenu = function () {
+      menu.classList.add('hidden');
+      menu.classList.remove('flex');
+    };
+
+    input.addEventListener('input', () => { cursor = 0; render(); });
+    input.addEventListener('keydown', e => {
+      const links = list.querySelectorAll('a');
+      if (e.key === 'ArrowDown') { e.preventDefault(); cursor = Math.min(cursor + 1, links.length - 1); render(); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); cursor = Math.max(cursor - 1, 0); render(); }
+      else if (e.key === 'Enter' && links[cursor]) { window.location.href = links[cursor].href; }
+    });
+    menu.addEventListener('click', e => { if (e.target === menu) window.closeCommandMenu(); });
+    document.addEventListener('keydown', e => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); window.openCommandMenu(); }
+      else if (e.key === 'Escape' && !menu.classList.contains('hidden')) window.closeCommandMenu();
+    });
+  })();
+
+  /* ---------- Notification inbox (bell) ---------- */
+  (function initInbox() {
+    const btn = document.getElementById('inboxBtn');
+    const panel = document.getElementById('inboxPanel');
+    const list = document.getElementById('inboxList');
+    const badge = document.getElementById('inboxBadge');
+    const TONE = { amber: 'bg-amber-50 text-amber-600', brand: 'bg-brand-50 text-brand-600', red: 'bg-red-50 text-red-600', green: 'bg-emerald-50 text-emerald-600' };
+    const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+    const ago = t => {
+      if (!t) return '';
+      const mins = Math.round((Date.now() - new Date(t)) / 60000);
+      if (mins < 1) return 'เมื่อสักครู่';
+      if (mins < 60) return `${mins} นาทีที่แล้ว`;
+      if (mins < 1440) return `${Math.round(mins / 60)} ชั่วโมงที่แล้ว`;
+      return `${Math.round(mins / 1440)} วันที่แล้ว`;
+    };
+
+    window.loadInbox = async function () {
+      try {
+        const res = await fetch('/api/notifications/inbox', { headers: { Accept: 'application/json' } });
+        if (!res.ok) throw new Error(res.status);
+        const data = await res.json();
+        const n = Number(data.badge) || 0;
+        badge.textContent = n > 99 ? '99+' : n;
+        badge.classList.toggle('hidden', n === 0);
+        btn.setAttribute('aria-label', n ? `แจ้งเตือน ${n} รายการ` : 'แจ้งเตือน');
+        const items = data.items || [];
+        list.innerHTML = items.length
+          ? items.map(i => `<li><a href="${esc(i.href)}" class="flex items-start gap-3 px-4 py-3 hover:bg-slate-50" role="menuitem">
+              <span class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md ${TONE[i.tone] || TONE.amber}"><i class="bi ${esc(i.icon)}"></i></span>
+              <span class="min-w-0 flex-1">
+                <span class="block text-[13px] font-medium text-slate-800">${esc(i.title)}</span>
+                <span class="block truncate text-2xs text-slate-500">${esc(i.desc)}</span>
+                <span class="block text-2xs text-slate-400">${esc(ago(i.time))}</span>
+              </span></a></li>`).join('')
+          : '<li class="px-4 py-10 text-center text-xs text-slate-400"><i class="bi bi-check2-circle mb-1 block text-xl text-emerald-500"></i>ไม่มีรายการที่ต้องดำเนินการ</li>';
+      } catch (err) {
+        list.innerHTML = '<li class="px-4 py-8 text-center text-xs text-slate-400">โหลดการแจ้งเตือนไม่สำเร็จ</li>';
+      }
+    };
+
+    const toggle = open => {
+      panel.classList.toggle('hidden', !open);
+      btn.setAttribute('aria-expanded', String(open));
+      if (open) window.loadInbox();
+    };
+    btn.addEventListener('click', e => { e.stopPropagation(); toggle(panel.classList.contains('hidden')); });
+    document.addEventListener('click', e => { if (!e.target.closest('#inboxWrap')) toggle(false); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') toggle(false); });
+    window.loadInbox();
+    setInterval(() => { if (!document.hidden) window.loadInbox(); }, 60000);
+  })();
+
   // Live ticking clock for topbar
   function initTopbarClock() {
     const dateEl = document.getElementById('currentDate');
@@ -101,7 +256,7 @@
 
     window.updateTopbarClock = function() {
       const now = new Date();
-      
+
       // Check if we are on dashboard and a different date is selected
       const dateInput = document.getElementById('dateInput');
       if (dateInput && dateInput.value) {
@@ -109,7 +264,7 @@
         const m = String(now.getMonth() + 1).padStart(2, '0');
         const d = String(now.getDate()).padStart(2, '0');
         const todayStr = `${y}-${m}-${d}`;
-        
+
         if (dateInput.value !== todayStr) {
           const selectedDate = new Date(dateInput.value);
           if (window.innerWidth < 768) {
@@ -128,7 +283,7 @@
       } else {
         const datePart = now.toLocaleDateString('th-TH', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
         const timePart = now.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-        dateEl.textContent = `${datePart} เวลา ${timePart} น.`;
+        dateEl.textContent = `${datePart} · ${timePart} น.`;
       }
     };
 
@@ -142,7 +297,7 @@
   localStorage.setItem('userRole', sessionRole);
   const CURRENT_ROLE = localStorage.getItem('userRole');
   const CURRENT_USER_ID = "<%= (locals.user && user.username) ? user.username : '' %>";
-  
+
   const RBAC_ENABLED = true; // เปิดระบบ RBAC แล้ว
   console.log('Current User Role:', CURRENT_ROLE, '| User ID:', CURRENT_USER_ID, '| RBAC_ENABLED:', RBAC_ENABLED);
 
@@ -162,18 +317,6 @@
 
   // Enforce UI restrictions based on role
   document.addEventListener("DOMContentLoaded", () => {
-     if (CURRENT_ROLE === 'admin' || CURRENT_ROLE === 'staff' || CURRENT_ROLE === 'user') {
-         // Disable permissions menu and users menu in sidebar (if they exist in the DOM)
-         const permissionsMenu = document.querySelector('a[href="/admin/permissions"]');
-         if(permissionsMenu) {
-             permissionsMenu.style.display = 'none';
-         }
-         const usersMenu = document.querySelector('a[href="/admin/users"]');
-         if(usersMenu) {
-             usersMenu.style.display = 'none';
-         }
-     }
-
      if (CURRENT_ROLE === 'staff' || CURRENT_ROLE === 'user') {
          // Disable settings menu icon in topbar
          const settingsBtn = document.querySelector('[onclick="openSettings()"]');
@@ -191,10 +334,10 @@
     if (dataOwnerId && String(dataOwnerId) === String(CURRENT_USER_ID)) return str;
     // Admin sees everything
     if (checkPermission(capability)) return str;
-    
+
     // Masking phone example: 09xxxx
     if (capability === 'view_phone') {
-        return str.substring(0, 2) + '*'.repeat(Math.max(0, str.length - 2)); 
+        return str.substring(0, 2) + '*'.repeat(Math.max(0, str.length - 2));
     }
     // Masking email: ITx****@hotmail.com
     if (capability === 'view_email') {
@@ -222,7 +365,7 @@
     if (capability === 'view_id') {
         return '***';
     }
-    
+
     return '********';
   }
 </script>
@@ -230,75 +373,60 @@
 <!-- ========================================================
      SETTINGS MODAL
      ======================================================== -->
-<div id="settingsModal" style="
-  display:none; position:fixed; inset:0; z-index:9999;
-  background:rgba(0,0,0,0.45); backdrop-filter:blur(4px);
-  align-items:center; justify-content:center;">
-  <div style="
-    background:var(--card,#fff); border-radius:18px; width:660px; max-width:96vw;
-    max-height:90vh; overflow:hidden; box-shadow:0 24px 64px rgba(0,0,0,0.22);
-    display:flex; flex-direction:column; animation:slideUp .25s ease;">
+<div id="settingsModal" class="erp fixed inset-0 z-[9999] items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm" style="display:none;">
+  <div class="flex max-h-[90vh] w-[660px] max-w-full flex-col overflow-hidden rounded-lg bg-white shadow-2xl ring-1 ring-slate-200">
 
-    <!-- Header -->
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:22px 28px 16px;border-bottom:1px solid var(--border,#E2E8F0);">
-      <div style="display:flex;align-items:center;gap:12px;">
-        <div style="background:linear-gradient(135deg,#056839,#148F54);border-radius:10px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;">
-          <i class="bi bi-gear-fill" style="color:#fff;font-size:18px;"></i>
-        </div>
+    <div class="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+      <div class="flex items-center gap-3">
+        <div class="flex h-9 w-9 items-center justify-center rounded-md bg-brand-50 text-brand-600"><i class="bi bi-gear-fill" aria-hidden="true"></i></div>
         <div>
-          <div style="font-size:17px;font-weight:700;color:var(--text,#1E293B);">ตั้งค่าระบบ</div>
-          <div style="font-size:12px;color:var(--muted,#94A3B8);">System Settings</div>
+          <div class="text-[15px] font-semibold text-slate-900">ตั้งค่าระบบ</div>
+          <div class="text-2xs text-slate-400">System Settings</div>
         </div>
       </div>
-      <button onclick="closeSettings()" style="border:none;background:var(--surface,#F8FAFC);border-radius:8px;width:36px;height:36px;cursor:pointer;font-size:18px;color:var(--muted,#94A3B8);">✕</button>
+      <button type="button" onclick="closeSettings()" class="erp-icon-btn" aria-label="ปิด"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
     </div>
 
-    <!-- Tabs -->
-    <div style="display:flex;gap:4px;padding:14px 28px 0;border-bottom:1px solid var(--border,#E2E8F0);">
-      <button class="stab active" id="stab-1" onclick="switchSettingsTab(1)">
-        <i class="bi bi-sliders"></i> ตั้งค่าทำงาน
-      </button>
-      <button class="stab" id="stab-2" onclick="switchSettingsTab(2)">
-        <i class="bi bi-clock"></i> ตั้งเวลาทำงานบุคลากร
-      </button>
-      <button class="stab" id="stab-3" onclick="switchSettingsTab(3)">
-        <i class="bi bi-calendar3"></i> ตั้งค่าประเภทเวร
-      </button>
+    <div class="flex gap-1 border-b border-slate-200 px-6">
+      <button type="button" class="erp-tab stab active" id="stab-1" onclick="switchSettingsTab(1)"><i class="bi bi-sliders" aria-hidden="true"></i> ตั้งค่าทำงาน</button>
+      <button type="button" class="erp-tab stab" id="stab-2" onclick="switchSettingsTab(2)"><i class="bi bi-clock" aria-hidden="true"></i> เวลาทำงานบุคลากร</button>
+      <button type="button" class="erp-tab stab" id="stab-3" onclick="switchSettingsTab(3)"><i class="bi bi-calendar3" aria-hidden="true"></i> ประเภทเวร</button>
     </div>
 
-    <!-- Body (scrollable) -->
-    <div style="flex:1;overflow-y:auto;padding:24px 28px;">
+    <div class="flex-1 overflow-y-auto bg-slate-50/60 px-6 py-5">
 
       <!-- TAB 1: Work Settings -->
       <div id="spanel-1" class="spanel">
-        <div class="sgroup">
-          <label class="slabel">เวลาเริ่มงาน (เช้า)</label>
-          <input type="time" id="s-work-start" class="sinput" value="08:00">
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div>
+            <label class="erp-label" for="s-work-start">เวลาเริ่มงาน (เช้า)</label>
+            <input type="time" id="s-work-start" class="erp-input" value="08:00">
+          </div>
+          <div>
+            <label class="erp-label" for="s-work-end">เวลาเลิกงาน (เช้า)</label>
+            <input type="time" id="s-work-end" class="erp-input" value="16:00">
+          </div>
+          <div>
+            <label class="erp-label" for="s-late-min">เกณฑ์มาสาย (นาที)</label>
+            <input type="number" id="s-late-min" class="erp-input" value="31" min="1" max="120">
+          </div>
         </div>
-        <div class="sgroup">
-          <label class="slabel">เวลาเลิกงาน (เช้า)</label>
-          <input type="time" id="s-work-end" class="sinput" value="16:00">
-        </div>
-        <div class="sgroup">
-          <label class="slabel">เกณฑ์มาสาย (นาที หลังเวลาเริ่มงาน)</label>
-          <input type="number" id="s-late-min" class="sinput" value="31" min="1" max="120">
-        </div>
-        <div class="sgroup">
-          <label class="slabel">วันทำงาน</label>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;">
+        <div class="mt-5">
+          <span class="erp-label">วันทำงาน</span>
+          <div class="flex flex-wrap gap-2">
             <% const days = ['อา','จ','อ','พ','พฤ','ศ','ส']; %>
             <% const dayIds = ['sun','mon','tue','wed','thu','fri','sat']; %>
             <% for(let d=0;d<7;d++){ %>
-            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;">
-              <input type="checkbox" id="s-day-<%= dayIds[d] %>" <%= (d>=1&&d<=5)?'checked':'' %>>
-              <span style="font-size:13px;"><%= days[d] %></span>
+            <label class="flex cursor-pointer items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-[13px] has-[:checked]:border-brand-500 has-[:checked]:bg-brand-50 has-[:checked]:text-brand-700">
+              <input type="checkbox" id="s-day-<%= dayIds[d] %>" class="accent-brand-600" <%= (d>=1&&d<=5)?'checked':'' %>>
+              <span><%= days[d] %></span>
             </label>
             <% } %>
           </div>
         </div>
-        <div class="sgroup">
-          <label class="slabel">ระบบส่งรายงานอัตโนมัติ</label>
-          <select id="s-auto-report" class="sinput">
+        <div class="mt-5 sm:w-1/2">
+          <label class="erp-label" for="s-auto-report">ระบบส่งรายงานอัตโนมัติ</label>
+          <select id="s-auto-report" class="erp-input">
             <option value="none">ไม่ส่ง</option>
             <option value="daily" selected>รายวัน</option>
             <option value="weekly">รายสัปดาห์</option>
@@ -308,101 +436,61 @@
 
       <!-- TAB 2: Staff Work Hours -->
       <div id="spanel-2" class="spanel" style="display:none;">
-        <div style="margin-bottom:14px;font-size:13px;color:var(--muted,#94A3B8);">กำหนดเวลาเริ่ม–สิ้นสุดงานตามประเภทบุคลากร</div>
-
+        <p class="mb-3 text-xs text-slate-500">กำหนดเวลาเริ่ม–สิ้นสุดงานตามประเภทบุคลากร</p>
         <% const staffTypes = [
           { id:'doctor', label:'แพทย์', icon:'bi-person-badge' },
           { id:'nurse', label:'พยาบาล', icon:'bi-heart-pulse' },
           { id:'staff', label:'เจ้าหน้าที่ทั่วไป', icon:'bi-people' },
           { id:'support', label:'บุคลากรสนับสนุน', icon:'bi-tools' }
         ]; %>
-
-        <% staffTypes.forEach(function(st){ %>
-        <div style="background:var(--surface,#F8FAFC);border-radius:12px;padding:14px 16px;margin-bottom:10px;border:1px solid var(--border,#E2E8F0);">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-            <i class="bi <%= st.icon %>" style="color:#056839;font-size:16px;"></i>
-            <span style="font-size:13px;font-weight:600;"><%= st.label %></span>
+        <div class="space-y-2">
+          <% staffTypes.forEach(function(st){ %>
+          <div class="erp-panel p-4">
+            <div class="mb-3 flex items-center gap-2 text-[13px] font-semibold text-slate-800">
+              <i class="bi <%= st.icon %> text-brand-600" aria-hidden="true"></i><%= st.label %>
+            </div>
+            <div class="grid grid-cols-3 gap-3">
+              <div>
+                <label class="erp-label" for="s-<%= st.id %>-start">เวลาเริ่ม</label>
+                <input type="time" id="s-<%= st.id %>-start" class="erp-input" value="08:00">
+              </div>
+              <div>
+                <label class="erp-label" for="s-<%= st.id %>-end">เวลาสิ้นสุด</label>
+                <input type="time" id="s-<%= st.id %>-end" class="erp-input" value="16:00">
+              </div>
+              <div>
+                <label class="erp-label" for="s-<%= st.id %>-ot">OT เริ่มหลัง (ชม.)</label>
+                <input type="number" id="s-<%= st.id %>-ot" class="erp-input" value="8" min="1" max="24">
+              </div>
+            </div>
           </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
-            <div>
-              <label style="font-size:11px;color:var(--muted,#94A3B8);display:block;margin-bottom:4px;">เวลาเริ่ม</label>
-              <input type="time" id="s-<%= st.id %>-start" class="sinput" value="08:00">
-            </div>
-            <div>
-              <label style="font-size:11px;color:var(--muted,#94A3B8);display:block;margin-bottom:4px;">เวลาสิ้นสุด</label>
-              <input type="time" id="s-<%= st.id %>-end" class="sinput" value="16:00">
-            </div>
-            <div>
-              <label style="font-size:11px;color:var(--muted,#94A3B8);display:block;margin-bottom:4px;">OT เริ่มหลัง (ชม.)</label>
-              <input type="number" id="s-<%= st.id %>-ot" class="sinput" value="8" min="1" max="24">
-            </div>
-          </div>
+          <% }); %>
         </div>
-        <% }); %>
       </div>
 
       <!-- TAB 3: Shift Types -->
       <div id="spanel-3" class="spanel" style="display:none;">
-        <div style="margin-bottom:14px;font-size:13px;color:var(--muted,#94A3B8);">กำหนดช่วงเวลาและชื่อของแต่ละเวร</div>
-
-        <div id="shiftList">
-          <!-- rendered by JS -->
+        <p class="mb-3 text-xs text-slate-500">กำหนดช่วงเวลาและชื่อของแต่ละเวร</p>
+        <div class="mb-1 hidden grid-cols-[1fr_130px_130px_36px] gap-2 px-3 text-2xs font-medium uppercase tracking-wide text-slate-400 sm:grid">
+          <span>ชื่อเวร</span><span>เริ่ม</span><span>สิ้นสุด</span><span></span>
         </div>
-
-        <button onclick="addShift()" style="
-          margin-top:8px; width:100%; padding:10px; border:2px dashed #A7F3D0;
-          border-radius:10px; background:none; color:#056839; font-size:13px;
-          font-weight:600; cursor:pointer; transition:all .2s;">
-          <i class="bi bi-plus-circle"></i> เพิ่มประเภทเวร
+        <div id="shiftList"><!-- rendered by JS --></div>
+        <button type="button" onclick="addShift()"
+          class="mt-2 flex w-full items-center justify-center gap-2 rounded-md border border-dashed border-brand-300 py-2.5 text-[13px] font-medium text-brand-700 hover:bg-brand-50">
+          <i class="bi bi-plus-circle" aria-hidden="true"></i> เพิ่มประเภทเวร
         </button>
       </div>
 
     </div>
 
-    <!-- Footer -->
-    <div style="display:flex;justify-content:flex-end;gap:10px;padding:16px 28px;border-top:1px solid var(--border,#E2E8F0);">
-      <button onclick="closeSettings()" style="padding:9px 20px;border-radius:9px;border:1px solid var(--border,#E2E8F0);background:none;cursor:pointer;font-size:13px;font-weight:600;color:var(--muted,#94A3B8);">ยกเลิก</button>
-      <button onclick="saveSettings()" style="padding:9px 22px;border-radius:9px;border:none;background:linear-gradient(135deg,#056839,#148F54);color:#fff;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 4px 12px rgba(5,104,57,.35);">
-        <i class="bi bi-check2-circle"></i> บันทึกการตั้งค่า
+    <div class="flex justify-end gap-2 border-t border-slate-200 bg-white px-6 py-3">
+      <button type="button" onclick="closeSettings()" class="erp-btn erp-btn-secondary">ยกเลิก</button>
+      <button type="button" onclick="saveSettings(event)" class="erp-btn erp-btn-primary">
+        <i class="bi bi-check2-circle" aria-hidden="true"></i> บันทึกการตั้งค่า
       </button>
     </div>
   </div>
 </div>
-
-<style>
-@keyframes slideUp {
-  from { opacity:0; transform:translateY(20px); }
-  to   { opacity:1; transform:translateY(0); }
-}
-.stab {
-  padding:8px 16px; border:none; background:none; border-radius:8px 8px 0 0;
-  font-size:13px; font-weight:500; color:var(--muted,#94A3B8); cursor:pointer;
-  display:flex; align-items:center; gap:6px; border-bottom:3px solid transparent;
-  transition:all .2s;
-}
-.stab.active {
-  color:#056839; border-bottom-color:#056839; background:rgba(5,104,57,.07);
-}
-.stab:hover:not(.active) { background:var(--surface,#F8FAFC); }
-.sgroup { margin-bottom:18px; }
-.slabel {
-  display:block; font-size:13px; font-weight:600; color:var(--text,#1E293B);
-  margin-bottom:6px;
-}
-.sinput {
-  width:100%; padding:9px 12px; border:1px solid var(--border,#E2E8F0);
-  border-radius:9px; font-size:13px; background:var(--surface,#F8FAFC);
-  color:var(--text,#1E293B); outline:none; font-family:inherit;
-  transition:border-color .2s;
-}
-.sinput:focus { border-color:#056839; box-shadow:0 0 0 3px rgba(5,104,57,.15); }
-.shift-row {
-  display:grid; grid-template-columns:1fr 130px 130px 36px;
-  gap:8px; align-items:center; background:var(--surface,#F8FAFC);
-  border-radius:10px; padding:12px 14px; margin-bottom:8px;
-  border:1px solid var(--border,#E2E8F0);
-}
-</style>
 
 <script>
   /* =====================================================
@@ -426,6 +514,33 @@
       { name:'ดึก',   start:'00:00', end:'08:00', color:'#7C3AED' }
     ]
   };
+
+  // Re-run whichever loader the current page exposes after settings change
+  window.refreshPageData = function() {
+    if (typeof initGrid === 'function') {
+      initGrid();
+    } else if (typeof fetchData === 'function') {
+      const dateInput = document.getElementById('dateInput') || document.getElementById('report-date-input');
+      if (dateInput) fetchData(dateInput.value);
+      else fetchData();
+    } else if (typeof loadData === 'function') {
+      loadData();
+    }
+  };
+
+  // Pull the shared settings from the server; refresh the page data if this browser's cache was stale
+  (async function syncSettingsFromServer() {
+    try {
+      const res = await fetch('/api/settings', { headers: { Accept: 'application/json' } });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!data.success || !data.settings) return;
+      const next = JSON.stringify(data.settings);
+      const prev = localStorage.getItem(SETTINGS_KEY);
+      localStorage.setItem(SETTINGS_KEY, next);
+      if (prev && prev !== next) window.refreshPageData();
+    } catch (e) { /* offline: keep cached settings */ }
+  })();
 
   window.loadSettings = function() {
     try { return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || DEFAULT_SETTINGS; }
@@ -476,18 +591,22 @@
   /* --- Shift rows --- */
   window._shifts = [];
 
+  const escapeAttr = value => String(value == null ? '' : value)
+    .replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+
   window.renderShiftList = function(shifts) {
     window._shifts = shifts ? JSON.parse(JSON.stringify(shifts)) : [];
     const el = document.getElementById('shiftList');
     el.innerHTML = window._shifts.map((sh, i) => `
-      <div class="shift-row">
-        <input type="text" class="sinput" value="${sh.name}" placeholder="ชื่อเวร"
+      <div class="mb-2 grid grid-cols-[1fr_130px_130px_36px] items-center gap-2 rounded-md border border-slate-200 bg-white p-2.5">
+        <input type="text" class="erp-input" value="${escapeAttr(sh.name)}" placeholder="ชื่อเวร" aria-label="ชื่อเวร"
           onchange="window._shifts[${i}].name=this.value" style="min-width:0;">
-        <input type="time" class="sinput" value="${sh.start}"
+        <input type="time" class="erp-input" value="${escapeAttr(sh.start)}" aria-label="เวลาเริ่ม"
           onchange="window._shifts[${i}].start=this.value">
-        <input type="time" class="sinput" value="${sh.end}"
+        <input type="time" class="erp-input" value="${escapeAttr(sh.end)}" aria-label="เวลาสิ้นสุด"
           onchange="window._shifts[${i}].end=this.value">
-        <button onclick="window.removeShift(${i})" style="border:none;background:#FEE2E2;color:#EF4444;border-radius:7px;width:34px;height:34px;cursor:pointer;font-size:16px;">✕</button>
+        <button type="button" onclick="window.removeShift(${i})" aria-label="ลบเวร"
+          class="erp-icon-btn text-red-500 hover:bg-red-50 hover:text-red-600"><i class="bi bi-trash3"></i></button>
       </div>
     `).join('');
   };
@@ -502,7 +621,7 @@
     window.renderShiftList(window._shifts);
   };
 
-  window.saveSettings = function() {
+  window.saveSettings = function(evt) {
     const days = ['sun','mon','tue','wed','thu','fri','sat'].filter(d => {
       const el = document.getElementById('s-day-' + d);
       return el && el.checked;
@@ -524,32 +643,28 @@
       staffHours,
       shifts:      window._shifts
     };
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+    const btn = evt ? evt.currentTarget : null;
+    const notify = (msg, tone) => (window.ERP ? ERP.toast(msg, tone) : alert(msg));
+    if (btn) btn.disabled = true;
 
-    // Flash save button
-    const btn = event ? event.currentTarget : null;
-    let orig = '';
-    if (btn) {
-      orig = btn.innerHTML;
-      btn.innerHTML = '<i class="bi bi-check-lg"></i> บันทึกแล้ว!';
-      btn.style.background = 'linear-gradient(135deg,#10B981,#059669)';
-    }
-    setTimeout(() => {
-      if (btn) {
-        btn.innerHTML = orig;
-        btn.style.background = 'linear-gradient(135deg,#056839,#148F54)';
-      }
-      window.closeSettings();
-      
-      // Dynamic reload based on page functions
-      if (typeof initGrid === 'function') {
-        initGrid();
-      } else if (typeof fetchData === 'function') {
-        const dateInput = document.getElementById('dateInput') || document.getElementById('report-date-input');
-        if (dateInput) fetchData(dateInput.value);
-        else fetchData();
-      }
-    }, 1200);
+    fetch('/api/settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(settings)
+    })
+      .then(res => res.json().then(data => ({ ok: res.ok, data })))
+      .then(({ ok, data }) => {
+        if (!ok || !data.success) {
+          notify('บันทึกไม่สำเร็จ: ' + ((data && data.error) || 'ไม่ทราบสาเหตุ'), 'error');
+          return;
+        }
+        localStorage.setItem(SETTINGS_KEY, JSON.stringify(data.settings));
+        notify('บันทึกการตั้งค่าแล้ว (ใช้กับทุกเครื่อง)', 'success');
+        window.closeSettings();
+        window.refreshPageData();
+      })
+      .catch(() => notify('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ การตั้งค่ายังไม่ถูกบันทึก', 'error'))
+      .finally(() => { if (btn) btn.disabled = false; });
   };
 
   // Backdrop click listener

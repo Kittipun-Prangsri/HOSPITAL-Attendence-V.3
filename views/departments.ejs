@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+  <%- include("components/erp-head", { title: "ภาพรวมกลุ่มงาน" }) %>
+</head>
+
+<body class="erp-page">
+  <%- include("components/sidebar") %>
+  <div class="main" role="main">
+    <%- include("components/topbar") %>
+
+    <div class="erp px-4 py-5 lg:px-6">
+      <section class="mb-5 flex flex-wrap items-end justify-between gap-4" aria-labelledby="depts-heading">
+        <div>
+          <h2 id="depts-heading" class="text-xl font-semibold text-slate-900">ภาพรวมกลุ่มงาน</h2>
+          <p class="mt-1 text-[13px] text-slate-500">อัตราการมาปฏิบัติงานของแต่ละกลุ่มงาน เลือกกลุ่มงานเพื่อดูรายชื่อและเวลาเข้า–ออก</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <div class="flex items-center rounded-md border border-slate-300 bg-white">
+            <button type="button" class="erp-icon-btn h-9 rounded-r-none" onclick="shiftDate(-1)" aria-label="วันก่อนหน้า"><i class="bi bi-chevron-left" aria-hidden="true"></i></button>
+            <input type="date" id="dateInput" class="h-9 border-x border-slate-200 bg-transparent px-2 text-[13px] text-slate-800 outline-none" style="font-family:inherit;" onchange="loadData()" aria-label="เลือกวันที่">
+            <button type="button" class="erp-icon-btn h-9 rounded-l-none" onclick="shiftDate(1)" aria-label="วันถัดไป"><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+          </div>
+          <select id="sortBy" class="erp-input w-auto" aria-label="เรียงลำดับ">
+            <option value="rate">เรียงตามอัตราการมา (ต่ำสุดก่อน)</option>
+            <option value="staff">เรียงตามจำนวนบุคลากร</option>
+            <option value="name">เรียงตามชื่อ</option>
+          </select>
+        </div>
+      </section>
+
+      <section class="erp-panel mb-5 grid grid-cols-2 sm:grid-cols-4 sm:divide-x sm:divide-slate-100" aria-label="สรุปทั้งโรงพยาบาล">
+        <% [['sumDepts','กลุ่มงาน','แห่ง'],['sumStaff','บุคลากร','คน'],['sumRate','อัตราการมาเฉลี่ย','%'],['sumLow','กลุ่มงานต่ำกว่า 80%','แห่ง']].forEach(([id, label, unit]) => { %>
+          <div class="p-4">
+            <div class="text-xs text-slate-500"><%= label %></div>
+            <div class="mt-1 flex items-baseline gap-1"><span id="<%= id %>" class="font-mono text-2xl font-semibold tabular-nums text-slate-900">–</span><span class="text-2xs text-slate-400"><%= unit %></span></div>
+          </div>
+        <% }); %>
+      </section>
+
+      <section id="deptGrid" class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3" aria-label="กลุ่มงาน"></section>
+    </div>
+  </div>
+
+  <script>
+    const DEPTS = <%- JSON.stringify(departments.map(d => ({ id: d.id, name: d.name }))) %>;
+    const $ = id => document.getElementById(id);
+    const esc = ERP.escapeHtml;
+    const fmt = n => Number(n || 0).toLocaleString('th-TH');
+    let stats = [];
+
+    function shiftDate(days) {
+      const d = new Date(($('dateInput').value || ERP.todayIso()) + 'T12:00:00');
+      d.setDate(d.getDate() + days);
+      $('dateInput').value = d.toLocaleDateString('sv-SE');
+      loadData();
+    }
+
+    async function loadData() {
+      if (window.updateTopbarClock) window.updateTopbarClock();
+      const s = (window.loadSettings && window.loadSettings()) || {};
+      const qs = new URLSearchParams({ date: $('dateInput').value });
+      if (s.workStart) qs.set('workStart', s.workStart);
+      if (s.lateMin) qs.set('lateMin', s.lateMin);
+      $('deptGrid').innerHTML = '<div class="erp-panel col-span-full p-10 text-center text-[13px] text-slate-400">กำลังโหลด…</div>';
+      try {
+        const res = await fetch(`/api/data?${qs}`, { headers: { Accept: 'application/json' } });
+        if (!res.ok) throw new Error(res.status);
+        const employees = (await res.json()).employees || [];
+        const byName = new Map();
+        employees.forEach(e => {
+          const key = e.dept || 'ไม่ระบุกลุ่มงาน';
+          if (!byName.has(key)) byName.set(key, []);
+          byName.get(key).push(e);
+        });
+        stats = [...byName.entries()].map(([name, list]) => {
+          const count = st => list.filter(e => e.status === st).length;
+          const came = count('in') + count('late') + count('out');
+          const expected = list.length - count('leave');
+          const dept = DEPTS.find(d => d.name === name);
+          return { name, id: dept ? dept.id : null, staff: list.length, came, late: count('late'), leave: count('leave'), none: count('none'),
+            rate: expected > 0 ? Math.round((came / expected) * 100) : null };
+        });
+        render();
+      } catch (err) {
+        console.error(err);
+        $('deptGrid').innerHTML = '<div class="erp-panel col-span-full p-10 text-center text-[13px] text-red-600">โหลดข้อมูลไม่สำเร็จ</div>';
+      }
+    }
+
+    function render() {
+      const sort = $('sortBy').value;
+      const rows = stats.slice().sort((a, b) =>
+        sort === 'staff' ? b.staff - a.staff :
+        sort === 'name' ? a.name.localeCompare(b.name, 'th') :
+        (a.rate == null) - (b.rate == null) || (a.rate - b.rate));
+      const withRate = stats.filter(s => s.rate != null);
+      const totalCame = stats.reduce((a, s) => a + s.came, 0);
+      const totalExpected = stats.reduce((a, s) => a + s.staff - s.leave, 0);
+      $('sumDepts').textContent = fmt(stats.length);
+      $('sumStaff').textContent = fmt(stats.reduce((a, s) => a + s.staff, 0));
+      $('sumRate').textContent = totalExpected ? Math.round((totalCame / totalExpected) * 100) : '–';
+      $('sumLow').textContent = fmt(withRate.filter(s => s.rate < 80).length);
+
+      $('deptGrid').innerHTML = rows.length ? rows.map(s => {
+        const low = s.rate != null && s.rate < 80;
+        const body = `
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <div class="truncate text-[13px] font-semibold text-slate-900" title="${esc(s.name)}">${esc(s.name.replace(/^กลุ่มงาน/, ''))}</div>
+              <div class="text-2xs text-slate-400">${fmt(s.staff)} คน</div>
+            </div>
+            <div class="text-right">
+              <div class="font-mono text-xl font-semibold tabular-nums ${low ? 'text-red-600' : 'text-slate-900'}">${s.rate == null ? '–' : s.rate + '%'}</div>
+              <div class="text-2xs text-slate-400">มา ${fmt(s.came)}/${fmt(s.staff - s.leave)}</div>
+            </div>
+          </div>
+          <div class="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full ${low ? 'bg-red-500' : 'bg-brand-500'}" style="width:${s.rate || 0}%"></div></div>
+          <div class="mt-3 flex flex-wrap gap-1.5">
+            ${s.late ? ERP.badge(`สาย ${fmt(s.late)}`, 'amber') : ''}
+            ${s.leave ? ERP.badge(`ลา ${fmt(s.leave)}`, 'violet') : ''}
+            ${s.none ? ERP.badge(`ยังไม่บันทึก ${fmt(s.none)}`, 'slate') : ''}
+            ${!s.late && !s.leave && !s.none ? ERP.badge('ครบทุกคน', 'green') : ''}
+          </div>`;
+        return s.id
+          ? `<a href="/department/${esc(s.id)}" class="erp-panel group block p-4 transition-colors hover:border-brand-300 hover:bg-brand-50/30">${body}
+              <div class="mt-3 flex items-center gap-1 text-2xs font-medium text-brand-700 opacity-0 transition-opacity group-hover:opacity-100">ดูรายละเอียด <i class="bi bi-arrow-right"></i></div></a>`
+          : `<div class="erp-panel p-4">${body}</div>`;
+      }).join('') : '<div class="erp-panel col-span-full p-10 text-center text-[13px] text-slate-400">ไม่มีข้อมูล</div>';
+    }
+
+    $('sortBy').addEventListener('change', render);
+    $('dateInput').value = ERP.todayIso();
+    loadData();
+  </script>
+</body>
+
+</html>

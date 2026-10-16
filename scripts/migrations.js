@@ -109,6 +109,42 @@ const migrations = [
         await hosofficePool.query('ALTER TABLE hikvision ADD INDEX idx_hikvision_emp_date (EmployeeID, AccessDate)');
       }
     }
+  },
+  {
+    id: '004_leave_requests_and_app_settings',
+    up: async () => {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS leave_requests (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          employee_id VARCHAR(50) NOT NULL,
+          hr_person_id INT NULL,
+          fullname VARCHAR(150) NOT NULL,
+          dept VARCHAR(150) NULL,
+          leave_type ENUM('sick', 'personal', 'vacation', 'maternity', 'ordination', 'other') NOT NULL,
+          start_date DATE NOT NULL,
+          end_date DATE NOT NULL,
+          half_day ENUM('none', 'morning', 'afternoon') NOT NULL DEFAULT 'none',
+          days DECIMAL(5,1) NOT NULL,
+          reason TEXT NOT NULL,
+          contact VARCHAR(255) NULL,
+          status ENUM('pending', 'approved', 'rejected', 'cancelled') NOT NULL DEFAULT 'pending',
+          reviewer VARCHAR(150) NULL,
+          review_comment TEXT NULL,
+          submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          reviewed_at TIMESTAMP NULL,
+          KEY idx_leave_employee (employee_id, start_date),
+          KEY idx_leave_status (status, start_date)
+        ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+      `);
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS app_settings (
+          setting_key VARCHAR(100) PRIMARY KEY,
+          setting_value JSON NOT NULL,
+          updated_by VARCHAR(150) NULL,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+      `);
+    }
   }
 ];
 

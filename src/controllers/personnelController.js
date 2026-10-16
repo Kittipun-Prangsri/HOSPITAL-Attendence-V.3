@@ -59,19 +59,24 @@ exports.updateStaff = async (req, res) => {
         return res.status(403).json({ success: false, message: 'แก้ไขข้อมูลได้เฉพาะของตนเองเท่านั้น' });
       }
     }
+    // Partial update: only columns present in the request body are written,
+    // so callers that send a subset (e.g. the dashboard profile editor) don't wipe the rest.
+    const columns = [
+      ['NICKNAME', nickname, 100],
+      ['HR_PHONE', phone, 50],
+      ['HR_EMAIL', email, 255],
+      ['LINE_YOUR_USER_ID', line_user_id, 255],
+      ['TELEGRAM_CHAT_ID', telegram_chat_id, 100],
+      ['WORK_SHIFT', work_shift, 50],
+      ['TIME_IN', time_in, 20],
+      ['TIME_OUT', time_out, 20]
+    ].filter(([, value]) => value !== undefined);
+    if (columns.length === 0) {
+      return res.status(400).json({ success: false, message: 'No fields to update' });
+    }
     const [result] = await hosofficePool.query(
-      `UPDATE hr_person SET NICKNAME = ?, HR_PHONE = ?, HR_EMAIL = ?, LINE_YOUR_USER_ID = ?, TELEGRAM_CHAT_ID = ?, WORK_SHIFT = ?, TIME_IN = ?, TIME_OUT = ? WHERE FINGLE_ID = ?`,
-      [
-        normalizeText(nickname, 100),
-        normalizeText(phone, 50),
-        normalizeText(email, 255),
-        normalizeText(line_user_id, 255),
-        normalizeText(telegram_chat_id, 100),
-        normalizeText(work_shift, 50),
-        normalizeText(time_in, 20),
-        normalizeText(time_out, 20),
-        id
-      ]
+      `UPDATE hr_person SET ${columns.map(([column]) => `${column} = ?`).join(', ')} WHERE FINGLE_ID = ?`,
+      [...columns.map(([, value, maxLength]) => normalizeText(value, maxLength)), id]
     );
 
     if (result.affectedRows === 0) {

@@ -1,50 +1,29 @@
 <!DOCTYPE html>
 <html lang="th">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>เกิดข้อผิดพลาด - Hospital Attendance</title>
-    <link rel="stylesheet" href="/css/style.css">
-    <link rel="stylesheet" href="/css/ui-refresh.css">
-    <style>
-        .error-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            text-align: center;
-            padding: 20px;
-        }
-        .error-code {
-            font-size: 8rem;
-            font-weight: bold;
-            color: #ff4d4d;
-            margin: 0;
-        }
-        .error-message {
-            font-size: 1.5rem;
-            color: #333;
-            margin-bottom: 2rem;
-        }
-        .btn-home {
-            padding: 10px 20px;
-            background-color: #007bff;
-            color: white;
-            text-decoration: none;
-            border-radius: 5px;
-            transition: background 0.3s;
-        }
-        .btn-home:hover {
-            background-color: #0056b3;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>เกิดข้อผิดพลาด · KHH HRM</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <link rel="stylesheet" href="/css/erp.css">
 </head>
-<body>
-    <div class="error-container">
-        <h1 class="error-code"><%= status %></h1>
-        <p class="error-message"><%= error %></p>
-        <a href="/" class="btn-home">กลับหน้าหลัก</a>
+
+<body class="erp-page">
+  <% const code = locals.status || 500; const notFound = String(code) === '404'; %>
+  <main class="erp flex min-h-screen items-center justify-center px-4">
+    <div class="erp-panel w-full max-w-md p-8 text-center">
+      <div class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg text-xl <%= notFound ? 'bg-slate-100 text-slate-500' : 'bg-red-50 text-red-600' %>">
+        <i class="bi <%= notFound ? 'bi-signpost-split' : 'bi-exclamation-octagon' %>" aria-hidden="true"></i>
+      </div>
+      <div class="font-mono text-4xl font-semibold text-slate-900"><%= code %></div>
+      <p class="mt-2 text-[13px] text-slate-600"><%= locals.error || (notFound ? 'ไม่พบหน้าที่คุณต้องการ' : 'เกิดข้อผิดพลาดของระบบ') %></p>
+      <div class="mt-6 flex justify-center gap-2">
+        <button type="button" class="erp-btn erp-btn-secondary" onclick="history.back()"><i class="bi bi-arrow-left" aria-hidden="true"></i> ย้อนกลับ</button>
+        <a href="/" class="erp-btn erp-btn-primary"><i class="bi bi-house-door" aria-hidden="true"></i> กลับหน้าหลัก</a>
+      </div>
     </div>
+  </main>
 </body>
+
 </html>

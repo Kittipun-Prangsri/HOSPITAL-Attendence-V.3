@@ -2,727 +2,508 @@
 <html lang="th">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>แจ้งสาเหตุการปฏิบัติงาน</title>
-    <!-- Google Fonts: Sarabun -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&subset=thai&display=swap"
-        rel="stylesheet">
-    <!-- Bootstrap Icons -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <link rel="stylesheet" href="/css/style.css">
-    <link rel="stylesheet" href="/css/ui-refresh.css">
-    <style>
-        .excuse-layout {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 24px;
-        }
-
-        @media (min-width: 992px) {
-            .excuse-layout {
-                grid-template-columns: 360px 1fr;
-            }
-        }
-
-        .form-card {
-            background: #fff;
-            border-radius: 16px;
-            border: 1px solid var(--border);
-            padding: 24px;
-            box-shadow: 0 4px 12px rgba(11, 48, 96, 0.03);
-        }
-
-        .list-card {
-            background: #fff;
-            border-radius: 16px;
-            border: 1px solid var(--border);
-            padding: 24px;
-            box-shadow: 0 4px 12px rgba(11, 48, 96, 0.03);
-        }
-
-        /* Badges */
-        .status-badge {
-            padding: 4px 10px;
-            border-radius: 6px;
-            font-size: 12px;
-            font-weight: 600;
-            text-transform: uppercase;
-        }
-
-        .status-pending {
-            background: #fef3c7;
-            color: #d97706;
-        }
-
-        .status-approved {
-            background: #dcfce7;
-            color: #15803d;
-        }
-
-        .status-rejected {
-            background: #fee2e2;
-            color: #b91c1c;
-        }
-
-        .issue-badge {
-            padding: 3px 8px;
-            border-radius: 6px;
-            font-size: 11px;
-            font-weight: 700;
-        }
-
-        .issue-scan {
-            background: #e0f2fe;
-            color: #0369a1;
-        }
-
-        .issue-absent {
-            background: #f1f5f9;
-            color: #475569;
-        }
-
-        .issue-leave {
-            background: #fef3c7;
-            color: #d97706;
-        }
-
-        .issue-late {
-            background: #fae8ff;
-            color: #a21caf;
-        }
-
-        /* Form elements */
-        .form-group {
-            margin-bottom: 16px;
-        }
-
-        .form-group label {
-            display: block;
-            font-size: 12px;
-            font-weight: 600;
-            color: var(--muted);
-            margin-bottom: 6px;
-        }
-
-        .form-control,
-        .form-select {
-            width: 100%;
-            padding: 10px;
-            border-radius: 8px;
-            border: 1px solid var(--border);
-            font-family: inherit;
-            font-size: 14px;
-        }
-
-        .form-control:focus,
-        .form-select:focus {
-            border-color: var(--primary);
-            outline: none;
-        }
-
-        /* Tabs */
-        .tab-nav {
-            display: flex;
-            border-bottom: 2px solid var(--border);
-            margin-bottom: 20px;
-            gap: 20px;
-        }
-
-        .tab-btn {
-            background: none;
-            border: none;
-            padding: 10px 5px;
-            font-size: 14px;
-            font-weight: 600;
-            color: var(--muted);
-            cursor: pointer;
-            position: relative;
-        }
-
-        .tab-btn.active {
-            color: var(--primary);
-        }
-
-        .tab-btn.active::after {
-            content: '';
-            position: absolute;
-            bottom: -2px;
-            left: 0;
-            right: 0;
-            height: 2px;
-            background: var(--primary);
-        }
-
-        /* Modal for Review */
-        .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.4);
-            z-index: 1000;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            visibility: hidden;
-            opacity: 0;
-            transition: all 0.3s;
-        }
-
-        .modal-overlay.active {
-            visibility: visible;
-            opacity: 1;
-        }
-
-        .modal-box {
-            background: #fff;
-            width: 95%;
-            max-width: 450px;
-            border-radius: 15px;
-            padding: 25px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-        }
-
-        .modal-box h3 {
-            margin-top: 0;
-            font-size: 18px;
-            color: var(--primary);
-            margin-bottom: 20px;
-        }
-
-        /* Elapsed days badge */
-        .elapsed-badge {
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-size: 10px;
-            font-weight: 800;
-            font-family: monospace;
-        }
-
-        .elapsed-danger {
-            background: #fee2e2;
-            color: #ef4444;
-            border: 1px solid #fecaca;
-        }
-
-        .elapsed-warning {
-            background: #fef3c7;
-            color: #f59e0b;
-            border: 1px solid #fcd34d;
-        }
-
-        .elapsed-normal {
-            background: #f1f5f9;
-            color: #64748b;
-        }
-    </style>
+  <%- include("components/erp-head", { title: "แจ้งสาเหตุการลงเวลา" }) %>
 </head>
 
-<body>
-    <%- include('components/sidebar') %>
+<% const isReviewer = locals.user && (user.role === 'admin' || user.role === 'super'); %>
 
-        <div class="main" role="main">
-            <%- include('components/topbar') %>
+<body class="erp-page">
+  <%- include('components/sidebar') %>
+  <div class="main" role="main">
+    <%- include('components/topbar') %>
 
-                <div class="page">
-                    <section class="workspace-hero" aria-labelledby="excuses-heading">
-                        <div>
-                            <div class="workspace-eyebrow"><i class="bi bi-file-earmark-medical" aria-hidden="true"></i> คำร้องและข้อยกเว้น</div>
-                            <h1 id="excuses-heading">แจ้งสาเหตุและแก้ต่างการลงเวลา</h1>
-                            <p>ส่งใบแก้ต่างเมื่อเกิดปัญหา แสกนไม่ผ่าน / ขาด ลา มาสาย และตรวจสอบสถานะ</p>
-                        </div>
-                    </section>
+    <div class="erp px-4 py-5 lg:px-6">
+      <section class="mb-5" aria-labelledby="excuses-heading">
+        <h2 id="excuses-heading" class="text-xl font-semibold text-slate-900"><%= isReviewer ? 'พิจารณาคำร้องแก้ต่างการลงเวลา' : 'แจ้งสาเหตุและแก้ต่างการลงเวลา' %></h2>
+        <p class="mt-1 text-[13px] text-slate-500"><%= isReviewer ? 'ตรวจสอบคำร้อง สแกนไม่ผ่าน / ขาด ลา มาสาย และติดตามผู้ที่ยังไม่ส่งเหตุผล' : 'ส่งใบแก้ต่างเมื่อสแกนไม่ผ่าน ขาด ลา หรือมาสาย และติดตามผลการพิจารณา' %></p>
+      </section>
 
-                    <% if (locals.user && (user.role==='admin' || user.role==='super' )) { %>
-                        <!-- ================== ADMIN VIEW ================== -->
-                        <div class="list-card">
-                            <div class="tab-nav">
-                                <button class="tab-btn active" onclick="switchTab('pending')"><i
-                                        class="bi bi-clock-history"></i> รายการรอตรวจสอบ</button>
-                                <button class="tab-btn" onclick="switchTab('reviewed')"><i
-                                        class="bi bi-check-circle"></i> ประวัติการพิจารณา</button>
-                                <button class="tab-btn" onclick="switchTab('reminders')"><i class="bi bi-bell"></i>
-                                    ค้างส่งเหตุผล (3-7 วัน) <span id="reminder-badge"
-                                        style="background:#ef4444; color:#fff; font-size:10px; padding:2px 6px; border-radius:10px; display:none;">0</span></button>
-                            </div>
-
-                            <!-- TAB 1: PENDING -->
-                            <div id="tab-pending" class="tab-content">
-                                <div style="overflow-x:auto;">
-                                    <table class="att-tbl" style="width:100%;">
-                                        <thead>
-                                            <tr>
-                                                <th>บุคลากร</th>
-                                                <th>วันที่เกิดปัญหา</th>
-                                                <th>ประเภทปัญหา</th>
-                                                <th>เหตุผล / ข้อชี้แจง</th>
-                                                <th>เวลาที่ส่งเรื่อง</th>
-                                                <th>จัดการ</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="pending-list">
-                                            <!-- Dynamic -->
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-
-                            <!-- TAB 2: REVIEWED -->
-                            <div id="tab-reviewed" class="tab-content" style="display:none;">
-                                <div style="overflow-x:auto;">
-                                    <table class="att-tbl" style="width:100%;">
-                                        <thead>
-                                            <tr>
-                                                <th>บุคลากร</th>
-                                                <th>วันที่เกิดปัญหา</th>
-                                                <th>ประเภทปัญหา</th>
-                                                <th>เหตุผล / ข้อชี้แจง</th>
-                                                <th>สถานะ</th>
-                                                <th>ความเห็นผู้ตรวจ</th>
-                                                <th>วันที่ตรวจ</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="reviewed-list">
-                                            <!-- Dynamic -->
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-
-                            <!-- TAB 3: REMINDERS (3-7 days) -->
-                            <div id="tab-reminders" class="tab-content" style="display:none;">
-                                <div
-                                    style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-                                    <div style="font-size:13px; color:var(--muted);">รายชื่อพนักงานที่มีสถิติ ขาด/สาย
-                                        ในรอบ 7 วันที่ผ่านมา และยังไม่ได้ยื่นคำร้องแก้ต่างเข้ามาในระบบ</div>
-                                    <button class="btn btn-teal btn-sm" onclick="sendSelectedReminders()"><i
-                                            class="bi bi-send"></i> ส่ง LINE แจ้งเตือนผู้ค้างส่ง</button>
-                                </div>
-                                <div style="overflow-x:auto;">
-                                    <table class="att-tbl" style="width:100%;">
-                                        <thead>
-                                            <tr>
-                                                <th style="width: 40px; text-align:center;"><input type="checkbox"
-                                                        id="selectAll" onchange="toggleSelectAll(this)"></th>
-                                                <th>ชื่อ-นามสกุล</th>
-                                                <th>วันที่ค้าง</th>
-                                                <th>ประเภทปัญหา</th>
-                                                <th>จำนวนวันผ่านมา</th>
-                                                <th>การเชื่อมต่อ LINE</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="reminders-list">
-                                            <!-- Dynamic -->
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
-                        <% } else { %>
-                            <!-- ================== EMPLOYEE VIEW ================== -->
-                            <div class="excuse-layout">
-                                <!-- Left: Submission Form -->
-                                <div class="form-card">
-                                    <h5 style="margin-top:0; font-size:16px; color:var(--primary); margin-bottom:18px;">
-                                        <i class="bi bi-file-earmark-text-fill"></i> ยื่นคำร้องแก้ต่าง</h5>
-                                    <form id="excuseForm">
-                                        <div class="form-group">
-                                            <label>วันที่เกิดปัญหา</label>
-                                            <input type="date" id="date" class="form-control" required>
-                                        </div>
-                                        <div class="form-group">
-                                            <label>ประเภทปัญหา</label>
-                                            <select id="issue_type" class="form-select" required>
-                                                <option value="scan-failed">แสกนใบหน้าไม่ผ่าน / ไม่ติด</option>
-                                                <option value="absent">ไม่ได้สแกนบัตร / ขาดงาน</option>
-                                                <option value="leave">ไม่ได้บันทึก ลา / ไปราชการ</option>
-                                                <option value="late">ลืมเช็คอิน หรือเข้างานสาย</option>
-                                            </select>
-                                        </div>
-                                        <div class="form-group">
-                                            <label>เหตุผล / ข้อชี้แจง</label>
-                                            <textarea id="reason" class="form-control" rows="4"
-                                                placeholder="ระบุเหตุผล เช่น แสกนนิ้วไม่ผ่าน, เครื่องมีปัญหา, ไปราชการนอกสถานที่, รถติดหนักเนื่องจากฝนตก ฯลฯ"
-                                                required></textarea>
-                                        </div>
-                                        <button type="submit" class="btn btn-teal"
-                                            style="width:100%; margin-top:10px;"><i class="bi bi-send-fill"></i>
-                                            ส่งคำร้องแก้ต่าง</button>
-                                    </form>
-                                </div>
-
-                                <!-- Right: Submission History -->
-                                <div class="list-card">
-                                    <h5 style="margin-top:0; font-size:16px; color:var(--primary); margin-bottom:18px;">
-                                        <i class="bi bi-clock-history"></i> ประวัติการส่งคำร้องแก้ต่างของคุณ</h5>
-                                    <div style="overflow-x:auto;">
-                                        <table class="att-tbl" style="width:100%;">
-                                            <thead>
-                                                <tr>
-                                                    <th>วันที่เกิดปัญหา</th>
-                                                    <th>ประเภทปัญหา</th>
-                                                    <th>เหตุผล / ข้อชี้แจง</th>
-                                                    <th>สถานะ</th>
-                                                    <th>ความเห็นผู้ตรวจ</th>
-                                                    <th>วันที่ยื่นคำร้อง</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody id="user-excuse-list">
-                                                <tr>
-                                                    <td colspan="6"
-                                                        style="text-align:center; padding:20px; color:var(--muted);">
-                                                        กำลังโหลดข้อมูล...</td>
-                                                </tr>
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                            </div>
-                            <% } %>
-                </div>
-        </div>
-
-        <!-- Review Modal (Admin only) -->
-        <% if (locals.user && (user.role==='admin' || user.role==='super' )) { %>
-            <div class="modal-overlay" id="reviewModal">
-                <div class="modal-box">
-                    <h3 id="modalTitle">พิจารณาใบแก้ต่างการลงเวลา</h3>
-                    <form id="reviewForm">
-                        <input type="hidden" id="excuseId">
-                        <div class="form-group">
-                            <label>ชื่อพนักงาน: <strong id="lbl-fullname" style="color:var(--text)">—</strong></label>
-                        </div>
-                        <div class="form-group">
-                            <label>วันที่เกิดปัญหา: <strong id="lbl-date" style="color:var(--text)">—</strong></label>
-                        </div>
-                        <div class="form-group">
-                            <label>เหตุผลชี้แจง: <span id="lbl-reason"
-                                    style="display:block; padding:10px; background:#f8fafc; border-radius:8px; margin-top:5px; font-size:13px; color:var(--text2);">—</span></label>
-                        </div>
-                        <div class="form-group">
-                            <label>ผลการพิจารณา</label>
-                            <select id="reviewStatus" class="form-select" required>
-                                <option value="approved">✅ อนุมัติการแก้ต่าง</option>
-                                <option value="rejected">❌ ไม่อนุมัติ / ยกเลิก</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>ความเห็นเพิ่มเติม (ส่งข้อความกลับเข้า LINE ผู้ส่งทันที)</label>
-                            <textarea id="adminComment" class="form-control" rows="3"
-                                placeholder="ระบุเหตุผลในการอนุมัติหรือไม่อนุมัติ เช่น รับทราบปรับปรุงเวลาเช็คอินแล้ว, ข้อมูลไม่เพียงพอ ฯลฯ"></textarea>
-                        </div>
-                        <div class="actions"
-                            style="border:none; margin:0; padding:0; display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
-                            <button type="button" class="btn btn-outline-dark" onclick="closeReviewModal()"><i
-                                    class="bi bi-x-circle"></i> ยกเลิก</button>
-                            <button type="submit" class="btn btn-teal"><i class="bi bi-floppy-fill"></i>
-                                บันทึกข้อมูล</button>
-                        </div>
-                    </form>
-                </div>
+      <% if (isReviewer) { %>
+        <!-- ================== REVIEWER VIEW ================== -->
+        <section class="mb-5 grid grid-cols-2 gap-3 xl:grid-cols-4" aria-label="สรุปคำร้อง">
+          <% [['kpiPending','รอตรวจสอบ','bi-hourglass-split','bg-amber-50 text-amber-600'],
+              ['kpiApproved','อนุมัติแล้ว','bi-check2-circle','bg-emerald-50 text-emerald-600'],
+              ['kpiRejected','ไม่อนุมัติ','bi-x-circle','bg-red-50 text-red-600'],
+              ['kpiReminders','ค้างส่งเหตุผล (7 วัน)','bi-bell','bg-sky-50 text-sky-600']].forEach(([id, label, icon, tone]) => { %>
+            <div class="erp-panel flex items-center gap-3 p-4">
+              <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-lg <%= tone %>"><i class="bi <%= icon %>" aria-hidden="true"></i></div>
+              <div class="min-w-0">
+                <div class="truncate text-xs text-slate-500"><%= label %></div>
+                <div id="<%= id %>" class="font-mono text-xl font-semibold tabular-nums text-slate-900">–</div>
+              </div>
             </div>
-            <% } %>
+          <% }); %>
+        </section>
 
-                <script>
-                    const userRole = '<%= locals.user ? user.role : "user" %>';
-                    const ISSUE_LABELS = {
-                        'scan-failed': '<span class="issue-badge issue-scan"><i class="bi bi-camera-fill"></i> แสกนไม่ผ่าน</span>',
-                        'absent': '<span class="issue-badge issue-absent"><i class="bi bi-x-square-fill"></i> ขาดงาน</span>',
-                        'leave': '<span class="issue-badge issue-leave"><i class="bi bi-calendar-minus-fill"></i> ลา</span>',
-                        'late': '<span class="issue-badge issue-late"><i class="bi bi-clock-fill"></i> มาสาย</span>'
-                    };
+        <section class="erp-panel overflow-hidden">
+          <div class="flex gap-1 overflow-x-auto border-b border-slate-200 px-3" role="tablist">
+            <button type="button" role="tab" class="erp-tab tab-btn active whitespace-nowrap" id="tabBtn-pending" onclick="switchTab('pending')">
+              <i class="bi bi-inbox" aria-hidden="true"></i> รอตรวจสอบ <span id="pending-badge" class="rounded bg-amber-100 px-1.5 font-mono text-2xs text-amber-700">0</span>
+            </button>
+            <button type="button" role="tab" class="erp-tab tab-btn whitespace-nowrap" id="tabBtn-reviewed" onclick="switchTab('reviewed')">
+              <i class="bi bi-check2-all" aria-hidden="true"></i> ประวัติการพิจารณา
+            </button>
+            <button type="button" role="tab" class="erp-tab tab-btn whitespace-nowrap" id="tabBtn-reminders" onclick="switchTab('reminders')">
+              <i class="bi bi-bell" aria-hidden="true"></i> ค้างส่งเหตุผล (3–7 วัน) <span id="reminder-badge" class="hidden rounded bg-red-100 px-1.5 font-mono text-2xs text-red-600">0</span>
+            </button>
+          </div>
 
-                    const STATUS_LABELS = {
-                        'pending': '<span class="status-badge status-pending"><i class="bi bi-hourglass-split"></i> รอตรวจ</span>',
-                        'approved': '<span class="status-badge status-approved"><i class="bi bi-check-circle-fill"></i> อนุมัติ</span>',
-                        'rejected': '<span class="status-badge status-rejected"><i class="bi bi-x-circle-fill"></i> ไม่อนุมัติ</span>'
-                    };
+          <!-- TAB: PENDING -->
+          <div id="tab-pending" class="tab-content overflow-x-auto">
+            <table class="w-full border-collapse text-left text-[13px]">
+              <thead class="bg-slate-50 text-2xs uppercase tracking-wide text-slate-500">
+                <tr class="border-b border-slate-200">
+                  <th class="px-4 py-2.5 font-semibold">บุคลากร</th>
+                  <th class="px-3 py-2.5 font-semibold">วันที่เกิดปัญหา</th>
+                  <th class="px-3 py-2.5 font-semibold">ประเภท</th>
+                  <th class="px-3 py-2.5 font-semibold">เหตุผล / ข้อชี้แจง</th>
+                  <th class="px-3 py-2.5 font-semibold">ส่งเมื่อ</th>
+                  <th class="px-4 py-2.5 text-right font-semibold">จัดการ</th>
+                </tr>
+              </thead>
+              <tbody id="pending-list" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
 
-                    // Date helper
-                    function formatDate(dStr) {
-                        const d = new Date(dStr);
-                        return d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
-                    }
+          <!-- TAB: REVIEWED -->
+          <div id="tab-reviewed" class="tab-content" style="display:none;">
+            <div class="flex flex-wrap items-center gap-2 border-b border-slate-200 p-3">
+              <div class="relative min-w-[220px] flex-1 sm:max-w-sm">
+                <i class="bi bi-search pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden="true"></i>
+                <input type="search" id="reviewedSearch" class="erp-input pl-9" placeholder="ค้นหาชื่อหรือเหตุผล…" oninput="renderAdminExcuses()" aria-label="ค้นหาประวัติ">
+              </div>
+              <select id="reviewedStatus" class="erp-input w-auto" onchange="renderAdminExcuses()" aria-label="กรองตามผล">
+                <option value="">ทุกผลการพิจารณา</option>
+                <option value="approved">อนุมัติ</option>
+                <option value="rejected">ไม่อนุมัติ</option>
+              </select>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full border-collapse text-left text-[13px]">
+                <thead class="bg-slate-50 text-2xs uppercase tracking-wide text-slate-500">
+                  <tr class="border-b border-slate-200">
+                    <th class="px-4 py-2.5 font-semibold">บุคลากร</th>
+                    <th class="px-3 py-2.5 font-semibold">วันที่เกิดปัญหา</th>
+                    <th class="px-3 py-2.5 font-semibold">ประเภท</th>
+                    <th class="px-3 py-2.5 font-semibold">เหตุผล</th>
+                    <th class="px-3 py-2.5 font-semibold">ผล</th>
+                    <th class="px-3 py-2.5 font-semibold">ความเห็นผู้ตรวจ</th>
+                    <th class="px-4 py-2.5 font-semibold">วันที่ตรวจ</th>
+                  </tr>
+                </thead>
+                <tbody id="reviewed-list" class="divide-y divide-slate-100"></tbody>
+              </table>
+            </div>
+          </div>
 
-                    // ============ FOR EMPLOYEES ============
-                    if (userRole !== 'admin' && userRole !== 'super') {
-                        const form = document.getElementById('excuseForm');
-                        if (form) {
-                            form.addEventListener('submit', async (e) => {
-                                e.preventDefault();
-                                const data = {
-                                    date: document.getElementById('date').value,
-                                    issue_type: document.getElementById('issue_type').value,
-                                    reason: document.getElementById('reason').value
-                                };
+          <!-- TAB: REMINDERS -->
+          <div id="tab-reminders" class="tab-content" style="display:none;">
+            <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-3">
+              <p class="text-xs text-slate-500">ผู้ที่มีสถิติ ขาด/สาย ในรอบ 7 วัน และยังไม่ได้ยื่นคำร้องแก้ต่าง</p>
+              <button type="button" class="erp-btn erp-btn-primary h-8" id="sendRemindersBtn" onclick="sendSelectedReminders()">
+                <i class="bi bi-send" aria-hidden="true"></i> ส่ง LINE เตือน <span id="selectedCount" class="rounded bg-white/20 px-1.5 font-mono text-2xs">0</span>
+              </button>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full border-collapse text-left text-[13px]">
+                <thead class="bg-slate-50 text-2xs uppercase tracking-wide text-slate-500">
+                  <tr class="border-b border-slate-200">
+                    <th class="w-10 px-4 py-2.5"><input type="checkbox" id="selectAll" class="accent-brand-600" onchange="toggleSelectAll(this)" aria-label="เลือกทั้งหมด"></th>
+                    <th class="px-3 py-2.5 font-semibold">ชื่อ-นามสกุล</th>
+                    <th class="px-3 py-2.5 font-semibold">วันที่ค้าง</th>
+                    <th class="px-3 py-2.5 font-semibold">ประเภท</th>
+                    <th class="px-3 py-2.5 font-semibold">ผ่านมา</th>
+                    <th class="px-4 py-2.5 font-semibold">LINE</th>
+                  </tr>
+                </thead>
+                <tbody id="reminders-list" class="divide-y divide-slate-100"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      <% } else { %>
+        <!-- ================== EMPLOYEE VIEW ================== -->
+        <div class="grid grid-cols-1 items-start gap-5 lg:grid-cols-[360px_1fr]">
+          <section class="erp-panel" aria-labelledby="formTitle">
+            <h3 id="formTitle" class="border-b border-slate-200 px-4 py-3 text-[13px] font-semibold text-slate-800"><i class="bi bi-file-earmark-plus text-brand-600" aria-hidden="true"></i> ยื่นคำร้องแก้ต่าง</h3>
+            <form id="excuseForm" class="m-0 space-y-4 p-4">
+              <div>
+                <label class="erp-label" for="date">วันที่เกิดปัญหา <span class="text-red-500">*</span></label>
+                <input type="date" id="date" class="erp-input" required>
+              </div>
+              <fieldset class="m-0 border-0 p-0">
+                <legend class="erp-label">ประเภทปัญหา <span class="text-red-500">*</span></legend>
+                <div class="grid grid-cols-2 gap-2">
+                  <% [['scan-failed','สแกนไม่ผ่าน','bi-camera'],['absent','ไม่ได้สแกน / ขาด','bi-x-square'],['leave','ไม่ได้บันทึกลา','bi-calendar-minus'],['late','ลืมเช็คอิน / สาย','bi-clock']].forEach(([v, l, ic], i) => { %>
+                    <label class="flex cursor-pointer items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 hover:border-slate-300 has-[:checked]:border-brand-500 has-[:checked]:bg-brand-50 has-[:checked]:text-brand-800">
+                      <input type="radio" name="issue_type" value="<%= v %>" class="sr-only" <%= i === 0 ? 'checked' : '' %>>
+                      <i class="bi <%= ic %>" aria-hidden="true"></i><%= l %>
+                    </label>
+                  <% }); %>
+                </div>
+              </fieldset>
+              <div>
+                <label class="erp-label" for="reason">เหตุผล / ข้อชี้แจง <span class="text-red-500">*</span></label>
+                <textarea id="reason" class="erp-input h-auto py-2" rows="4" maxlength="1000" required
+                  placeholder="เช่น เครื่องสแกนมีปัญหา, ไปราชการนอกสถานที่, รถติดหนักเนื่องจากฝนตก"></textarea>
+                <div class="mt-1 text-right text-2xs text-slate-400"><span id="reasonCount">0</span>/1000</div>
+              </div>
+              <button type="submit" id="submitExcuseBtn" class="erp-btn erp-btn-primary w-full"><i class="bi bi-send" aria-hidden="true"></i> ส่งคำร้องแก้ต่าง</button>
+            </form>
+          </section>
 
-                                try {
-                                    const res = await fetch('/api/excuses', {
-                                        method: 'POST',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify(data)
-                                    });
-                                    const result = await res.json();
-                                    if (result.success) {
-                                        alert('✅ ส่งคำชี้แจงแก้ต่างเรียบร้อยแล้ว');
-                                        form.reset();
-                                        fetchUserExcuses();
-                                    } else {
-                                        alert('❌ บันทึกล้มเหลว: ' + result.error);
-                                    }
-                                } catch (err) {
-                                    alert('❌ เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์');
-                                }
-                            });
-                        }
+          <section class="erp-panel overflow-hidden" aria-labelledby="historyTitle">
+            <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+              <h3 id="historyTitle" class="text-[13px] font-semibold text-slate-800">ประวัติคำร้องของคุณ</h3>
+              <div id="userSummary" class="flex gap-1.5"></div>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full border-collapse text-left text-[13px]">
+                <thead class="bg-slate-50 text-2xs uppercase tracking-wide text-slate-500">
+                  <tr class="border-b border-slate-200">
+                    <th class="px-4 py-2.5 font-semibold">วันที่เกิดปัญหา</th>
+                    <th class="px-3 py-2.5 font-semibold">ประเภท</th>
+                    <th class="px-3 py-2.5 font-semibold">เหตุผล</th>
+                    <th class="px-3 py-2.5 font-semibold">สถานะ</th>
+                    <th class="px-3 py-2.5 font-semibold">ความเห็นผู้ตรวจ</th>
+                    <th class="px-4 py-2.5 font-semibold">ยื่นเมื่อ</th>
+                  </tr>
+                </thead>
+                <tbody id="user-excuse-list" class="divide-y divide-slate-100">
+                  <tr><td colspan="6" class="px-4 py-16 text-center text-slate-400">กำลังโหลดข้อมูล…</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+      <% } %>
+    </div>
+  </div>
 
-                        async function fetchUserExcuses() {
-                            try {
-                                const res = await fetch('/api/excuses');
-                                const data = await res.json();
-                                const list = document.getElementById('user-excuse-list');
-                                if (data.success && data.excuses.length > 0) {
-                                    list.innerHTML = data.excuses.map(ex => `
-                            <tr>
-                                <td><strong>${formatDate(ex.date)}</strong></td>
-                                <td>${ISSUE_LABELS[ex.issue_type] || ex.issue_type}</td>
-                                <td>${ex.reason}</td>
-                                <td>${STATUS_LABELS[ex.status] || ex.status}</td>
-                                <td><span style="font-size:12.5px; color:#475569;">${ex.admin_comment || '—'}</span></td>
-                                <td><small style="color:var(--muted);">${new Date(ex.submitted_at).toLocaleString('th-TH')}</small></td>
-                            </tr>
-                        `).join('');
-                                } else {
-                                    list.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:20px; color:var(--muted);">คุณยังไม่มีประวัติการยื่นคำร้องแก้ต่าง</td></tr>`;
-                                }
-                            } catch (err) {
-                                console.error(err);
-                            }
-                        }
+  <% if (isReviewer) { %>
+    <!-- REVIEW DRAWER -->
+    <div id="reviewModal" class="erp fixed inset-0 z-[10000] hidden" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px]" onclick="closeReviewModal()"></div>
+      <form id="reviewForm" class="absolute inset-y-0 right-0 m-0 flex w-full max-w-[480px] flex-col bg-white shadow-drawer">
+        <header class="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+          <h3 id="modalTitle" class="text-base font-semibold text-slate-900">พิจารณาคำร้องแก้ต่าง</h3>
+          <button type="button" class="erp-icon-btn" onclick="closeReviewModal()" aria-label="ปิด"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+        </header>
+        <div class="flex-1 space-y-4 overflow-y-auto bg-slate-50/60 p-5">
+          <input type="hidden" id="excuseId">
+          <section class="erp-panel">
+            <dl class="m-0 grid grid-cols-2 gap-x-4 gap-y-3 p-4">
+              <div class="col-span-2"><dt class="text-2xs text-slate-500">ผู้ยื่นคำร้อง</dt><dd id="lbl-fullname" class="m-0 text-[13px] font-medium text-slate-900">—</dd></div>
+              <div><dt class="text-2xs text-slate-500">วันที่เกิดปัญหา</dt><dd id="lbl-date" class="m-0 text-[13px] font-medium text-slate-900">—</dd></div>
+              <div><dt class="text-2xs text-slate-500">ประเภท</dt><dd id="lbl-issue" class="m-0">—</dd></div>
+              <div class="col-span-2"><dt class="mb-1 text-2xs text-slate-500">เหตุผลชี้แจง</dt>
+                <dd id="lbl-reason" class="m-0 whitespace-pre-wrap rounded-md bg-slate-50 p-3 text-[13px] text-slate-700 ring-1 ring-inset ring-slate-200">—</dd></div>
+            </dl>
+          </section>
+          <fieldset class="m-0 border-0 p-0">
+            <legend class="erp-label">ผลการพิจารณา</legend>
+            <div class="grid grid-cols-2 gap-2">
+              <label class="flex cursor-pointer items-center justify-center gap-2 rounded-md border border-slate-200 bg-white py-2.5 text-[13px] font-medium text-slate-700 has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50 has-[:checked]:text-emerald-700">
+                <input type="radio" name="reviewStatus" value="approved" class="sr-only" checked><i class="bi bi-check2-circle" aria-hidden="true"></i> อนุมัติ
+              </label>
+              <label class="flex cursor-pointer items-center justify-center gap-2 rounded-md border border-slate-200 bg-white py-2.5 text-[13px] font-medium text-slate-700 has-[:checked]:border-red-500 has-[:checked]:bg-red-50 has-[:checked]:text-red-700">
+                <input type="radio" name="reviewStatus" value="rejected" class="sr-only"><i class="bi bi-x-circle" aria-hidden="true"></i> ไม่อนุมัติ
+              </label>
+            </div>
+          </fieldset>
+          <div>
+            <label class="erp-label" for="adminComment">ความเห็นเพิ่มเติม <span class="font-normal text-slate-400">(ส่งกลับเข้า LINE ผู้ยื่นทันที)</span></label>
+            <textarea id="adminComment" class="erp-input h-auto py-2" rows="4" maxlength="1000"
+              placeholder="เช่น รับทราบ ปรับปรุงเวลาเช็คอินแล้ว / ข้อมูลไม่เพียงพอ"></textarea>
+          </div>
+        </div>
+        <footer class="flex justify-end gap-2 border-t border-slate-200 px-5 py-3">
+          <button type="button" class="erp-btn erp-btn-secondary" onclick="closeReviewModal()">ยกเลิก</button>
+          <button type="submit" id="saveReviewBtn" class="erp-btn erp-btn-primary"><i class="bi bi-check2" aria-hidden="true"></i> บันทึกผล</button>
+        </footer>
+      </form>
+    </div>
+  <% } %>
 
-                        // Initial load
-                        fetchUserExcuses();
-                    }
+  <script>
+    const userRole = <%- JSON.stringify(locals.user ? user.role : 'user') %>;
+    const IS_REVIEWER = userRole === 'admin' || userRole === 'super';
+    const ISSUE = {
+      'scan-failed': ['สแกนไม่ผ่าน', 'sky', 'bi-camera'],
+      absent: ['ขาดงาน', 'slate', 'bi-x-square'],
+      leave: ['ลา', 'violet', 'bi-calendar-minus'],
+      late: ['มาสาย', 'amber', 'bi-clock']
+    };
+    const STATUS = { pending: ['รอตรวจ', 'amber'], approved: ['อนุมัติ', 'green'], rejected: ['ไม่อนุมัติ', 'red'] };
+    const $ = id => document.getElementById(id);
+    const esc = ERP.escapeHtml;
 
-                    // ============ FOR ADMINS ============
-                    let allExcuses = [];
-                    let allReminders = [];
+    const formatDate = d => {
+      const date = new Date(d);
+      return isNaN(date) ? (d || '—') : date.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
+    };
+    const formatDateTime = d => (d ? new Date(d).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' }) : '—');
+    const issueBadge = t => { const m = ISSUE[t]; return m ? ERP.badge(m[0], m[1]) : ERP.badge(t || '—', 'slate'); };
+    const statusBadge = s => { const m = STATUS[s]; return m ? ERP.badge(m[0], m[1]) : ERP.badge(s || '—', 'slate'); };
+    const person = ex => `<div class="flex items-center gap-2.5">${ERP.avatar(ex.fullname, ex.username)}
+      <div class="min-w-0"><div class="truncate font-medium text-slate-900">${esc(ex.fullname || '—')}</div>
+      <div class="font-mono text-2xs text-slate-400">${esc(ex.username || '')}</div></div></div>`;
 
-                    if (userRole === 'admin' || userRole === 'super') {
-                        function switchTab(tabId) {
-                            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-                            document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+    /* ============ EMPLOYEE ============ */
+    async function fetchUserExcuses() {
+      const list = $('user-excuse-list');
+      try {
+        const res = await fetch('/api/excuses', { headers: { Accept: 'application/json' } });
+        const data = await res.json();
+        const rows = (data.success && data.excuses) || [];
+        const count = s => rows.filter(r => r.status === s).length;
+        $('userSummary').innerHTML = rows.length
+          ? ERP.badge(`รอตรวจ ${count('pending')}`, 'amber') + ERP.badge(`อนุมัติ ${count('approved')}`, 'green') + ERP.badge(`ไม่อนุมัติ ${count('rejected')}`, 'red')
+          : '';
+        if (!rows.length) {
+          list.innerHTML = ERP.emptyRow(6, 'คุณยังไม่มีประวัติการยื่นคำร้องแก้ต่าง');
+          return;
+        }
+        list.innerHTML = rows.map(ex => `<tr class="hover:bg-slate-50">
+          <td class="whitespace-nowrap px-4 py-2.5 font-medium text-slate-900">${esc(formatDate(ex.date))}</td>
+          <td class="px-3 py-2.5">${issueBadge(ex.issue_type)}</td>
+          <td class="max-w-[280px] px-3 py-2.5 text-slate-600"><div class="line-clamp-2" title="${esc(ex.reason)}">${esc(ex.reason)}</div></td>
+          <td class="px-3 py-2.5">${statusBadge(ex.status)}</td>
+          <td class="max-w-[220px] px-3 py-2.5 text-xs text-slate-600">${esc(ex.admin_comment || '—')}</td>
+          <td class="whitespace-nowrap px-4 py-2.5 text-xs text-slate-500">${esc(formatDateTime(ex.submitted_at))}</td>
+        </tr>`).join('');
+      } catch (err) {
+        console.error(err);
+        list.innerHTML = ERP.emptyRow(6, 'โหลดข้อมูลไม่สำเร็จ', 'bi-exclamation-triangle');
+      }
+    }
 
-                            const activeBtn = Array.from(document.querySelectorAll('.tab-btn')).find(btn => btn.getAttribute('onclick').includes(`'${tabId}'`));
-                            if (activeBtn) activeBtn.classList.add('active');
+    if (!IS_REVIEWER) {
+      const form = $('excuseForm');
+      $('date').max = ERP.todayIso();
+      $('reason').addEventListener('input', e => { $('reasonCount').textContent = e.target.value.length; });
+      form.addEventListener('submit', async e => {
+        e.preventDefault();
+        const btn = $('submitExcuseBtn');
+        btn.disabled = true;
+        try {
+          const res = await fetch('/api/excuses', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({
+              date: $('date').value,
+              issue_type: (form.querySelector('input[name="issue_type"]:checked') || {}).value,
+              reason: $('reason').value.trim()
+            })
+          });
+          const result = await res.json();
+          if (result.success) {
+            ERP.toast('ส่งคำร้องแก้ต่างเรียบร้อยแล้ว', 'success');
+            form.reset();
+            $('reasonCount').textContent = '0';
+            fetchUserExcuses();
+          } else {
+            ERP.toast('บันทึกไม่สำเร็จ: ' + (result.error || 'ไม่ทราบสาเหตุ'), 'error');
+          }
+        } catch {
+          ERP.toast('เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์', 'error');
+        } finally {
+          btn.disabled = false;
+        }
+      });
+      fetchUserExcuses();
+    }
 
-                            const content = document.getElementById('tab-' + tabId);
-                            if (content) content.style.display = 'block';
+    /* ============ REVIEWER ============ */
+    let allExcuses = [];
+    let allReminders = [];
 
-                            if (tabId === 'pending' || tabId === 'reviewed') fetchAdminExcuses();
-                            if (tabId === 'reminders') fetchReminders();
-                        }
+    function switchTab(tabId) {
+      ['pending', 'reviewed', 'reminders'].forEach(t => {
+        $('tabBtn-' + t).classList.toggle('active', t === tabId);
+        $('tabBtn-' + t).setAttribute('aria-selected', String(t === tabId));
+        $('tab-' + t).style.display = t === tabId ? '' : 'none';
+      });
+      if (tabId === 'reminders') fetchReminders();
+      else fetchAdminExcuses();
+    }
 
-                        async function fetchAdminExcuses() {
-                            try {
-                                const res = await fetch('/api/excuses');
-                                const data = await res.json();
-                                if (data.success) {
-                                    allExcuses = data.excuses;
-                                    renderAdminExcuses();
-                                }
-                            } catch (err) { console.error(err); }
-                        }
+    async function fetchAdminExcuses() {
+      try {
+        const res = await fetch('/api/excuses', { headers: { Accept: 'application/json' } });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error);
+        allExcuses = data.excuses || [];
+        renderAdminExcuses();
+      } catch (err) {
+        console.error(err);
+        $('pending-list').innerHTML = ERP.emptyRow(6, 'โหลดข้อมูลไม่สำเร็จ', 'bi-exclamation-triangle');
+      }
+    }
+    const loadData = () => { fetchAdminExcuses(); fetchReminders(); };
 
-                        function renderAdminExcuses() {
-                            const pendingList = document.getElementById('pending-list');
-                            const reviewedList = document.getElementById('reviewed-list');
+    function renderAdminExcuses() {
+      const pending = allExcuses.filter(ex => ex.status === 'pending');
+      const reviewedAll = allExcuses.filter(ex => ex.status !== 'pending');
+      $('kpiPending').textContent = pending.length;
+      $('kpiApproved').textContent = reviewedAll.filter(ex => ex.status === 'approved').length;
+      $('kpiRejected').textContent = reviewedAll.filter(ex => ex.status === 'rejected').length;
+      $('pending-badge').textContent = pending.length;
 
-                            const pending = allExcuses.filter(ex => ex.status === 'pending');
-                            const reviewed = allExcuses.filter(ex => ex.status !== 'pending');
+      $('pending-list').innerHTML = pending.length
+        ? pending.map(ex => `<tr class="hover:bg-slate-50">
+            <td class="px-4 py-2.5">${person(ex)}</td>
+            <td class="whitespace-nowrap px-3 py-2.5 font-medium text-slate-900">${esc(formatDate(ex.date))}</td>
+            <td class="px-3 py-2.5">${issueBadge(ex.issue_type)}</td>
+            <td class="max-w-[320px] px-3 py-2.5 text-slate-600"><div class="line-clamp-2" title="${esc(ex.reason)}">${esc(ex.reason)}</div></td>
+            <td class="whitespace-nowrap px-3 py-2.5 text-xs text-slate-500">${esc(formatDateTime(ex.submitted_at))}</td>
+            <td class="px-4 py-2.5 text-right"><button type="button" class="erp-btn erp-btn-secondary h-8 px-2.5" data-review="${esc(ex.id)}"><i class="bi bi-shield-check"></i> พิจารณา</button></td>
+          </tr>`).join('')
+        : ERP.emptyRow(6, 'ไม่มีคำร้องรอตรวจสอบ', 'bi-check2-circle');
 
-                            if (pending.length > 0) {
-                                pendingList.innerHTML = pending.map(ex => `
-                        <tr>
-                            <td><strong>${ex.fullname}</strong><br><small style="color:var(--muted)">@${ex.username}</small></td>
-                            <td><strong>${formatDate(ex.date)}</strong></td>
-                            <td>${ISSUE_LABELS[ex.issue_type] || ex.issue_type}</td>
-                            <td><div style="max-width:300px; white-space: normal;">${ex.reason}</div></td>
-                            <td><small style="color:var(--muted);">${new Date(ex.submitted_at).toLocaleString('th-TH')}</small></td>
-                            <td>
-                                <button class="btn btn-teal btn-sm" onclick="openReviewModal(${JSON.stringify(ex).replace(/"/g, '&quot;')})"><i class="bi bi-shield-check"></i> ตรวจสอบ</button>
-                            </td>
-                        </tr>
-                    `).join('');
-                            } else {
-                                pendingList.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:20px; color:var(--muted);">ไม่มีรายการค้างตรวจสอบในระบบ</td></tr>`;
-                            }
+      const q = ($('reviewedSearch').value || '').trim().toLowerCase();
+      const st = $('reviewedStatus').value;
+      const reviewed = reviewedAll.filter(ex => (!st || ex.status === st) &&
+        (!q || `${ex.fullname} ${ex.username} ${ex.reason}`.toLowerCase().includes(q)));
+      $('reviewed-list').innerHTML = reviewed.length
+        ? reviewed.map(ex => `<tr class="hover:bg-slate-50">
+            <td class="px-4 py-2.5">${person(ex)}</td>
+            <td class="whitespace-nowrap px-3 py-2.5">${esc(formatDate(ex.date))}</td>
+            <td class="px-3 py-2.5">${issueBadge(ex.issue_type)}</td>
+            <td class="max-w-[260px] px-3 py-2.5 text-slate-600"><div class="line-clamp-2" title="${esc(ex.reason)}">${esc(ex.reason)}</div></td>
+            <td class="px-3 py-2.5">${statusBadge(ex.status)}</td>
+            <td class="max-w-[220px] px-3 py-2.5 text-xs text-slate-600">${esc(ex.admin_comment || '—')}</td>
+            <td class="whitespace-nowrap px-4 py-2.5 text-xs text-slate-500">${esc(formatDateTime(ex.reviewed_at))}</td>
+          </tr>`).join('')
+        : ERP.emptyRow(7, 'ไม่มีประวัติการพิจารณา');
+    }
 
-                            if (reviewed.length > 0) {
-                                reviewedList.innerHTML = reviewed.map(ex => `
-                        <tr>
-                            <td><strong>${ex.fullname}</strong><br><small style="color:var(--muted)">@${ex.username}</small></td>
-                            <td><strong>${formatDate(ex.date)}</strong></td>
-                            <td>${ISSUE_LABELS[ex.issue_type] || ex.issue_type}</td>
-                            <td><div style="max-width:300px; white-space: normal;">${ex.reason}</div></td>
-                            <td>${STATUS_LABELS[ex.status] || ex.status}</td>
-                            <td><span style="font-size:12.5px; color:#475569;">${ex.admin_comment || '—'}</span></td>
-                            <td><small style="color:var(--muted);">${ex.reviewed_at ? new Date(ex.reviewed_at).toLocaleString('th-TH') : '—'}</small></td>
-                        </tr>
-                    `).join('');
-                            } else {
-                                reviewedList.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:20px; color:var(--muted);">ไม่มีประวัติการพิจารณาตรวจสอบ</td></tr>`;
-                            }
-                        }
+    async function fetchReminders() {
+      try {
+        const res = await fetch('/api/excuses/reminders', { headers: { Accept: 'application/json' } });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error);
+        allReminders = data.reminders || [];
+        renderReminders();
+      } catch (err) {
+        console.error(err);
+        $('reminders-list').innerHTML = ERP.emptyRow(6, 'โหลดข้อมูลไม่สำเร็จ', 'bi-exclamation-triangle');
+      }
+    }
 
-                        async function fetchReminders() {
-                            try {
-                                const res = await fetch('/api/excuses/reminders');
-                                const data = await res.json();
-                                if (data.success) {
-                                    allReminders = data.reminders || [];
-                                    renderReminders();
-                                }
-                            } catch (err) { console.error(err); }
-                        }
+    function updateSelectedCount() {
+      $('selectedCount').textContent = document.querySelectorAll('.remind-chk:checked').length;
+    }
 
-                        function renderReminders() {
-                            const list = document.getElementById('reminders-list');
-                            const badge = document.getElementById('reminder-badge');
+    function renderReminders() {
+      const badge = $('reminder-badge');
+      badge.textContent = allReminders.length;
+      badge.classList.toggle('hidden', allReminders.length === 0);
+      $('kpiReminders').textContent = allReminders.length;
+      $('selectAll').checked = false;
+      $('reminders-list').innerHTML = allReminders.length
+        ? allReminders.map((r, index) => {
+            const tone = r.elapsed_days >= 7 ? 'red' : r.elapsed_days >= 3 ? 'amber' : 'slate';
+            return `<tr class="hover:bg-slate-50">
+              <td class="px-4 py-2.5"><input type="checkbox" class="remind-chk accent-brand-600" data-index="${index}" ${r.has_line ? 'checked' : 'disabled'} aria-label="เลือก ${esc(r.fullname)}"></td>
+              <td class="px-3 py-2.5">${person(r)}</td>
+              <td class="whitespace-nowrap px-3 py-2.5">${esc(formatDate(r.date))}</td>
+              <td class="px-3 py-2.5">${issueBadge(r.issue_type)}</td>
+              <td class="px-3 py-2.5">${ERP.badge(`${r.elapsed_days} วัน`, tone)}</td>
+              <td class="px-4 py-2.5 text-xs">${r.has_line
+                ? '<span class="text-emerald-700"><i class="bi bi-check-circle"></i> พร้อมเตือน</span>'
+                : '<span class="text-slate-400"><i class="bi bi-dash-circle"></i> ไม่มี LINE ID</span>'}</td>
+            </tr>`;
+          }).join('')
+        : ERP.emptyRow(6, 'ไม่มีผู้ค้างส่งเหตุผลในรอบ 7 วัน', 'bi-emoji-smile');
+      updateSelectedCount();
+    }
 
-                            // Show badge count
-                            if (allReminders.length > 0) {
-                                badge.textContent = allReminders.length;
-                                badge.style.display = 'inline-block';
-                            } else {
-                                badge.style.display = 'none';
-                            }
+    function toggleSelectAll(master) {
+      document.querySelectorAll('.remind-chk').forEach(chk => { if (!chk.disabled) chk.checked = master.checked; });
+      updateSelectedCount();
+    }
 
-                            if (allReminders.length > 0) {
-                                list.innerHTML = allReminders.map((r, index) => {
-                                    let elapsedClass = 'elapsed-normal';
-                                    if (r.elapsed_days === 3) elapsedClass = 'elapsed-warning';
-                                    if (r.elapsed_days >= 7) elapsedClass = 'elapsed-danger';
+    async function sendSelectedReminders() {
+      const selected = Array.from(document.querySelectorAll('.remind-chk:checked')).map(chk => allReminders[Number(chk.dataset.index)]);
+      if (!selected.length) return ERP.toast('กรุณาเลือกอย่างน้อย 1 คน');
+      if (!confirm(`ยืนยันส่ง LINE แจ้งเตือนไปยัง ${selected.length} คน หรือไม่?`)) return;
+      const btn = $('sendRemindersBtn');
+      btn.disabled = true;
+      try {
+        const res = await fetch('/api/excuses/send-reminders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ candidates: selected })
+        });
+        const result = await res.json();
+        if (result.success) { ERP.toast(result.message || 'ส่งแจ้งเตือนแล้ว', 'success'); fetchReminders(); }
+        else ERP.toast('ส่งไม่สำเร็จ: ' + (result.error || 'ไม่ทราบสาเหตุ'), 'error');
+      } catch {
+        ERP.toast('เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์', 'error');
+      } finally {
+        btn.disabled = false;
+      }
+    }
 
-                                    let lineStatus = '<span style="color:#ef4444;"><i class="bi bi-x-circle-fill"></i> ไม่มี LINE ID</span>';
-                                    if (r.has_line) {
-                                        lineStatus = '<span style="color:#10b981;"><i class="bi bi-check-circle-fill"></i> พร้อมเตือน LINE</span>';
-                                    }
+    function openReviewModal(ex) {
+      $('excuseId').value = ex.id;
+      $('lbl-fullname').textContent = `${ex.fullname || '—'} (${ex.username || ''})`;
+      $('lbl-date').textContent = formatDate(ex.date);
+      $('lbl-issue').innerHTML = issueBadge(ex.issue_type);
+      $('lbl-reason').textContent = ex.reason || '—';
+      $('adminComment').value = '';
+      document.querySelector('input[name="reviewStatus"][value="approved"]').checked = true;
+      ERP.showOverlay($('reviewModal'), true);
+    }
 
-                                    const thaiIssue = r.issue_type === 'late' ? 'มาสาย' : 'ขาดงาน / ไม่แสกน';
+    function closeReviewModal() {
+      ERP.showOverlay($('reviewModal'), false);
+    }
 
-                                    return `
-                            <tr>
-                                <td style="text-align:center;">
-                                    <input type="checkbox" class="remind-chk" data-index="${index}" ${r.has_line ? 'checked' : 'disabled'}>
-                                </td>
-                                <td><strong>${r.fullname}</strong><br><small style="color:var(--muted)">@${r.username}</small></td>
-                                <td><strong>${formatDate(r.date)}</strong></td>
-                                <td>${ISSUE_LABELS[r.issue_type] || r.issue_type}</td>
-                                <td>
-                                    <span class="elapsed-badge ${elapsedClass}">${r.elapsed_days} วันที่ผ่านมา</span>
-                                </td>
-                                <td>${lineStatus}</td>
-                            </tr>
-                        `;
-                                }).join('');
-                            } else {
-                                list.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:20px; color:var(--muted);">ยินดีด้วย! ไม่มีรายการค้างส่งแจ้งเตือนในรอบ 7 วัน</td></tr>`;
-                            }
-                        }
-
-                        function toggleSelectAll(master) {
-                            document.querySelectorAll('.remind-chk').forEach(chk => {
-                                if (!chk.disabled) {
-                                    chk.checked = master.checked;
-                                }
-                            });
-                        }
-
-                        async function sendSelectedReminders() {
-                            const chks = document.querySelectorAll('.remind-chk:checked');
-                            if (chks.length === 0) {
-                                alert('⚠️ กรุณาเลือกพนักงานที่ต้องการส่งข้อความแจ้งเตือนอย่างน้อย 1 คน');
-                                return;
-                            }
-
-                            const selectedCandidates = Array.from(chks).map(chk => {
-                                const idx = parseInt(chk.getAttribute('data-index'));
-                                return allReminders[idx];
-                            });
-
-                            if (!confirm(`ยืนยันการส่ง LINE Push Notification แจ้งเตือนไปยังพนักงานที่เลือกจำนวน ${selectedCandidates.length} คน หรือไม่?`)) return;
-
-                            try {
-                                const res = await fetch('/api/excuses/send-reminders', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ candidates: selectedCandidates })
-                                });
-                                const result = await res.json();
-                                if (result.success) {
-                                    alert('✅ ' + result.message);
-                                    fetchReminders();
-                                } else {
-                                    alert('❌ การส่งข้อความล้มเหลว: ' + result.error);
-                                }
-                            } catch (err) {
-                                alert('❌ เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์');
-                            }
-                        }
-
-                        // Review Modal
-                        function openReviewModal(ex) {
-                            document.getElementById('reviewModal').classList.add('active');
-                            document.getElementById('excuseId').value = ex.id;
-                            document.getElementById('lbl-fullname').innerText = ex.fullname;
-                            document.getElementById('lbl-date').innerText = formatDate(ex.date);
-                            document.getElementById('lbl-reason').innerText = ex.reason;
-                            document.getElementById('adminComment').value = '';
-                            document.getElementById('reviewStatus').value = 'approved';
-                        }
-
-                        function closeReviewModal() {
-                            document.getElementById('reviewModal').classList.remove('active');
-                        }
-
-                        document.getElementById('reviewForm').addEventListener('submit', async (e) => {
-                            e.preventDefault();
-                            const data = {
-                                id: document.getElementById('excuseId').value,
-                                status: document.getElementById('reviewStatus').value,
-                                admin_comment: document.getElementById('adminComment').value
-                            };
-
-                            try {
-                                const res = await fetch('/api/excuses/review', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify(data)
-                                });
-                                const result = await res.json();
-                                if (result.success) {
-                                    alert('✅ พิจารณาคำร้องแก้ต่างสำเร็จ');
-                                    closeReviewModal();
-                                    fetchAdminExcuses();
-                                } else {
-                                    alert('❌ บันทึกล้มเหลว: ' + result.error);
-                                }
-                            } catch (err) {
-                                alert('❌ เกิดข้อผิดพลาดในการบันทึก');
-                            }
-                        });
-
-                        // Initial load for admin
-                        fetchAdminExcuses();
-                        // Pre-fetch reminders to update badges
-                        fetchReminders();
-                    }
-                </script>
+    if (IS_REVIEWER) {
+      $('pending-list').addEventListener('click', e => {
+        const btn = e.target.closest('[data-review]');
+        if (!btn) return;
+        const ex = allExcuses.find(x => String(x.id) === btn.dataset.review);
+        if (ex) openReviewModal(ex);
+      });
+      $('reminders-list').addEventListener('change', updateSelectedCount);
+      $('reviewForm').addEventListener('submit', async e => {
+        e.preventDefault();
+        const btn = $('saveReviewBtn');
+        btn.disabled = true;
+        try {
+          const res = await fetch('/api/excuses/review', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({
+              id: $('excuseId').value,
+              status: document.querySelector('input[name="reviewStatus"]:checked').value,
+              admin_comment: $('adminComment').value.trim()
+            })
+          });
+          const result = await res.json();
+          if (result.success) {
+            ERP.toast('บันทึกผลการพิจารณาแล้ว', 'success');
+            closeReviewModal();
+            fetchAdminExcuses();
+          } else {
+            ERP.toast('บันทึกไม่สำเร็จ: ' + (result.error || 'ไม่ทราบสาเหตุ'), 'error');
+          }
+        } catch {
+          ERP.toast('เกิดข้อผิดพลาดในการบันทึก', 'error');
+        } finally {
+          btn.disabled = false;
+        }
+      });
+      document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && !$('reviewModal').classList.contains('hidden')) closeReviewModal();
+      });
+      fetchAdminExcuses();
+      fetchReminders();
+    }
+  </script>
 </body>
 
 </html>

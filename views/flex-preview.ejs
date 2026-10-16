@@ -1,594 +1,263 @@
 <!DOCTYPE html>
 <html lang="th">
+
 <head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>ตัวอย่างและทดสอบ LINE Flex Message - KHH Attendance</title>
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
-<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet"/>
-<link rel="stylesheet" href="/css/style.css" />
-<style>
-  body { font-family: 'Sarabun', sans-serif; background-color: #F1F5F9; color: #1E293B; }
-  .flex-container { max-width: 1200px; margin: 0 auto; }
-  
-  /* PHONE MOCKUP STYLING */
-  .phone-mockup {
-    width: 100%;
-    max-width: 380px;
-    background: #7494C0; /* LINE Chat background color */
-    border-radius: 36px;
-    border: 10px solid #1E293B;
-    box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.35);
-    overflow: hidden;
-    margin: 0 auto;
-    position: relative;
-  }
-  .phone-header {
-    background: #273248;
-    color: #FFFFFF;
-    padding: 14px 20px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    font-size: 14px;
-    font-weight: 600;
-  }
-  .phone-body {
-    padding: 16px;
-    min-height: 520px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-  .chat-msg-row {
-    display: flex;
-    gap: 10px;
-    align-items: flex-start;
-  }
-  .bot-avatar {
-    width: 38px;
-    height: 38px;
-    border-radius: 50%;
-    background: #0D9488;
-    color: #FFF;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 700;
-    font-size: 16px;
-    flex-shrink: 0;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
-  }
-  
-  /* FLEX BUBBLE PREVIEW */
-  .flex-bubble {
-    background: #FFFFFF;
-    border-radius: 18px;
-    overflow: hidden;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-    width: 100%;
-    transition: all 0.3s ease;
-  }
-  
-  .flex-header {
-    padding: 18px 20px;
-    color: #FFFFFF;
-    text-align: center;
-    position: relative;
-    transition: background 0.3s ease;
-  }
-  .flex-header .top-tag { font-size: 10px; font-weight: 800; letter-spacing: 0.5px; opacity: 0.9; }
-  .flex-header .main-title { font-size: 18px; font-weight: 700; margin: 4px 0 2px; }
-  .flex-header .sub-tag { font-size: 12px; opacity: 0.9; }
-
-  .flex-body { padding: 18px 20px; }
-  .user-badge-row { display: flex; align-items: center; gap: 12px; }
-  .user-circle {
-    width: 44px;
-    height: 44px;
-    border-radius: 50%;
-    color: #FFF;
-    font-weight: 800;
-    font-size: 18px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: background 0.3s ease;
-  }
-  .user-name { font-weight: 700; font-size: 15px; color: #0F172A; }
-  .user-id { font-size: 12px; color: #64748B; }
-
-  .status-pill-box {
-    margin-top: 14px;
-    padding: 12px 14px;
-    border-radius: 12px;
-    border: 1px solid;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-weight: 700;
-    font-size: 13.5px;
-    transition: all 0.3s ease;
-  }
-
-  .details-box {
-    margin-top: 14px;
-    background: #F8FAFC;
-    border-radius: 12px;
-    padding: 12px 14px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    font-size: 12.5px;
-  }
-  .detail-row { display: flex; justify-content: space-between; align-items: center; }
-  .detail-label { color: #64748B; font-weight: 500; }
-  .detail-val { color: #1E293B; font-weight: 700; text-align: right; }
-
-  .flex-footer {
-    padding: 12px 16px 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-  .flex-btn-primary {
-    border: none;
-    color: #FFFFFF;
-    padding: 10px;
-    border-radius: 10px;
-    font-size: 13px;
-    font-weight: 700;
-    width: 100%;
-    cursor: pointer;
-    transition: all 0.2s ease;
-  }
-  .flex-btn-secondary {
-    border: 1px solid #CBD5E1;
-    background: #F8FAFC;
-    color: #475569;
-    padding: 9px;
-    border-radius: 10px;
-    font-size: 13px;
-    font-weight: 600;
-    width: 100%;
-    cursor: pointer;
-  }
-
-  /* PRESET BUTTONS */
-  .preset-btn {
-    border-radius: 12px;
-    padding: 10px 16px;
-    font-weight: 700;
-    font-size: 13px;
-    transition: all 0.2s ease;
-    border: 2px solid transparent;
-  }
-  .preset-btn.active {
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    transform: translateY(-2px);
-  }
-</style>
+  <%- include("components/erp-head", { title: "จำลอง LINE Flex" }) %>
 </head>
-<body>
-<%- include("components/sidebar") %>
-<div class="main">
-<%- include("components/topbar") %>
 
-<div class="page">
-  <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-3">
-    <div>
-      <h3 style="font-weight: 800; color: #0F172A; margin: 0; display:flex; align-items:center; gap:10px;">
-        <span style="background: linear-gradient(135deg, #0D9488, #0284C7); color:#fff; width:38px; height:38px; border-radius:10px; display:inline-flex; align-items:center; justify-content:center; font-size:18px;">
-          <i class="bi bi-line"></i>
-        </span>
-        LINE Flex Message Preview & Simulator
-      </h3>
-      <p style="color: #64748B; margin-top: 4px; font-size: 13.5px;">
-        จำลองรูปแบบข้อความ LINE Flex Message สำหรับแจ้งเตือนการบันทึกเวลาปฏิบัติงาน โรงพยาบาลคลองหาด
-      </p>
-    </div>
-  </div>
+<body class="erp-page">
+  <%- include("components/sidebar") %>
+  <div class="main" role="main">
+    <%- include("components/topbar") %>
 
-  <div class="row g-4 flex-container">
-    <!-- LEFT: CONTROLS & EDITOR -->
-    <div class="col-lg-6">
-      <div class="card border-0 shadow-sm" style="border-radius: 20px; padding: 24px; background: #FFFFFF;">
-        <h5 style="font-weight: 700; margin-bottom: 16px; color: #0F172A; display:flex; align-items:center; gap:8px;">
-          <i class="bi bi-sliders" style="color:var(--primary)"></i> ปรับแต่งสถานะและข้อมูลทดสอบ
-        </h5>
+    <div class="erp px-4 py-5 lg:px-6">
+      <section class="mb-5" aria-labelledby="flex-heading">
+        <h2 id="flex-heading" class="text-xl font-semibold text-slate-900">จำลองและทดสอบ LINE Flex Message</h2>
+        <p class="mt-1 text-[13px] text-slate-500">ดูตัวอย่างข้อความแจ้งเตือนการบันทึกเวลา ปรับข้อมูลทดสอบ และส่งเข้า LINE จริง</p>
+      </section>
 
-        <!-- STATUS PRESET BUTTONS -->
-        <label class="form-label font-semibold text-secondary style-xs mb-2" style="font-size:12px; font-weight:700; color:#64748B;">
-          เลือกสถานะ (Status Preset)
-        </label>
-        <div class="d-flex flex-wrap gap-2 mb-4">
-          <button type="button" class="btn preset-btn active" id="btn-preset-in" style="background:#ECFDF5; color:#047857; border-color:#A7F3D0;" onclick="selectPreset('check-in')">
-            ✅ เข้างาน (Check-In)
-          </button>
-          <button type="button" class="btn preset-btn" id="btn-preset-out" style="background:#F0F9FF; color:#0369A1; border-color:#BAE6FD;" onclick="selectPreset('check-out')">
-            📤 ออกงาน (Check-Out)
-          </button>
-          <button type="button" class="btn preset-btn" id="btn-preset-late" style="background:#FFFBEB; color:#B45309; border-color:#FDE68A;" onclick="selectPreset('late')">
-            ⏰ เข้าสาย (Late)
-          </button>
-          <button type="button" class="btn preset-btn" id="btn-preset-failed" style="background:#FEF2F2; color:#BE123C; border-color:#FECDD3;" onclick="selectPreset('failed')">
-            ❌ ไม่ผ่าน (Failed)
-          </button>
-        </div>
-
-        <hr style="border-color:#F1F5F9; margin: 15px 0;">
-
-        <!-- FORM INPUTS -->
-        <div class="row g-3">
-          <div class="col-md-7">
-            <label class="form-label style-xs" style="font-size:12px; font-weight:700; color:#64748B;">ชื่อ-นามสกุล บุคลากร</label>
-            <input type="text" id="inp-name" class="form-control form-control-sm" value="คุณกิตติพันธ์ ปรางศรี" style="border-radius:8px;" oninput="updatePreview()"/>
-          </div>
-          <div class="col-md-5">
-            <label class="form-label style-xs" style="font-size:12px; font-weight:700; color:#64748B;">รหัสพนักงาน (ID)</label>
-            <input type="text" id="inp-empid" class="form-control form-control-sm" value="KHH-8921" style="border-radius:8px;" oninput="updatePreview()"/>
-          </div>
-
-          <div class="col-md-6">
-            <label class="form-label style-xs" style="font-size:12px; font-weight:700; color:#64748B;">วันที่บันทึก</label>
-            <input type="text" id="inp-date" class="form-control form-control-sm" value="20 สิงหาคม 2026" style="border-radius:8px;" oninput="updatePreview()"/>
-          </div>
-          <div class="col-md-6">
-            <label class="form-label style-xs" style="font-size:12px; font-weight:700; color:#64748B;">เวลาบันทึก</label>
-            <input type="text" id="inp-time" class="form-control form-control-sm" value="08:15 น." style="border-radius:8px;" oninput="updatePreview()"/>
-          </div>
-
-          <div class="col-md-8">
-            <label class="form-label style-xs" style="font-size:12px; font-weight:700; color:#64748B;">จุดบันทึก / ประตูสแกน</label>
-            <input type="text" id="inp-device" class="form-control form-control-sm" value="KHHin2 (ประตูหน้าหลัก)" style="border-radius:8px;" oninput="updatePreview()"/>
-          </div>
-          <div class="col-md-4">
-            <label class="form-label style-xs" style="font-size:12px; font-weight:700; color:#64748B;">อุณหภูมิ (°C)</label>
-            <input type="text" id="inp-temp" class="form-control form-control-sm" value="36.5" style="border-radius:8px;" oninput="updatePreview()"/>
-          </div>
-        </div>
-
-        <hr style="border-color:#F1F5F9; margin: 20px 0;">
-
-        <!-- ACTION BUTTONS & TEST PUSH -->
-        <h6 style="font-weight:700; color:#0F172A; margin-bottom:12px;" class="d-flex align-items-center gap-2">
-          <i class="bi bi-send" style="color:var(--primary)"></i> ทดสอบส่งเข้า LINE จริง (Test Send)
-        </h6>
-        <div class="mb-3">
-          <label class="form-label style-xs" style="font-size:12px; font-weight:700; color:#64748B;">LINE User ID ของผู้รับ</label>
-          <input type="text" id="inp-line-id" class="form-control form-control-sm" placeholder="U1234567890abcdef..." style="border-radius:8px;"/>
-          <small class="text-muted" style="font-size:11px;">หากเว้นว่าง ระบบจะใช้ `LINE_ADMIN_USER_ID` จากไฟล์ .env</small>
-        </div>
-        <button type="button" class="btn btn-teal w-100" style="border-radius:10px; font-weight:700; height:42px;" onclick="sendTestLineFlex()">
-          <i class="bi bi-paperplane-fill me-1"></i> ส่งข้อความ Flex Message ทดสอบ
-        </button>
-
-        <div id="test-result-msg" class="mt-3" style="display:none;"></div>
-      </div>
-
-      <!-- JSON VIEW ACCORDION -->
-      <div class="card border-0 shadow-sm mt-3" style="border-radius: 16px; background: #FFFFFF; padding: 16px;">
-        <div class="d-flex align-items-center justify-content-between" style="cursor:pointer;" onclick="toggleJsonView()">
-          <span style="font-weight:700; font-size:13px; color:#475569;"><i class="bi bi-code-slash me-1"></i> ดูโครงสร้าง JSON (LINE Flex Payload)</span>
-          <i class="bi bi-chevron-down" id="json-chevron"></i>
-        </div>
-        <div id="json-container" style="display:none; margin-top:12px;">
-          <textarea id="json-preview" class="form-control font-monospace" style="font-size:11px; height:180px; background:#0F172A; color:#38BDF8; border-radius:8px;" readonly></textarea>
-          <button class="btn btn-sm btn-outline-secondary mt-2 w-100" onclick="copyJsonPayload()"><i class="bi bi-clipboard me-1"></i> คัดลอก JSON</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- RIGHT: REALTIME SMARTPHONE SIMULATOR -->
-    <div class="col-lg-6 d-flex align-items-center justify-content-center">
-      <div class="phone-mockup">
-        <!-- PHONE HEADER -->
-        <div class="phone-header">
-          <div class="d-flex align-items-center gap-2">
-            <i class="bi bi-chevron-left"></i>
-            <span>KHH Attendance Bot</span>
-          </div>
-          <i class="bi bi-list"></i>
-        </div>
-
-        <!-- PHONE CHAT BODY -->
-        <div class="phone-body">
-          <div class="text-center" style="font-size:10px; color:rgba(255,255,255,0.7); margin-bottom:4px;">
-            วันนี้ <span id="clock-time">08:15</span>
-          </div>
-
-          <div class="chat-msg-row">
-            <div class="bot-avatar" id="avatar-icon">KHH</div>
-
-            <!-- FLEX BUBBLE UI -->
-            <div class="flex-bubble">
-              <!-- HEADER -->
-              <div class="flex-header" id="fx-header">
-                <div class="top-tag">KLONG HAT HOSPITAL • ATTENDANCE LOG</div>
-                <div class="main-title">บันทึกเวลาปฏิบัติงาน</div>
-                <div class="sub-tag" id="fx-header-tag">[ ENTER • เข้างาน ]</div>
-              </div>
-
-              <!-- BODY -->
-              <div class="flex-body">
-                <div class="user-badge-row">
-                  <div class="user-circle" id="fx-user-circle">ก</div>
-                  <div>
-                    <div class="user-name" id="fx-user-name">คุณกิตติพันธ์ ปรางศรี</div>
-                    <div class="user-id" id="fx-user-id">ID: KHH-8921</div>
-                  </div>
-                </div>
-
-                <div class="status-pill-box" id="fx-status-box">
-                  <span id="fx-status-icon">✅</span>
-                  <span id="fx-status-title">สแกนเข้างาน (Check-In)</span>
-                </div>
-
-                <div class="details-box">
-                  <div class="detail-row">
-                    <span class="detail-label">📅 วันที่</span>
-                    <span class="detail-val" id="fx-val-date">20 สิงหาคม 2026</span>
-                  </div>
-                  <div class="detail-row">
-                    <span class="detail-label">⏰ เวลาบันทึก</span>
-                    <span class="detail-val" id="fx-val-time">08:15 น.</span>
-                  </div>
-                  <div class="detail-row">
-                    <span class="detail-label">🚪 จุดบันทึก</span>
-                    <span class="detail-val" id="fx-val-device">KHHin2 (ประตูหน้าหลัก)</span>
-                  </div>
-                  <div class="detail-row" id="fx-temp-row">
-                    <span class="detail-label">🌡️ อุณหภูมิ</span>
-                    <span class="detail-val" id="fx-val-temp">36.5 °C</span>
-                  </div>
+      <div class="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
+        <!-- LEFT: controls -->
+        <div class="space-y-5">
+          <section class="erp-panel" aria-labelledby="presetTitle">
+            <h3 id="presetTitle" class="border-b border-slate-200 px-4 py-3 text-[13px] font-semibold text-slate-800"><i class="bi bi-sliders text-brand-600" aria-hidden="true"></i> สถานะและข้อมูลทดสอบ</h3>
+            <div class="space-y-4 p-4">
+              <div>
+                <span class="erp-label">สถานะ (Preset)</span>
+                <div class="grid grid-cols-2 gap-2 sm:grid-cols-4" id="presetGroup">
+                  <% [['check-in','in','เข้างาน','bi-box-arrow-in-right','has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50 has-[:checked]:text-emerald-700'],
+                      ['check-out','out','ออกงาน','bi-box-arrow-right','has-[:checked]:border-sky-500 has-[:checked]:bg-sky-50 has-[:checked]:text-sky-700'],
+                      ['late','late','เข้าสาย','bi-alarm','has-[:checked]:border-amber-500 has-[:checked]:bg-amber-50 has-[:checked]:text-amber-700'],
+                      ['failed','failed','สแกนไม่ผ่าน','bi-x-octagon','has-[:checked]:border-red-500 has-[:checked]:bg-red-50 has-[:checked]:text-red-700']].forEach(([value, id, label, icon, tone], i) => { %>
+                    <label id="btn-preset-<%= id %>" class="flex cursor-pointer items-center justify-center gap-2 rounded-md border border-slate-200 bg-white py-2.5 text-[13px] font-medium text-slate-700 hover:border-slate-300 <%= tone %>">
+                      <input type="radio" name="preset" value="<%= value %>" class="sr-only" <%= i === 0 ? 'checked' : '' %>>
+                      <i class="bi <%= icon %>" aria-hidden="true"></i><%= label %>
+                    </label>
+                  <% }); %>
                 </div>
               </div>
+              <div class="grid grid-cols-1 gap-3 sm:grid-cols-6">
+                <div class="sm:col-span-4"><label class="erp-label" for="inp-name">ชื่อ-นามสกุล</label><input type="text" id="inp-name" class="erp-input" value="คุณกิตติพันธ์ ปรางศรี"></div>
+                <div class="sm:col-span-2"><label class="erp-label" for="inp-empid">รหัสพนักงาน</label><input type="text" id="inp-empid" class="erp-input font-mono" value="KHH-8921"></div>
+                <div class="sm:col-span-3"><label class="erp-label" for="inp-date">วันที่บันทึก</label><input type="text" id="inp-date" class="erp-input" value="20 สิงหาคม 2026"></div>
+                <div class="sm:col-span-3"><label class="erp-label" for="inp-time">เวลาบันทึก</label><input type="text" id="inp-time" class="erp-input font-mono" value="08:15 น."></div>
+                <div class="sm:col-span-4"><label class="erp-label" for="inp-device">จุดบันทึก / ประตูสแกน</label><input type="text" id="inp-device" class="erp-input" value="KHHin2 (ประตูหน้าหลัก)"></div>
+                <div class="sm:col-span-2"><label class="erp-label" for="inp-temp">อุณหภูมิ (°C)</label><input type="text" id="inp-temp" class="erp-input font-mono" value="36.5"></div>
+              </div>
+            </div>
+          </section>
 
-              <!-- FOOTER -->
-              <div class="flex-footer">
-                <button type="button" class="flex-btn-primary" id="fx-btn-primary" onclick="simulateButtonClick('history')">📋 ดูประวัติการเข้างาน</button>
-                <button type="button" class="flex-btn-secondary" onclick="simulateButtonClick('excuse')">📝 ยื่นใบลา / แจ้งเหตุสาย</button>
+          <section class="erp-panel" aria-labelledby="sendTitle">
+            <h3 id="sendTitle" class="border-b border-slate-200 px-4 py-3 text-[13px] font-semibold text-slate-800"><i class="bi bi-send text-brand-600" aria-hidden="true"></i> ทดสอบส่งเข้า LINE จริง</h3>
+            <div class="space-y-3 p-4">
+              <div>
+                <label class="erp-label" for="inp-line-id">LINE User ID ของผู้รับ</label>
+                <input type="text" id="inp-line-id" class="erp-input font-mono" placeholder="U1234567890abcdef…">
+                <p class="mt-1 text-2xs text-slate-400">เว้นว่างเพื่อใช้ <code class="font-mono">LINE_ADMIN_USER_ID</code> จากไฟล์ .env</p>
+              </div>
+              <button type="button" id="sendBtn" class="erp-btn erp-btn-primary w-full" onclick="sendTestLineFlex()"><i class="bi bi-send-fill" aria-hidden="true"></i> ส่ง Flex Message ทดสอบ</button>
+              <div id="test-result-msg" class="hidden rounded-md px-3 py-2.5 text-[13px]" role="status"></div>
+            </div>
+          </section>
+
+          <details class="erp-panel group" id="jsonDetails">
+            <summary class="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-[13px] font-semibold text-slate-800">
+              <span><i class="bi bi-code-slash text-brand-600" aria-hidden="true"></i> โครงสร้าง JSON (LINE Flex Payload)</span>
+              <i class="bi bi-chevron-down transition-transform group-open:rotate-180" aria-hidden="true"></i>
+            </summary>
+            <div class="border-t border-slate-200 p-4">
+              <textarea id="json-preview" class="block h-56 w-full resize-y rounded-md border-0 bg-slate-900 p-3 font-mono text-2xs text-sky-300 outline-none" readonly aria-label="JSON payload"></textarea>
+              <button type="button" class="erp-btn erp-btn-secondary mt-2 w-full" onclick="copyJsonPayload()"><i class="bi bi-clipboard" aria-hidden="true"></i> คัดลอก JSON</button>
+            </div>
+          </details>
+        </div>
+
+        <!-- RIGHT: phone simulator -->
+        <div class="xl:sticky xl:top-20">
+          <div class="mx-auto w-full max-w-[380px] overflow-hidden rounded-[36px] border-[10px] border-slate-800 bg-[#7494C0] shadow-2xl">
+            <div class="flex items-center justify-between bg-[#273248] px-5 py-3.5 text-sm font-semibold text-white">
+              <span class="flex items-center gap-2"><i class="bi bi-chevron-left" aria-hidden="true"></i> KHH Attendance Bot</span>
+              <i class="bi bi-list" aria-hidden="true"></i>
+            </div>
+            <div class="phone-body flex max-h-[640px] min-h-[540px] flex-col gap-3 overflow-y-auto p-4">
+              <div class="text-center text-2xs text-white/70">วันนี้ <span id="clock-time">08:15</span></div>
+              <div class="flex items-start gap-2.5">
+                <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-600 text-xs font-bold text-white shadow">KHH</div>
+                <div class="w-full overflow-hidden rounded-2xl bg-white shadow-lg">
+                  <div id="fx-header" class="px-5 py-4 text-center text-white transition-colors">
+                    <div class="text-[10px] font-bold tracking-wide opacity-90">KLONG HAT HOSPITAL • ATTENDANCE LOG</div>
+                    <div class="my-1 text-lg font-bold">บันทึกเวลาปฏิบัติงาน</div>
+                    <div id="fx-header-tag" class="text-xs opacity-90"></div>
+                  </div>
+                  <div class="space-y-3.5 px-5 py-4">
+                    <div class="flex items-center gap-3">
+                      <div id="fx-user-circle" class="flex h-11 w-11 items-center justify-center rounded-full text-lg font-extrabold text-white"></div>
+                      <div class="min-w-0">
+                        <div id="fx-user-name" class="truncate text-[15px] font-bold text-slate-900"></div>
+                        <div id="fx-user-id" class="text-xs text-slate-500"></div>
+                      </div>
+                    </div>
+                    <div id="fx-status-box" class="flex items-center gap-2 rounded-xl border px-3.5 py-3 text-[13.5px] font-bold transition-colors">
+                      <i id="fx-status-icon" class="bi" aria-hidden="true"></i><span id="fx-status-title"></span>
+                    </div>
+                    <dl class="m-0 space-y-2 rounded-xl bg-slate-50 px-3.5 py-3 text-[12.5px]">
+                      <div class="flex justify-between gap-3"><dt class="text-slate-500">📅 วันที่</dt><dd id="fx-val-date" class="m-0 text-right font-bold text-slate-800"></dd></div>
+                      <div class="flex justify-between gap-3"><dt class="text-slate-500">⏰ เวลาบันทึก</dt><dd id="fx-val-time" class="m-0 text-right font-bold text-slate-800"></dd></div>
+                      <div class="flex justify-between gap-3"><dt class="text-slate-500">🚪 จุดบันทึก</dt><dd id="fx-val-device" class="m-0 text-right font-bold text-slate-800"></dd></div>
+                      <div class="flex justify-between gap-3" id="fx-temp-row"><dt class="text-slate-500">🌡️ อุณหภูมิ</dt><dd id="fx-val-temp" class="m-0 text-right font-bold text-slate-800"></dd></div>
+                    </dl>
+                  </div>
+                  <div class="space-y-2 px-4 pb-4">
+                    <button type="button" id="fx-btn-primary" class="w-full rounded-lg py-2.5 text-[13px] font-bold text-white" onclick="simulateButtonClick('history')">📋 ดูประวัติการเข้างาน</button>
+                    <button type="button" class="w-full rounded-lg border border-slate-300 bg-slate-50 py-2.5 text-[13px] font-semibold text-slate-600" onclick="simulateButtonClick('excuse')">📝 ยื่นใบลา / แจ้งเหตุสาย</button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
+          <p class="mt-3 text-center text-2xs text-slate-400">กดปุ่มในข้อความเพื่อจำลองการตอบกลับของบอท</p>
         </div>
       </div>
     </div>
   </div>
-</div>
 
-<script>
-  let currentPreset = 'check-in';
-
-  const PRESETS = {
-    'check-in': {
-      headerBg: '#0D9488',
-      headerTag: '[ ENTER • เข้างาน ]',
-      badgeBg: '#ECFDF5',
-      badgeBorder: '#A7F3D0',
-      badgeTextColor: '#047857',
-      badgeIcon: '✅',
-      statusTitle: 'สแกนเข้างาน (Check-In)',
-      btnColor: '#0D9488'
-    },
-    'check-out': {
-      headerBg: '#0284C7',
-      headerTag: '[ EXIT • ออกงาน ]',
-      badgeBg: '#F0F9FF',
-      badgeBorder: '#BAE6FD',
-      badgeTextColor: '#0369A1',
-      badgeIcon: '📤',
-      statusTitle: 'สแกนออกงาน (Check-Out)',
-      btnColor: '#0284C7'
-    },
-    'late': {
-      headerBg: '#D97706',
-      headerTag: '[ LATE • เข้างานสาย ]',
-      badgeBg: '#FFFBEB',
-      badgeBorder: '#FDE68A',
-      badgeTextColor: '#B45309',
-      badgeIcon: '⏰',
-      statusTitle: 'เข้างานสาย (Late Arrival)',
-      btnColor: '#D97706'
-    },
-    'failed': {
-      headerBg: '#E11D48',
-      headerTag: '[ FAILED • ไม่ผ่าน ]',
-      badgeBg: '#FEF2F2',
-      badgeBorder: '#FECDD3',
-      badgeTextColor: '#BE123C',
-      badgeIcon: '❌',
-      statusTitle: 'สแกนไม่ผ่าน (Scan Failed)',
-      btnColor: '#E11D48'
-    }
-  };
-
-  function selectPreset(preset) {
-    currentPreset = preset;
-    
-    // Update active button state
-    ['check-in', 'check-out', 'late', 'failed'].forEach(p => {
-      const btn = document.getElementById(`btn-preset-${p === 'check-in' ? 'in' : p}`);
-      if (btn) {
-        if (p === preset) btn.classList.add('active');
-        else btn.classList.remove('active');
-      }
-    });
-
-    updatePreview();
-  }
-
-  function updatePreview() {
-    const p = PRESETS[currentPreset] || PRESETS['check-in'];
-
-    const name = document.getElementById('inp-name').value || 'ไม่ระบุชื่อ';
-    const empid = document.getElementById('inp-empid').value;
-    const date = document.getElementById('inp-date').value || 'วันนี้';
-    const time = document.getElementById('inp-time').value || '-';
-    const device = document.getElementById('inp-device').value || 'ไม่ระบุ';
-    const temp = document.getElementById('inp-temp').value;
-
-    // Header styling
-    const header = document.getElementById('fx-header');
-    header.style.backgroundColor = p.headerBg;
-    document.getElementById('fx-header-tag').textContent = p.headerTag;
-
-    // User Badge
-    const circle = document.getElementById('fx-user-circle');
-    circle.style.backgroundColor = p.headerBg;
-    circle.textContent = name.trim().charAt(0).toUpperCase();
-    document.getElementById('fx-user-name').textContent = name;
-    document.getElementById('fx-user-id').textContent = empid ? `ID: ${empid}` : 'บุคลากรโรงพยาบาล';
-
-    // Status Box
-    const sBox = document.getElementById('fx-status-box');
-    sBox.style.backgroundColor = p.badgeBg;
-    sBox.style.borderColor = p.badgeBorder;
-    sBox.style.color = p.badgeTextColor;
-    document.getElementById('fx-status-icon').textContent = p.badgeIcon;
-    document.getElementById('fx-status-title').textContent = p.statusTitle;
-
-    // Values
-    document.getElementById('fx-val-date').textContent = date;
-    document.getElementById('fx-val-time').textContent = time;
-    document.getElementById('fx-val-device').textContent = device;
-
-    const tempRow = document.getElementById('fx-temp-row');
-    if (temp && temp.trim() !== '') {
-      tempRow.style.display = 'flex';
-      document.getElementById('fx-val-temp').textContent = `${temp} °C`;
-    } else {
-      tempRow.style.display = 'none';
-    }
-
-    // Button
-    const btn = document.getElementById('fx-btn-primary');
-    btn.style.backgroundColor = p.btnColor;
-
-    // Clock in phone mockup
-    document.getElementById('clock-time').textContent = time.replace(' น.', '');
-
-    // Update JSON text area
-    updateJsonTextArea(name, empid, date, time, device, temp, p);
-  }
-
-  function updateJsonTextArea(name, empid, date, time, device, temp, p) {
-    const json = {
-      type: "bubble",
-      size: "mega",
-      header: {
-        type: "box",
-        layout: "vertical",
-        backgroundColor: p.headerBg,
-        contents: [
-          { type: "text", text: "KLONG HAT HOSPITAL • ATTENDANCE LOG", color: "#FFFFFF", size: "xxs", weight: "bold", align: "center" },
-          { type: "text", text: "บันทึกเวลาปฏิบัติงาน", color: "#FFFFFF", size: "xl", weight: "bold", margin: "xs", align: "center" }
-        ]
-      },
-      body: {
-        type: "box",
-        layout: "vertical",
-        contents: [
-          { type: "text", text: name, weight: "bold", size: "md", color: "#0F172A" },
-          { type: "text", text: p.statusTitle, color: p.badgeTextColor, weight: "bold", size: "sm" }
-        ]
-      }
+  <script>
+    const PRESETS = {
+      'check-in': { headerBg: '#0D9488', headerTag: '[ ENTER • เข้างาน ]', badgeBg: '#ECFDF5', badgeBorder: '#A7F3D0', badgeTextColor: '#047857', badgeIcon: 'bi-check-circle-fill', statusTitle: 'สแกนเข้างาน (Check-In)' },
+      'check-out': { headerBg: '#0284C7', headerTag: '[ EXIT • ออกงาน ]', badgeBg: '#F0F9FF', badgeBorder: '#BAE6FD', badgeTextColor: '#0369A1', badgeIcon: 'bi-box-arrow-right', statusTitle: 'สแกนออกงาน (Check-Out)' },
+      late: { headerBg: '#D97706', headerTag: '[ LATE • เข้างานสาย ]', badgeBg: '#FFFBEB', badgeBorder: '#FDE68A', badgeTextColor: '#B45309', badgeIcon: 'bi-alarm-fill', statusTitle: 'เข้างานสาย (Late Arrival)' },
+      failed: { headerBg: '#E11D48', headerTag: '[ FAILED • ไม่ผ่าน ]', badgeBg: '#FEF2F2', badgeBorder: '#FECDD3', badgeTextColor: '#BE123C', badgeIcon: 'bi-x-octagon-fill', statusTitle: 'สแกนไม่ผ่าน (Scan Failed)' }
     };
-    document.getElementById('json-preview').value = JSON.stringify(json, null, 2);
-  }
+    const $ = id => document.getElementById(id);
+    const esc = ERP.escapeHtml;
+    let currentPreset = 'check-in';
 
-  function toggleJsonView() {
-    const box = document.getElementById('json-container');
-    const icon = document.getElementById('json-chevron');
-    if (box.style.display === 'none') {
-      box.style.display = 'block';
-      icon.className = 'bi bi-chevron-up';
-    } else {
-      box.style.display = 'none';
-      icon.className = 'bi bi-chevron-down';
+    function selectPreset(preset) {
+      currentPreset = PRESETS[preset] ? preset : 'check-in';
+      const radio = document.querySelector(`input[name="preset"][value="${currentPreset}"]`);
+      if (radio) radio.checked = true;
+      updatePreview();
     }
-  }
 
-  function copyJsonPayload() {
-    const jsonText = document.getElementById('json-preview').value;
-    navigator.clipboard.writeText(jsonText);
-    alert('คัดลอก LINE Flex JSON เรียบร้อยแล้ว!');
-  }
+    function updatePreview() {
+      const p = PRESETS[currentPreset];
+      const name = $('inp-name').value || 'ไม่ระบุชื่อ';
+      const empid = $('inp-empid').value;
+      const date = $('inp-date').value || 'วันนี้';
+      const time = $('inp-time').value || '-';
+      const device = $('inp-device').value || 'ไม่ระบุ';
+      const temp = $('inp-temp').value.trim();
 
-  async function sendTestLineFlex() {
-    const lineId = document.getElementById('inp-line-id').value;
-    const resultMsg = document.getElementById('test-result-msg');
+      $('fx-header').style.backgroundColor = p.headerBg;
+      $('fx-header-tag').textContent = p.headerTag;
+      $('fx-user-circle').style.backgroundColor = p.headerBg;
+      $('fx-user-circle').textContent = name.trim().charAt(0).toUpperCase();
+      $('fx-user-name').textContent = name;
+      $('fx-user-id').textContent = empid ? `ID: ${empid}` : 'บุคลากรโรงพยาบาล';
+      const box = $('fx-status-box');
+      box.style.backgroundColor = p.badgeBg;
+      box.style.borderColor = p.badgeBorder;
+      box.style.color = p.badgeTextColor;
+      $('fx-status-icon').className = 'bi ' + p.badgeIcon;
+      $('fx-status-title').textContent = p.statusTitle;
+      $('fx-val-date').textContent = date;
+      $('fx-val-time').textContent = time;
+      $('fx-val-device').textContent = device;
+      $('fx-temp-row').style.display = temp ? 'flex' : 'none';
+      $('fx-val-temp').textContent = `${temp} °C`;
+      $('fx-btn-primary').style.backgroundColor = p.headerBg;
+      $('clock-time').textContent = time.replace(' น.', '');
+      updateJsonTextArea(name, p);
+    }
 
-    resultMsg.style.display = 'block';
-    resultMsg.className = 'alert alert-info';
-    resultMsg.innerHTML = '<i class="bi bi-hourglass-split me-1"></i> กำลังส่งข้อความ Flex Message ทดสอบ...';
+    function updateJsonTextArea(name, p) {
+      const json = {
+        type: 'bubble',
+        size: 'mega',
+        header: {
+          type: 'box', layout: 'vertical', backgroundColor: p.headerBg,
+          contents: [
+            { type: 'text', text: 'KLONG HAT HOSPITAL • ATTENDANCE LOG', color: '#FFFFFF', size: 'xxs', weight: 'bold', align: 'center' },
+            { type: 'text', text: 'บันทึกเวลาปฏิบัติงาน', color: '#FFFFFF', size: 'xl', weight: 'bold', margin: 'xs', align: 'center' }
+          ]
+        },
+        body: {
+          type: 'box', layout: 'vertical',
+          contents: [
+            { type: 'text', text: name, weight: 'bold', size: 'md', color: '#0F172A' },
+            { type: 'text', text: p.statusTitle, color: p.badgeTextColor, weight: 'bold', size: 'sm' }
+          ]
+        }
+      };
+      $('json-preview').value = JSON.stringify(json, null, 2);
+    }
 
-    try {
-      const res = await fetch('/api/users/test-line-flex', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          lineUserId: lineId,
-          statusType: currentPreset,
-          fullname: document.getElementById('inp-name').value,
-          employeeId: document.getElementById('inp-empid').value,
-          deviceName: document.getElementById('inp-device').value
-        })
-      });
-
-      const data = await res.json();
-      if (data.success) {
-        resultMsg.className = 'alert alert-success';
-        resultMsg.innerHTML = `<i class="bi bi-check-circle-fill me-1"></i> ${data.message || 'ส่ง Flex Message สำเร็จ!'}`;
-      } else {
-        resultMsg.className = 'alert alert-danger';
-        resultMsg.innerHTML = `<i class="bi bi-exclamation-triangle-fill me-1"></i> ${data.error || 'ไม่สามารถส่งข้อความได้'}`;
+    async function copyJsonPayload() {
+      try {
+        await navigator.clipboard.writeText($('json-preview').value);
+        ERP.toast('คัดลอก JSON แล้ว', 'success');
+      } catch {
+        ERP.toast('คัดลอกไม่สำเร็จ', 'error');
       }
-    } catch (err) {
-      resultMsg.className = 'alert alert-danger';
-      resultMsg.innerHTML = `<i class="bi bi-exclamation-triangle-fill me-1"></i> เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์`;
-    }
-  }
-
-  function simulateButtonClick(type) {
-    const phoneBody = document.querySelector('.phone-body');
-    const existingReply = document.getElementById('sim-reply-msg');
-    if (existingReply) existingReply.remove();
-
-    const replyBox = document.createElement('div');
-    replyBox.id = 'sim-reply-msg';
-    replyBox.style.cssText = 'background:#FFFFFF; border-radius:14px; padding:12px 16px; margin-top:8px; font-size:12px; box-shadow:0 4px 12px rgba(0,0,0,0.1); border-left:4px solid #0D9488; color:#0F172A; animation: fadeIn 0.3s ease;';
-
-    if (type === 'history') {
-      replyBox.innerHTML = `
-        <div style="font-weight:700; color:#0D9488; margin-bottom:4px;"><i class="bi bi-chat-left-dots-fill me-1"></i> บอทตอบกลับการสแกนวันนี้</div>
-        <div style="font-size:11.5px; color:#334155;">
-          📊 <b>รายการสแกนสำเร็จวันนี้</b><br>
-          👤 คุณกิตติพันธ์ ปรางศรี - ⏰ 08:15:00 น.<br>
-          <i>(ระบบทำการดึงประวัติสแกนจริงจากฐานข้อมูล)</i>
-        </div>
-      `;
-    } else {
-      replyBox.innerHTML = `
-        <div style="font-weight:700; color:#D97706; margin-bottom:4px;"><i class="bi bi-chat-left-dots-fill me-1"></i> บอทตอบกลับการยื่นใบลา</div>
-        <div style="font-size:11.5px; color:#334155;">
-          📝 <b>ระบบแจ้งสาเหตุการลงเวลา / ยื่นใบลา</b><br>
-          ท่านสามารถยื่นใบลาหรือแจ้งเหตุผลเข้างานสายได้ที่ระบบออนไลน์<br>
-          <a href="/excuses" target="_blank" style="color:#0284C7; font-weight:700;">🔗 ยื่นใบลาออนไลน์ (/excuses)</a>
-        </div>
-      `;
     }
 
-    phoneBody.appendChild(replyBox);
-    phoneBody.scrollTop = phoneBody.scrollHeight;
-  }
+    function showResult(kind, message) {
+      const el = $('test-result-msg');
+      const tone = { info: 'bg-sky-50 text-sky-800 ring-sky-200', success: 'bg-emerald-50 text-emerald-800 ring-emerald-200', error: 'bg-red-50 text-red-800 ring-red-200' }[kind];
+      const icon = { info: 'bi-hourglass-split', success: 'bi-check-circle-fill', error: 'bi-exclamation-triangle-fill' }[kind];
+      el.className = `rounded-md px-3 py-2.5 text-[13px] ring-1 ring-inset ${tone}`;
+      el.innerHTML = `<i class="bi ${icon}"></i> ${esc(message)}`;
+    }
 
-  window.onload = () => {
+    async function sendTestLineFlex() {
+      const btn = $('sendBtn');
+      btn.disabled = true;
+      showResult('info', 'กำลังส่ง Flex Message ทดสอบ…');
+      try {
+        const res = await fetch('/api/users/test-line-flex', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({
+            lineUserId: $('inp-line-id').value.trim(),
+            statusType: currentPreset,
+            fullname: $('inp-name').value,
+            employeeId: $('inp-empid').value,
+            deviceName: $('inp-device').value
+          })
+        });
+        const data = await res.json();
+        if (data.success) showResult('success', data.message || 'ส่ง Flex Message สำเร็จ');
+        else showResult('error', data.error || 'ไม่สามารถส่งข้อความได้');
+      } catch {
+        showResult('error', 'เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์');
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    function simulateButtonClick(type) {
+      const body = document.querySelector('.phone-body');
+      const old = $('sim-reply-msg');
+      if (old) old.remove();
+      const reply = document.createElement('div');
+      reply.id = 'sim-reply-msg';
+      reply.className = 'ml-[46px] rounded-2xl border-l-4 bg-white px-4 py-3 text-xs text-slate-800 shadow-md ' + (type === 'history' ? 'border-teal-600' : 'border-amber-500');
+      const name = esc($('inp-name').value || 'ไม่ระบุชื่อ');
+      const time = esc($('inp-time').value || '-');
+      reply.innerHTML = type === 'history'
+        ? `<div class="mb-1 font-bold text-teal-700"><i class="bi bi-chat-left-dots-fill"></i> บอทตอบกลับการสแกนวันนี้</div>
+           <div class="text-[11.5px] text-slate-600">📊 <b>รายการสแกนสำเร็จวันนี้</b><br>👤 ${name} – ⏰ ${time}<br><i>(ระบบจริงดึงประวัติสแกนจากฐานข้อมูล)</i></div>`
+        : `<div class="mb-1 font-bold text-amber-700"><i class="bi bi-chat-left-dots-fill"></i> บอทตอบกลับการยื่นใบลา</div>
+           <div class="text-[11.5px] text-slate-600">📝 <b>ระบบแจ้งสาเหตุการลงเวลา / ยื่นใบลา</b><br>ยื่นใบลาหรือแจ้งเหตุผลเข้างานสายได้ที่ระบบออนไลน์<br>
+           <a href="/excuses" target="_blank" rel="noopener" class="font-bold text-sky-700">🔗 ยื่นใบลาออนไลน์ (/excuses)</a></div>`;
+      body.appendChild(reply);
+      body.scrollTop = body.scrollHeight;
+    }
+
+    $('presetGroup').addEventListener('change', e => { if (e.target.name === 'preset') selectPreset(e.target.value); });
+    ['inp-name', 'inp-empid', 'inp-date', 'inp-time', 'inp-device', 'inp-temp'].forEach(id => $(id).addEventListener('input', updatePreview));
     updatePreview();
-  };
-</script>
-</div>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  </script>
 </body>
+
 </html>
