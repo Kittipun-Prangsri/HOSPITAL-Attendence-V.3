@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+  <%- include("components/erp-head", { title: "บันทึกการใช้งาน" }) %>
+</head>
+
+<body class="erp-page">
+  <%- include("components/sidebar") %>
+  <div class="main" role="main">
+    <%- include("components/topbar") %>
+
+    <div class="erp px-4 py-5 lg:px-6">
+      <section class="mb-5 flex flex-wrap items-end justify-between gap-4" aria-labelledby="audit-heading">
+        <div>
+          <h2 id="audit-heading" class="text-xl font-semibold text-slate-900">บันทึกการใช้งาน (Audit Log)</h2>
+          <p class="mt-1 text-[13px] text-slate-500">ประวัติการเข้าสู่ระบบ การแก้ไขข้อมูล และการอนุมัติ ใครทำอะไร เมื่อไร จากที่ใด</p>
+        </div>
+        <button type="button" class="erp-btn erp-btn-secondary" onclick="exportCsv()"><i class="bi bi-download" aria-hidden="true"></i> ส่งออกหน้านี้ (CSV)</button>
+      </section>
+
+      <section class="erp-panel overflow-hidden">
+        <div class="flex flex-wrap items-center gap-2 border-b border-slate-200 p-3">
+          <input type="date" id="from" class="erp-input w-auto" aria-label="ตั้งแต่วันที่">
+          <span class="text-xs text-slate-400">ถึง</span>
+          <input type="date" id="to" class="erp-input w-auto" aria-label="ถึงวันที่">
+          <select id="entity" class="erp-input w-auto" aria-label="ประเภทข้อมูล"><option value="">ทุกประเภทข้อมูล</option></select>
+          <select id="action" class="erp-input w-auto" aria-label="การกระทำ">
+            <option value="">ทุกการกระทำ</option>
+          </select>
+          <div class="relative min-w-[200px] flex-1 sm:max-w-xs">
+            <i class="bi bi-search pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden="true"></i>
+            <input type="search" id="q" class="erp-input pl-9" placeholder="ผู้ใช้, รหัส, รายละเอียด…" aria-label="ค้นหา">
+          </div>
+        </div>
+        <div class="max-h-[65vh] overflow-auto">
+          <table class="w-full border-collapse text-left text-[13px]">
+            <thead class="sticky top-0 bg-slate-50 text-2xs uppercase tracking-wide text-slate-500">
+              <tr class="border-b border-slate-200">
+                <th class="px-4 py-2.5 font-semibold">เวลา</th>
+                <th class="px-3 py-2.5 font-semibold">ผู้ใช้</th>
+                <th class="px-3 py-2.5 font-semibold">การกระทำ</th>
+                <th class="px-3 py-2.5 font-semibold">ข้อมูล</th>
+                <th class="px-3 py-2.5 font-semibold">รายละเอียด</th>
+                <th class="px-4 py-2.5 font-semibold">IP</th>
+              </tr>
+            </thead>
+            <tbody id="body" class="divide-y divide-slate-100"><tr><td colspan="6" class="px-4 py-16 text-center text-slate-400">กำลังโหลด…</td></tr></tbody>
+          </table>
+        </div>
+        <div class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 bg-slate-50/70 px-4 py-2.5 text-xs text-slate-500">
+          <span id="pagerInfo"></span>
+          <nav aria-label="เปลี่ยนหน้า"><ul id="pagination" class="m-0 flex list-none items-center gap-1 p-0"></ul></nav>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const PER_PAGE = 50;
+    const ACTIONS = {
+      login: ['เข้าสู่ระบบ', 'green'], login_failed: ['เข้าสู่ระบบไม่สำเร็จ', 'red'], logout: ['ออกจากระบบ', 'slate'],
+      create: ['สร้าง', 'sky'], update: ['แก้ไข', 'amber'], upsert: ['บันทึก', 'amber'], delete: ['ลบ', 'red'], cancel: ['ยกเลิก', 'slate'],
+      approve: ['อนุมัติ', 'green'], reject: ['ไม่อนุมัติ', 'red'], reset_password: ['รีเซ็ตรหัสผ่าน', 'violet'], import: ['นำเข้า', 'sky'],
+      save_month: ['บันทึกทั้งเดือน', 'amber'], send_reminders: ['ส่งแจ้งเตือน', 'sky'], view: ['เปิดดู', 'slate']
+    };
+    const ENTITIES = {
+      auth: 'การเข้าสู่ระบบ', user: 'บัญชีผู้ใช้', staff: 'ข้อมูลบุคลากร', settings: 'การตั้งค่าระบบ', leave: 'ใบลา', leave_attachment: 'ไฟล์แนบใบลา',
+      leave_policy: 'นโยบายการลา', holiday: 'วันหยุด', ot: 'คำขอ OT', excuse: 'คำร้องแก้ต่าง', schedule: 'ตารางเวร'
+    };
+    const $ = id => document.getElementById(id);
+    const esc = ERP.escapeHtml;
+    let page = 1;
+    let rows = [];
+
+    Object.entries(ACTIONS).forEach(([k, [l]]) => $('action').add(new Option(l, k)));
+
+    function detailText(raw) {
+      if (!raw) return '';
+      try {
+        const obj = JSON.parse(raw);
+        if (obj && typeof obj === 'object') {
+          return Object.entries(obj).filter(([, v]) => v !== null && v !== '' && typeof v !== 'object')
+            .map(([k, v]) => `${k}: ${v === true ? '✓' : v === false ? '✗' : v}`).join(' · ') || raw;
+        }
+      } catch { /* plain text */ }
+      return raw;
+    }
+
+    async function load() {
+      const qs = new URLSearchParams({ limit: PER_PAGE, offset: (page - 1) * PER_PAGE });
+      ['from', 'to', 'entity', 'action', 'q'].forEach(k => { if ($(k).value) qs.set(k, $(k).value.trim()); });
+      $('body').innerHTML = '<tr><td colspan="6" class="px-4 py-16 text-center text-slate-400">กำลังโหลด…</td></tr>';
+      try {
+        const res = await fetch(`/api/audit?${qs}`, { headers: { Accept: 'application/json' } });
+        const data = await res.json();
+        if (!res.ok || !data.success) throw new Error(data.error || res.status);
+        rows = data.rows || [];
+        const current = $('entity').value;
+        $('entity').length = 1;
+        (data.entities || []).forEach(e => $('entity').add(new Option(ENTITIES[e] || e, e)));
+        $('entity').value = current;
+        ERP.pager($('pagination'), { page, total: data.total, perPage: PER_PAGE, onChange: p => { page = p; load(); } });
+        $('pagerInfo').textContent = ERP.pagerText((page - 1) * PER_PAGE, rows.length, data.total);
+        $('body').innerHTML = rows.length ? rows.map(r => {
+          const [label, tone] = ACTIONS[r.action] || [r.action, 'slate'];
+          const detail = detailText(r.detail);
+          return `<tr class="align-top hover:bg-slate-50">
+            <td class="whitespace-nowrap px-4 py-2.5 font-mono text-xs text-slate-600">${new Date(r.created_at).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'medium' })}</td>
+            <td class="px-3 py-2.5"><div class="font-medium text-slate-900">${esc(r.actor_name || '—')}</div><div class="font-mono text-2xs text-slate-400">${esc(r.actor_id || '')}${r.actor_role ? ` · ${esc(r.actor_role)}` : ''}</div></td>
+            <td class="px-3 py-2.5">${ERP.badge(label, tone)}</td>
+            <td class="px-3 py-2.5"><div class="text-slate-700">${esc(ENTITIES[r.entity] || r.entity)}</div>${r.entity_id ? `<div class="font-mono text-2xs text-slate-400">${esc(r.entity_id)}</div>` : ''}</td>
+            <td class="max-w-[360px] px-3 py-2.5 text-xs text-slate-600"><div class="line-clamp-2 break-all" title="${esc(detail)}">${esc(detail || '—')}</div></td>
+            <td class="px-4 py-2.5 font-mono text-2xs text-slate-400">${esc(r.ip || '')}</td>
+          </tr>`;
+        }).join('') : ERP.emptyRow(6, 'ไม่พบบันทึกตามเงื่อนไข', 'bi-journal');
+      } catch (err) {
+        $('body').innerHTML = ERP.emptyRow(6, 'โหลดไม่สำเร็จ: ' + err.message, 'bi-exclamation-triangle');
+      }
+    }
+    const loadData = load;
+
+    function exportCsv() {
+      if (!rows.length) return ERP.toast('ไม่มีข้อมูลสำหรับส่งออก');
+      ERP.downloadCsv(`audit-log-${ERP.todayIso()}.csv`, ['เวลา', 'ผู้ใช้', 'รหัสผู้ใช้', 'บทบาท', 'การกระทำ', 'ข้อมูล', 'รหัสข้อมูล', 'รายละเอียด', 'IP'],
+        rows.map(r => [r.created_at, r.actor_name, r.actor_id, r.actor_role, (ACTIONS[r.action] || [r.action])[0], ENTITIES[r.entity] || r.entity, r.entity_id, r.detail, r.ip]));
+    }
+
+    let debounce;
+    ['from', 'to', 'entity', 'action'].forEach(id => $(id).addEventListener('change', () => { page = 1; load(); }));
+    $('q').addEventListener('input', () => { clearTimeout(debounce); debounce = setTimeout(() => { page = 1; load(); }, 350); });
+    const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 7);
+    $('from').value = weekAgo.toLocaleDateString('sv-SE');
+    $('to').value = ERP.todayIso();
+    load();
+  </script>
+</body>
+
+</html>

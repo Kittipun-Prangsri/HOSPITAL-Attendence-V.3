@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+  <%- include("components/erp-head", { title: "วันหยุดและนโยบายการลา" }) %>
+</head>
+
+<% const isSuper = locals.user && user.role === 'super'; const thisYear = new Date().getFullYear(); %>
+
+<body class="erp-page">
+  <%- include("components/sidebar") %>
+  <div class="main" role="main">
+    <%- include("components/topbar") %>
+
+    <div class="erp px-4 py-5 lg:px-6">
+      <section class="mb-5" aria-labelledby="cal-heading">
+        <h2 id="cal-heading" class="text-xl font-semibold text-slate-900">วันหยุดและนโยบายการลา</h2>
+        <p class="mt-1 text-[13px] text-slate-500">วันหยุดราชการใช้คำนวณวันลาและการนับขาดงาน · สิทธิ์การลากำหนดแยกตามประเภทบุคลากรได้</p>
+      </section>
+
+      <section class="erp-panel overflow-hidden">
+        <div class="flex gap-1 border-b border-slate-200 px-3" role="tablist" id="tabBar">
+          <button type="button" role="tab" class="erp-tab active" data-tab="holidays" aria-selected="true"><i class="bi bi-calendar-heart" aria-hidden="true"></i> วันหยุดราชการ</button>
+          <button type="button" role="tab" class="erp-tab" data-tab="policy" aria-selected="false"><i class="bi bi-sliders" aria-hidden="true"></i> สิทธิ์การลาตามประเภทบุคลากร</button>
+        </div>
+
+        <!-- HOLIDAYS -->
+        <div id="tab-holidays">
+          <div class="flex flex-wrap items-center gap-2 border-b border-slate-200 p-3">
+            <select id="yearSel" class="erp-input w-auto" aria-label="ปี">
+              <% for (let y = thisYear - 1; y <= thisYear + 2; y++) { %><option value="<%= y %>" <%= y === thisYear ? 'selected' : '' %>>พ.ศ. <%= y + 543 %></option><% } %>
+            </select>
+            <button type="button" class="erp-btn erp-btn-secondary" id="fixedBtn" onclick="addFixed()"><i class="bi bi-magic" aria-hidden="true"></i> เพิ่มวันหยุดที่วันที่คงที่ทุกปี</button>
+            <span id="holCount" class="ml-auto text-xs text-slate-500"></span>
+          </div>
+          <div class="grid grid-cols-1 lg:grid-cols-[1fr_320px]">
+            <div class="max-h-[60vh] overflow-auto">
+              <table class="w-full border-collapse text-left text-[13px]">
+                <thead class="sticky top-0 bg-slate-50 text-2xs uppercase tracking-wide text-slate-500">
+                  <tr class="border-b border-slate-200"><th class="px-4 py-2.5 font-semibold">วันที่</th><th class="px-3 py-2.5 font-semibold">วันหยุด</th><th class="px-3 py-2.5 font-semibold">เพิ่มโดย</th><th class="px-3 py-2.5"></th></tr>
+                </thead>
+                <tbody id="holBody" class="divide-y divide-slate-100"></tbody>
+              </table>
+            </div>
+            <form id="holForm" class="m-0 space-y-3 border-t border-slate-200 bg-slate-50/60 p-4 lg:border-l lg:border-t-0">
+              <h3 class="text-[13px] font-semibold text-slate-800">เพิ่ม / แก้ไขวันหยุด</h3>
+              <div><label class="erp-label" for="h-date">วันที่</label><input type="date" id="h-date" class="erp-input" required></div>
+              <div><label class="erp-label" for="h-name">ชื่อวันหยุด</label><input type="text" id="h-name" maxlength="150" class="erp-input" required placeholder="เช่น วันมาฆบูชา, วันหยุดชดเชย"></div>
+              <button type="submit" class="erp-btn erp-btn-primary w-full"><i class="bi bi-plus-lg" aria-hidden="true"></i> บันทึกวันหยุด</button>
+              <p class="rounded-md bg-amber-50 p-3 text-2xs leading-relaxed text-amber-800 ring-1 ring-inset ring-amber-200">
+                <i class="bi bi-info-circle" aria-hidden="true"></i> วันหยุดทางพุทธศาสนา (มาฆบูชา วิสาขบูชา อาสาฬหบูชา เข้าพรรษา) และวันหยุดชดเชยเปลี่ยนทุกปี
+                กรุณาเพิ่มตามประกาศของคณะรัฐมนตรี
+              </p>
+            </form>
+          </div>
+        </div>
+
+        <!-- POLICY -->
+        <div id="tab-policy" style="display:none;">
+          <div class="flex flex-wrap items-center gap-3 border-b border-slate-200 p-3">
+            <label class="flex items-center gap-2 text-[13px] text-slate-700">ลาป่วยตั้งแต่
+              <input type="number" id="attachDays" min="0" max="60" class="erp-input w-20 font-mono" <%= isSuper ? '' : 'disabled' %>>
+              วันขึ้นไป ต้องแนบใบรับรองแพทย์ <span class="text-2xs text-slate-400">(0 = ไม่บังคับ)</span></label>
+            <% if (isSuper) { %>
+              <button type="button" id="savePolicyBtn" class="erp-btn erp-btn-primary ml-auto" onclick="savePolicy()"><i class="bi bi-check2" aria-hidden="true"></i> บันทึกนโยบาย</button>
+            <% } else { %>
+              <span class="ml-auto text-2xs text-slate-400"><i class="bi bi-lock" aria-hidden="true"></i> แก้ไขได้เฉพาะ Super Admin</span>
+            <% } %>
+          </div>
+          <p class="border-b border-slate-200 bg-slate-50/70 px-4 py-2 text-2xs text-slate-500">ช่องว่าง = ใช้สิทธิ์ตามระเบียบ (แสดงเป็นตัวจาง) · ใส่ 0 = ไม่มีสิทธิ์ลาประเภทนั้น · หน่วย: วันต่อปีงบประมาณ</p>
+          <div class="max-h-[60vh] overflow-auto">
+            <table class="w-full border-collapse text-left text-[13px]">
+              <thead id="policyHead" class="sticky top-0 bg-slate-50 text-2xs uppercase tracking-wide text-slate-500"></thead>
+              <tbody id="policyBody" class="divide-y divide-slate-100"><tr><td class="px-4 py-12 text-center text-slate-400">กำลังโหลด…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const IS_SUPER = <%- JSON.stringify(!!isSuper) %>;
+    const $ = id => document.getElementById(id);
+    const esc = ERP.escapeHtml;
+    const thaiDate = d => new Date(d + 'T00:00:00').toLocaleDateString('th-TH', { weekday: 'short', day: 'numeric', month: 'long' });
+    let policyData = null;
+
+    async function getJson(url, opts) {
+      const res = await fetch(url, Object.assign({ headers: { Accept: 'application/json' } }, opts));
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.success === false) throw new Error(data.error || `HTTP ${res.status}`);
+      return data;
+    }
+    const send = (url, method, body) => getJson(url, { method, headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+
+    /* ---------- Holidays ---------- */
+    async function loadHolidays() {
+      const year = $('yearSel').value;
+      $('holBody').innerHTML = '<tr><td colspan="4" class="px-4 py-12 text-center text-slate-400">กำลังโหลด…</td></tr>';
+      try {
+        const list = (await getJson(`/api/holidays?year=${year}`)).holidays || [];
+        const workdays = list.filter(h => { const d = new Date(h.date + 'T12:00:00').getDay(); return d !== 0 && d !== 6; }).length;
+        $('holCount').textContent = `${list.length} วัน · ตรงกับวันทำการ ${workdays} วัน`;
+        $('holBody').innerHTML = list.length ? list.map(h => {
+          const dow = new Date(h.date + 'T12:00:00').getDay();
+          const weekend = dow === 0 || dow === 6;
+          return `<tr class="hover:bg-slate-50">
+            <td class="whitespace-nowrap px-4 py-2.5 ${weekend ? 'text-slate-400' : 'text-slate-800'}">${thaiDate(h.date)}${weekend ? ' <span class="text-2xs">(เสาร์–อาทิตย์)</span>' : ''}</td>
+            <td class="px-3 py-2.5 font-medium text-slate-900">${esc(h.name)}</td>
+            <td class="px-3 py-2.5 text-xs text-slate-500">${esc(h.created_by || '—')}</td>
+            <td class="px-3 py-2.5 text-right whitespace-nowrap">
+              <button type="button" class="erp-icon-btn h-8 w-8" data-edit="${esc(h.date)}" data-name="${esc(h.name)}" title="แก้ไข" aria-label="แก้ไข"><i class="bi bi-pencil-square"></i></button>
+              <button type="button" class="erp-icon-btn h-8 w-8 hover:bg-red-50 hover:text-red-600" data-del="${esc(h.date)}" title="ลบ" aria-label="ลบ"><i class="bi bi-trash3"></i></button>
+            </td>
+          </tr>`;
+        }).join('') : ERP.emptyRow(4, 'ยังไม่มีวันหยุดในปีนี้ — กด "เพิ่มวันหยุดที่วันที่คงที่ทุกปี" เพื่อเริ่มต้น', 'bi-calendar-plus');
+      } catch (err) {
+        $('holBody').innerHTML = ERP.emptyRow(4, err.message, 'bi-exclamation-triangle');
+      }
+    }
+
+    async function addFixed() {
+      const year = $('yearSel').value;
+      if (!confirm(`เพิ่มวันหยุดที่วันที่คงที่ของปี พ.ศ. ${Number(year) + 543} (วันที่มีอยู่แล้วจะไม่ถูกเขียนทับ)?`)) return;
+      try { ERP.toast((await send('/api/holidays/fixed', 'POST', { year: Number(year) })).message, 'success'); loadHolidays(); }
+      catch (err) { ERP.toast(err.message, 'error'); }
+    }
+
+    $('holForm').addEventListener('submit', async e => {
+      e.preventDefault();
+      try {
+        ERP.toast((await send('/api/holidays', 'POST', { date: $('h-date').value, name: $('h-name').value.trim() })).message, 'success');
+        if ($('h-date').value.slice(0, 4) !== $('yearSel').value) $('yearSel').value = $('h-date').value.slice(0, 4);
+        $('holForm').reset();
+        loadHolidays();
+      } catch (err) { ERP.toast(err.message, 'error'); }
+    });
+
+    $('holBody').addEventListener('click', async e => {
+      const edit = e.target.closest('[data-edit]');
+      const del = e.target.closest('[data-del]');
+      if (edit) { $('h-date').value = edit.dataset.edit; $('h-name').value = edit.dataset.name; $('h-name').focus(); }
+      if (del && confirm(`ลบวันหยุด ${thaiDate(del.dataset.del)}?`)) {
+        try { ERP.toast((await send(`/api/holidays/${del.dataset.del}`, 'DELETE')).message, 'success'); loadHolidays(); }
+        catch (err) { ERP.toast(err.message, 'error'); }
+      }
+    });
+
+    /* ---------- Policy ---------- */
+    async function loadPolicy() {
+      try {
+        policyData = await getJson('/api/leave-policy');
+        renderPolicy();
+      } catch (err) {
+        $('policyBody').innerHTML = ERP.emptyRow(7, err.message, 'bi-exclamation-triangle');
+      }
+    }
+
+    function renderPolicy() {
+      const { policy, statuses, types } = policyData;
+      const keys = Object.keys(types);
+      $('attachDays').value = policy.attachmentSickDays;
+      $('policyHead').innerHTML = `<tr class="border-b border-slate-200"><th class="px-4 py-2.5 font-semibold">ประเภทบุคลากร</th>${keys.map(k => `<th class="px-2 py-2.5 text-center font-semibold normal-case">${esc(types[k].label)}</th>`).join('')}</tr>`;
+      const names = [...new Set(statuses.map(s => s.name).concat(Object.keys(policy.byStatus || {})))];
+      const count = Object.fromEntries(statuses.map(s => [s.name, s.staff]));
+      $('policyBody').innerHTML = names.length ? names.map(name => {
+        const row = (policy.byStatus || {})[name] || {};
+        return `<tr data-status="${esc(name)}">
+          <td class="px-4 py-2"><div class="font-medium text-slate-900">${esc(name)}</div><div class="text-2xs text-slate-400">${count[name] != null ? `${count[name]} คน` : 'ไม่พบใน HOSoffice'}</div></td>
+          ${keys.map(k => {
+            const def = types[k].quota;
+            const v = row[k];
+            return `<td class="px-2 py-2 text-center"><input type="number" min="0" max="365" step="0.5" data-type="${k}"
+              value="${v === undefined || v === null ? '' : v}" placeholder="${def == null ? '∞' : def}" ${IS_SUPER ? '' : 'disabled'}
+              class="erp-input h-8 w-20 text-center font-mono ${v !== undefined && v !== null ? 'border-brand-300 bg-brand-50/50' : ''}" aria-label="${esc(name)} ${esc(types[k].label)}"></td>`;
+          }).join('')}
+        </tr>`;
+      }).join('') : ERP.emptyRow(keys.length + 1, 'ไม่พบประเภทบุคลากรใน HOSoffice');
+    }
+
+    async function savePolicy() {
+      const byStatus = {};
+      document.querySelectorAll('#policyBody tr[data-status]').forEach(tr => {
+        const row = {};
+        tr.querySelectorAll('input[data-type]').forEach(inp => { if (inp.value !== '') row[inp.dataset.type] = Number(inp.value); });
+        if (Object.keys(row).length) byStatus[tr.dataset.status] = row;
+      });
+      const btn = $('savePolicyBtn');
+      btn.disabled = true;
+      try {
+        const data = await send('/api/leave-policy', 'PUT', { attachmentSickDays: Number($('attachDays').value), byStatus });
+        policyData.policy = data.policy;
+        renderPolicy();
+        ERP.toast('บันทึกนโยบายการลาแล้ว', 'success');
+      } catch (err) {
+        ERP.toast(err.message, 'error');
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    /* ---------- Tabs ---------- */
+    $('tabBar').addEventListener('click', e => {
+      const b = e.target.closest('[data-tab]');
+      if (!b) return;
+      document.querySelectorAll('#tabBar [data-tab]').forEach(t => { t.classList.toggle('active', t === b); t.setAttribute('aria-selected', String(t === b)); });
+      ['holidays', 'policy'].forEach(t => { $('tab-' + t).style.display = t === b.dataset.tab ? '' : 'none'; });
+      if (b.dataset.tab === 'policy' && !policyData) loadPolicy();
+    });
+    $('yearSel').addEventListener('change', loadHolidays);
+    const loadData = loadHolidays;
+    loadHolidays();
+  </script>
+</body>
+
+</html>

@@ -121,7 +121,7 @@
         <div class="space-y-5">
           <section class="erp-panel p-4" aria-labelledby="selfTitle">
             <h3 id="selfTitle" class="mb-3 text-[13px] font-semibold text-slate-800">บริการตนเอง</h3>
-            <div class="grid grid-cols-2 gap-2">
+            <div class="grid grid-cols-3 gap-2">
               <button type="button" onclick="openStaffDetail('<%= locals.user ? user.username : '' %>')"
                 class="flex flex-col items-center gap-1.5 rounded-md border border-slate-200 p-3 text-center text-xs text-slate-700 transition-colors hover:border-brand-300 hover:bg-brand-50">
                 <i class="bi bi-person-vcard text-lg text-brand-600" aria-hidden="true"></i>โปรไฟล์ของฉัน
@@ -131,6 +131,9 @@
               </a>
               <a href="/excuses" class="flex flex-col items-center gap-1.5 rounded-md border border-slate-200 p-3 text-center text-xs text-slate-700 transition-colors hover:border-brand-300 hover:bg-brand-50">
                 <i class="bi bi-clipboard2-pulse text-lg text-brand-600" aria-hidden="true"></i>แจ้งสาเหตุ ขาด/ลา/สาย
+              </a>
+              <a href="/ot" class="flex flex-col items-center gap-1.5 rounded-md border border-slate-200 p-3 text-center text-xs text-slate-700 transition-colors hover:border-brand-300 hover:bg-brand-50">
+                <i class="bi bi-stopwatch text-lg text-brand-600" aria-hidden="true"></i>ขอทำ OT
               </a>
               <a href="/schedule" class="flex flex-col items-center gap-1.5 rounded-md border border-slate-200 p-3 text-center text-xs text-slate-700 transition-colors hover:border-brand-300 hover:bg-brand-50">
                 <i class="bi bi-calendar-check text-lg text-brand-600" aria-hidden="true"></i>ตารางเวรของฉัน

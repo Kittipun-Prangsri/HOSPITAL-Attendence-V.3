@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+  <%- include("components/erp-head", { title: "ขอทำงานล่วงเวลา (OT)" }) %>
+</head>
+
+<% const isReviewer = locals.user && (user.role === 'admin' || user.role === 'super'); %>
+
+<body class="erp-page">
+  <%- include("components/sidebar") %>
+  <div class="main" role="main">
+    <%- include("components/topbar") %>
+
+    <div class="erp px-4 py-5 lg:px-6">
+      <section class="mb-5 flex flex-wrap items-end justify-between gap-4" aria-labelledby="ot-heading">
+        <div>
+          <h2 id="ot-heading" class="text-xl font-semibold text-slate-900">ขอทำงานล่วงเวลา (OT)</h2>
+          <p class="mt-1 text-[13px] text-slate-500">ยื่นคำขอและติดตามผลการอนุมัติชั่วโมงทำงานล่วงเวลา<%= isReviewer ? ' พร้อมสรุปรายเดือนของบุคลากร' : '' %></p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <input type="month" id="monthInput" class="erp-input w-auto" aria-label="เดือน">
+          <button type="button" class="erp-btn erp-btn-primary" onclick="openOtForm()"><i class="bi bi-plus-lg" aria-hidden="true"></i> ยื่นคำขอ OT</button>
+        </div>
+      </section>
+
+      <section class="erp-panel mb-5 grid grid-cols-2 sm:grid-cols-4 sm:divide-x sm:divide-slate-100" aria-label="สรุป OT ของฉัน">
+        <% [['kApproved','OT ที่อนุมัติ (เดือนนี้)','ชม.'],['kPending','รออนุมัติ','ชม.'],['kCount','คำขอเดือนนี้','รายการ'],['kRejected','ไม่อนุมัติ','รายการ']].forEach(([id, label, unit]) => { %>
+          <div class="p-4">
+            <div class="truncate text-xs text-slate-500"><%= label %></div>
+            <div class="mt-1 flex items-baseline gap-1"><span id="<%= id %>" class="font-mono text-2xl font-semibold tabular-nums text-slate-900">–</span><span class="text-2xs text-slate-400"><%= unit %></span></div>
+          </div>
+        <% }); %>
+      </section>
+
+      <section class="erp-panel overflow-hidden">
+        <div class="flex gap-1 overflow-x-auto border-b border-slate-200 px-3" role="tablist" id="tabBar">
+          <% const tabs = [['mine', 'bi-person', 'คำขอของฉัน']];
+             if (isReviewer) tabs.push(['approvals', 'bi-inbox', 'รออนุมัติ'], ['summary', 'bi-table', 'สรุปรายบุคคล']); %>
+          <% tabs.forEach(([id, icon, label], i) => { %>
+            <button type="button" role="tab" class="erp-tab whitespace-nowrap <%= i === 0 ? 'active' : '' %>" data-tab="<%= id %>" aria-selected="<%= i === 0 %>">
+              <i class="bi <%= icon %>" aria-hidden="true"></i> <%= label %>
+              <% if (id === 'approvals') { %><span id="pendingBadge" class="hidden rounded bg-amber-100 px-1.5 font-mono text-2xs text-amber-700"></span><% } %>
+            </button>
+          <% }); %>
+          <button type="button" id="csvBtn" class="erp-btn erp-btn-ghost my-1 ml-auto hidden h-8" onclick="exportCsv()"><i class="bi bi-download" aria-hidden="true"></i> CSV</button>
+        </div>
+        <div class="max-h-[65vh] overflow-auto">
+          <table class="w-full border-collapse text-left text-[13px]">
+            <thead id="otHead" class="sticky top-0 z-10 bg-slate-50 text-2xs uppercase tracking-wide text-slate-500"></thead>
+            <tbody id="otBody" class="divide-y divide-slate-100"><tr><td class="px-4 py-16 text-center text-slate-400">กำลังโหลด…</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- OT FORM -->
+  <div id="otForm" class="erp fixed inset-0 z-[10000] hidden" role="dialog" aria-modal="true" aria-labelledby="otFormTitle">
+    <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px]" onclick="closeOtForm()"></div>
+    <form id="otFormEl" class="absolute inset-y-0 right-0 m-0 flex w-full max-w-[460px] flex-col bg-white shadow-drawer">
+      <header class="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+        <h3 id="otFormTitle" class="text-base font-semibold text-slate-900">ยื่นคำขอ OT</h3>
+        <button type="button" class="erp-icon-btn" onclick="closeOtForm()" aria-label="ปิด"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+      </header>
+      <div class="flex-1 space-y-4 overflow-y-auto bg-slate-50/60 p-5">
+        <section class="erp-panel space-y-3 p-4">
+          <div><label class="erp-label" for="f-date">วันที่ปฏิบัติงาน <span class="text-red-500">*</span></label><input type="date" id="f-date" class="erp-input" required></div>
+          <div class="grid grid-cols-2 gap-3">
+            <div><label class="erp-label" for="f-start">เวลาเริ่ม <span class="text-red-500">*</span></label><input type="time" id="f-start" class="erp-input font-mono" value="16:00" required></div>
+            <div><label class="erp-label" for="f-end">เวลาสิ้นสุด <span class="text-red-500">*</span></label><input type="time" id="f-end" class="erp-input font-mono" value="20:00" required></div>
+          </div>
+          <div id="hoursSummary" class="rounded-md bg-brand-50 px-3 py-2.5 text-[13px] text-brand-800 ring-1 ring-inset ring-brand-200"></div>
+        </section>
+        <section class="erp-panel p-4">
+          <label class="erp-label" for="f-reason">เหตุผล / งานที่ปฏิบัติ <span class="text-red-500">*</span></label>
+          <textarea id="f-reason" rows="4" maxlength="1000" class="erp-input h-auto py-2" required placeholder="เช่น ผู้ป่วยฉุกเฉินจำนวนมาก อยู่ต่อช่วยงาน ER"></textarea>
+        </section>
+      </div>
+      <footer class="flex justify-end gap-2 border-t border-slate-200 px-5 py-3">
+        <button type="button" class="erp-btn erp-btn-secondary" onclick="closeOtForm()">ยกเลิก</button>
+        <button type="submit" id="submitOtBtn" class="erp-btn erp-btn-primary"><i class="bi bi-send" aria-hidden="true"></i> ส่งคำขอ</button>
+      </footer>
+    </form>
+  </div>
+
+  <% if (isReviewer) { %>
+    <!-- REVIEW -->
+    <div id="reviewDrawer" class="erp fixed inset-0 z-[10000] hidden" role="dialog" aria-modal="true" aria-labelledby="reviewTitle">
+      <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px]" onclick="closeReview()"></div>
+      <form id="reviewForm" class="absolute inset-y-0 right-0 m-0 flex w-full max-w-[460px] flex-col bg-white shadow-drawer">
+        <header class="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+          <h3 id="reviewTitle" class="text-base font-semibold text-slate-900">พิจารณาคำขอ OT</h3>
+          <button type="button" class="erp-icon-btn" onclick="closeReview()" aria-label="ปิด"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+        </header>
+        <div class="flex-1 space-y-4 overflow-y-auto bg-slate-50/60 p-5">
+          <section class="erp-panel p-4" id="reviewDetail"></section>
+          <fieldset class="m-0 border-0 p-0">
+            <legend class="erp-label">ผลการพิจารณา</legend>
+            <div class="grid grid-cols-2 gap-2">
+              <label class="flex cursor-pointer items-center justify-center gap-2 rounded-md border border-slate-200 bg-white py-2.5 text-[13px] font-medium text-slate-700 has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50 has-[:checked]:text-emerald-700">
+                <input type="radio" name="reviewStatus" value="approved" class="sr-only" checked><i class="bi bi-check2-circle" aria-hidden="true"></i> อนุมัติ
+              </label>
+              <label class="flex cursor-pointer items-center justify-center gap-2 rounded-md border border-slate-200 bg-white py-2.5 text-[13px] font-medium text-slate-700 has-[:checked]:border-red-500 has-[:checked]:bg-red-50 has-[:checked]:text-red-700">
+                <input type="radio" name="reviewStatus" value="rejected" class="sr-only"><i class="bi bi-x-circle" aria-hidden="true"></i> ไม่อนุมัติ
+              </label>
+            </div>
+          </fieldset>
+          <div>
+            <label class="erp-label" for="reviewComment">ความเห็น <span class="font-normal text-slate-400">(ส่งเข้า LINE / Telegram ผู้ยื่น)</span></label>
+            <textarea id="reviewComment" rows="3" maxlength="1000" class="erp-input h-auto py-2"></textarea>
+          </div>
+        </div>
+        <footer class="flex justify-end gap-2 border-t border-slate-200 px-5 py-3">
+          <button type="button" class="erp-btn erp-btn-secondary" onclick="closeReview()">ยกเลิก</button>
+          <button type="submit" id="saveReviewBtn" class="erp-btn erp-btn-primary"><i class="bi bi-check2" aria-hidden="true"></i> บันทึกผล</button>
+        </footer>
+      </form>
+    </div>
+  <% } %>
+
+  <script>
+    const IS_REVIEWER = <%- JSON.stringify(!!isReviewer) %>;
+    const ME = String(typeof CURRENT_USER_ID !== 'undefined' ? CURRENT_USER_ID : '');
+    const STATUS = { pending: ['รออนุมัติ', 'amber'], approved: ['อนุมัติ', 'green'], rejected: ['ไม่อนุมัติ', 'red'], cancelled: ['ยกเลิก', 'slate'] };
+    const $ = id => document.getElementById(id);
+    const esc = ERP.escapeHtml;
+    const fmt1 = n => { const v = Number(n) || 0; return Number.isInteger(v) ? String(v) : v.toFixed(1); };
+    const thaiDate = d => new Date(d + 'T00:00:00').toLocaleDateString('th-TH', { weekday: 'short', day: 'numeric', month: 'short', year: '2-digit' });
+    const statusBadge = s => ERP.badge((STATUS[s] || [s])[0], (STATUS[s] || [0, 'slate'])[1]);
+    const toMin = t => { const [h, m] = String(t).split(':').map(Number); return h * 60 + m; };
+    // Same rule as src/utils/ot.js: an end at/before start rolls past midnight
+    const otHours = (s, e) => { if (!s || !e) return 0; let d = toMin(e) - toMin(s); if (d <= 0) d += 1440; return Math.round((d / 60) * 10) / 10; };
+
+    let mine = [];
+    let all = [];
+    let currentTab = 'mine';
+    let reviewing = null;
+
+    async function getJson(url, opts) {
+      const res = await fetch(url, Object.assign({ headers: { Accept: 'application/json' } }, opts));
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.success === false) throw new Error(data.error || `HTTP ${res.status}`);
+      return data;
+    }
+
+    const monthRange = () => {
+      const [y, m] = $('monthInput').value.split('-').map(Number);
+      return { from: `${y}-${String(m).padStart(2, '0')}-01`, to: `${y}-${String(m).padStart(2, '0')}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}` };
+    };
+    const inMonth = r => { const { from, to } = monthRange(); return r.work_date >= from && r.work_date <= to; };
+    const timeCell = r => `<td class="whitespace-nowrap px-3 py-2.5"><div class="text-slate-700">${thaiDate(r.work_date)}</div><div class="font-mono text-2xs text-slate-400">${esc(r.start_time)}–${esc(r.end_time)}</div></td>`;
+    const hoursCell = r => `<td class="px-3 py-2.5 text-right font-mono text-xs font-semibold text-slate-800">${fmt1(r.hours)}</td>`;
+    const person = r => `<div class="flex items-center gap-2.5">${ERP.avatar(r.fullname, r.employee_id)}
+      <div class="min-w-0"><div class="truncate font-medium text-slate-900">${esc(r.fullname)}</div><div class="truncate text-2xs text-slate-400">${esc(r.dept || r.employee_id)}</div></div></div>`;
+    const th = cols => `<tr class="border-b border-slate-200">${cols.map(([c, al], i) => `<th class="${i === 0 ? 'px-4' : 'px-3'} py-2.5 font-semibold ${al || ''}">${c}</th>`).join('')}</tr>`;
+
+    function renderKpis() {
+      const m = mine.filter(inMonth);
+      const sum = (list, st) => list.filter(r => r.status === st).reduce((a, r) => a + Number(r.hours), 0);
+      $('kApproved').textContent = fmt1(sum(m, 'approved'));
+      $('kPending').textContent = fmt1(sum(mine, 'pending'));
+      $('kCount').textContent = m.length;
+      $('kRejected').textContent = m.filter(r => r.status === 'rejected').length;
+    }
+
+    function summaryRows() {
+      const byPerson = new Map();
+      all.filter(r => inMonth(r) && r.status !== 'cancelled').forEach(r => {
+        const p = byPerson.get(r.employee_id) || { employee_id: r.employee_id, fullname: r.fullname, dept: r.dept, approved: 0, pending: 0, rejected: 0, count: 0 };
+        p[r.status] = (p[r.status] || 0) + Number(r.hours);
+        p.count++;
+        byPerson.set(r.employee_id, p);
+      });
+      return [...byPerson.values()].sort((a, b) => b.approved - a.approved);
+    }
+
+    function render() {
+      $('csvBtn').classList.toggle('hidden', currentTab !== 'summary');
+      const body = $('otBody');
+      if (currentTab === 'mine') {
+        $('otHead').innerHTML = th([['วันที่ / เวลา'], ['ชั่วโมง', 'text-right'], ['เหตุผล'], ['สถานะ'], ['ผู้พิจารณา / ความเห็น'], ['']]);
+        const rows = mine.filter(inMonth).concat(mine.filter(r => r.status === 'pending' && !inMonth(r)));
+        body.innerHTML = rows.length ? rows.map(r => `<tr class="hover:bg-slate-50">
+          ${timeCell(r).replace('px-3', 'px-4')}
+          ${hoursCell(r)}
+          <td class="max-w-[280px] px-3 py-2.5 text-slate-600"><div class="line-clamp-2" title="${esc(r.reason)}">${esc(r.reason)}</div></td>
+          <td class="px-3 py-2.5">${statusBadge(r.status)}</td>
+          <td class="max-w-[220px] px-3 py-2.5 text-xs text-slate-600">${esc(r.reviewer || '—')}${r.review_comment ? `<div class="truncate text-slate-400">${esc(r.review_comment)}</div>` : ''}</td>
+          <td class="px-3 py-2.5 text-right">${r.status === 'pending' ? `<button type="button" class="erp-btn erp-btn-ghost h-8 px-2 text-red-600 hover:bg-red-50" data-cancel="${r.id}">ยกเลิก</button>` : ''}</td>
+        </tr>`).join('') : ERP.emptyRow(6, 'ไม่มีคำขอ OT ในเดือนนี้');
+        return;
+      }
+      if (currentTab === 'approvals') {
+        $('otHead').innerHTML = th([['ผู้ยื่น'], ['วันที่ / เวลา'], ['ชั่วโมง', 'text-right'], ['เหตุผล'], ['']]);
+        const rows = all.filter(r => r.status === 'pending');
+        body.innerHTML = rows.length ? rows.map(r => `<tr class="hover:bg-slate-50">
+          <td class="px-4 py-2.5">${person(r)}</td>${timeCell(r)}${hoursCell(r)}
+          <td class="max-w-[280px] px-3 py-2.5 text-slate-600"><div class="line-clamp-2" title="${esc(r.reason)}">${esc(r.reason)}</div></td>
+          <td class="px-3 py-2.5 text-right">${r.employee_id === ME ? '<span class="text-2xs text-slate-400">คำขอของคุณ</span>'
+            : `<button type="button" class="erp-btn erp-btn-secondary h-8 px-2.5" data-review="${r.id}"><i class="bi bi-shield-check"></i> พิจารณา</button>`}</td>
+        </tr>`).join('') : ERP.emptyRow(5, 'ไม่มีคำขอ OT รออนุมัติ', 'bi-check2-circle');
+        return;
+      }
+      $('otHead').innerHTML = th([['บุคลากร'], ['คำขอ', 'text-right'], ['อนุมัติ (ชม.)', 'text-right'], ['รออนุมัติ (ชม.)', 'text-right'], ['ไม่อนุมัติ (ชม.)', 'text-right']]);
+      const rows = summaryRows();
+      const max = Math.max(1, ...rows.map(r => r.approved));
+      body.innerHTML = rows.length ? rows.map(r => `<tr class="hover:bg-slate-50">
+        <td class="px-4 py-2.5">${person(r)}</td>
+        <td class="px-3 py-2.5 text-right font-mono text-xs">${r.count}</td>
+        <td class="px-3 py-2.5 text-right"><div class="font-mono text-xs font-semibold text-slate-900">${fmt1(r.approved)}</div>
+          <div class="ml-auto mt-1 h-1 w-20 overflow-hidden rounded-full bg-slate-100"><div class="h-full bg-brand-500" style="width:${(r.approved / max) * 100}%"></div></div></td>
+        <td class="px-3 py-2.5 text-right font-mono text-xs ${r.pending ? 'text-amber-700' : 'text-slate-300'}">${r.pending ? fmt1(r.pending) : '–'}</td>
+        <td class="px-3 py-2.5 text-right font-mono text-xs ${r.rejected ? 'text-red-600' : 'text-slate-300'}">${r.rejected ? fmt1(r.rejected) : '–'}</td>
+      </tr>`).join('') : ERP.emptyRow(5, 'ไม่มีคำขอ OT ในเดือนนี้');
+    }
+
+    async function loadData() {
+      try {
+        mine = (await getJson('/api/ot')).requests || [];
+        if (IS_REVIEWER) {
+          all = (await getJson('/api/ot?scope=all')).requests || [];
+          const n = all.filter(r => r.status === 'pending' && r.employee_id !== ME).length;
+          $('pendingBadge').textContent = n;
+          $('pendingBadge').classList.toggle('hidden', n === 0);
+        }
+        renderKpis();
+        render();
+      } catch (err) {
+        $('otBody').innerHTML = ERP.emptyRow(6, 'โหลดข้อมูลไม่สำเร็จ: ' + err.message, 'bi-exclamation-triangle');
+      }
+    }
+
+    function showTab(tab) {
+      currentTab = tab;
+      document.querySelectorAll('#tabBar [data-tab]').forEach(b => { b.classList.toggle('active', b.dataset.tab === tab); b.setAttribute('aria-selected', String(b.dataset.tab === tab)); });
+      render();
+    }
+
+    /* ---------- Form ---------- */
+    function updateHours() {
+      const h = otHours($('f-start').value, $('f-end').value);
+      const overnight = $('f-start').value && $('f-end').value && toMin($('f-end').value) <= toMin($('f-start').value);
+      const bad = h < 0.5 || h > 16;
+      $('hoursSummary').className = `rounded-md px-3 py-2.5 text-[13px] ring-1 ring-inset ${bad ? 'bg-red-50 text-red-700 ring-red-200' : 'bg-brand-50 text-brand-800 ring-brand-200'}`;
+      $('hoursSummary').innerHTML = bad ? 'ช่วงเวลาต้องอยู่ระหว่าง 30 นาที – 16 ชั่วโมง'
+        : `รวม <strong class="font-mono">${fmt1(h)}</strong> ชั่วโมง${overnight ? ' <span class="text-2xs opacity-80">(ข้ามเที่ยงคืน)</span>' : ''}`;
+    }
+    function openOtForm() {
+      $('otFormEl').reset();
+      $('f-date').value = ERP.todayIso();
+      updateHours();
+      ERP.showOverlay($('otForm'), true);
+    }
+    function closeOtForm() { ERP.showOverlay($('otForm'), false); }
+    $('otFormEl').addEventListener('input', updateHours);
+    $('otFormEl').addEventListener('submit', async e => {
+      e.preventDefault();
+      const btn = $('submitOtBtn');
+      btn.disabled = true;
+      try {
+        const data = await getJson('/api/ot', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ work_date: $('f-date').value, start_time: $('f-start').value, end_time: $('f-end').value, reason: $('f-reason').value.trim() })
+        });
+        ERP.toast(data.message, 'success');
+        closeOtForm();
+        showTab('mine');
+        loadData();
+        if (window.loadInbox) window.loadInbox();
+      } catch (err) {
+        ERP.toast(err.message, 'error');
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    async function cancelOt(id) {
+      if (!confirm('ยืนยันยกเลิกคำขอ OT นี้?')) return;
+      try { ERP.toast((await getJson(`/api/ot/${id}/cancel`, { method: 'POST' })).message, 'success'); loadData(); }
+      catch (err) { ERP.toast(err.message, 'error'); }
+    }
+
+    /* ---------- Review ---------- */
+    function openReview(id) {
+      reviewing = all.find(r => String(r.id) === String(id));
+      if (!reviewing) return;
+      const r = reviewing;
+      const monthApproved = all.filter(x => x.employee_id === r.employee_id && x.status === 'approved' && x.work_date.slice(0, 7) === r.work_date.slice(0, 7))
+        .reduce((a, x) => a + Number(x.hours), 0);
+      $('reviewDetail').innerHTML = `<div class="mb-3">${person(r)}</div>
+        <dl class="m-0 grid grid-cols-2 gap-x-4 gap-y-3 text-[13px]">
+          <div><dt class="text-2xs text-slate-500">วันที่</dt><dd class="m-0 font-medium text-slate-900">${thaiDate(r.work_date)}</dd></div>
+          <div><dt class="text-2xs text-slate-500">เวลา</dt><dd class="m-0 font-mono font-medium text-slate-900">${esc(r.start_time)}–${esc(r.end_time)} (${fmt1(r.hours)} ชม.)</dd></div>
+          <div class="col-span-2"><dt class="mb-1 text-2xs text-slate-500">เหตุผล / งานที่ปฏิบัติ</dt><dd class="m-0 whitespace-pre-wrap rounded-md bg-slate-50 p-3 text-slate-700 ring-1 ring-inset ring-slate-200">${esc(r.reason)}</dd></div>
+          <div class="col-span-2 text-2xs text-slate-500">OT ที่อนุมัติแล้วในเดือนเดียวกัน: <strong class="font-mono text-slate-800">${fmt1(monthApproved)}</strong> ชม.</div>
+        </dl>`;
+      $('reviewComment').value = '';
+      document.querySelector('input[name="reviewStatus"][value="approved"]').checked = true;
+      ERP.showOverlay($('reviewDrawer'), true);
+    }
+    function closeReview() { ERP.showOverlay($('reviewDrawer'), false); reviewing = null; }
+    if (IS_REVIEWER) {
+      $('reviewForm').addEventListener('submit', async e => {
+        e.preventDefault();
+        if (!reviewing) return;
+        const btn = $('saveReviewBtn');
+        btn.disabled = true;
+        try {
+          const data = await getJson(`/api/ot/${reviewing.id}/review`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({ status: document.querySelector('input[name="reviewStatus"]:checked').value, comment: $('reviewComment').value.trim() })
+          });
+          ERP.toast(data.message, 'success');
+          closeReview();
+          loadData();
+          if (window.loadInbox) window.loadInbox();
+        } catch (err) {
+          ERP.toast(err.message, 'error');
+        } finally {
+          btn.disabled = false;
+        }
+      });
+    }
+
+    function exportCsv() {
+      const rows = summaryRows();
+      if (!rows.length) return ERP.toast('ไม่มีข้อมูลสำหรับส่งออก');
+      ERP.downloadCsv(`ot-summary-${$('monthInput').value}.csv`, ['รหัส', 'ชื่อ-นามสกุล', 'กลุ่มงาน', 'จำนวนคำขอ', 'อนุมัติ (ชม.)', 'รออนุมัติ (ชม.)', 'ไม่อนุมัติ (ชม.)'],
+        rows.map(r => [r.employee_id, r.fullname, r.dept, r.count, fmt1(r.approved), fmt1(r.pending), fmt1(r.rejected)]));
+    }
+
+    $('tabBar').addEventListener('click', e => { const b = e.target.closest('[data-tab]'); if (b) showTab(b.dataset.tab); });
+    $('otBody').addEventListener('click', e => {
+      const c = e.target.closest('[data-cancel]'); const r = e.target.closest('[data-review]');
+      if (c) cancelOt(c.dataset.cancel);
+      if (r) openReview(r.dataset.review);
+    });
+    $('monthInput').addEventListener('change', () => { renderKpis(); render(); });
+    document.addEventListener('keydown', e => {
+      if (e.key !== 'Escape') return;
+      if (!$('otForm').classList.contains('hidden')) closeOtForm();
+      if (IS_REVIEWER && !$('reviewDrawer').classList.contains('hidden')) closeReview();
+    });
+    $('monthInput').value = ERP.todayIso().slice(0, 7);
+    if (IS_REVIEWER && location.hash === '#approvals') showTab('approvals');
+    loadData();
+  </script>
+</body>
+
+</html>

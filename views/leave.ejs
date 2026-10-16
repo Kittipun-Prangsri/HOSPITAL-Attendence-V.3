@@ -104,6 +104,15 @@
             <input type="text" id="f-contact" maxlength="255" class="erp-input" placeholder="เบอร์โทร หรือที่อยู่ที่ติดต่อได้">
           </div>
         </section>
+        <section class="erp-panel p-4">
+          <div class="mb-1.5 flex items-center justify-between">
+            <label class="erp-label mb-0" for="f-file">เอกสารประกอบ <span id="fileRequired" class="hidden text-red-500">* จำเป็น</span></label>
+            <span class="text-2xs text-slate-400">PDF / JPG / PNG ไม่เกิน 4 MB</span>
+          </div>
+          <input type="file" id="f-file" accept="application/pdf,image/jpeg,image/png"
+            class="block w-full text-[13px] text-slate-600 file:mr-3 file:rounded-md file:border-0 file:bg-brand-50 file:px-3 file:py-2 file:text-[13px] file:font-medium file:text-brand-700 hover:file:bg-brand-100">
+          <p id="fileHint" class="mt-1.5 text-2xs text-slate-400">เช่น ใบรับรองแพทย์ หนังสือขออนุญาต</p>
+        </section>
       </div>
       <footer class="flex justify-end gap-2 border-t border-slate-200 px-5 py-3">
         <button type="button" class="erp-btn erp-btn-secondary" onclick="closeLeaveForm()">ยกเลิก</button>
@@ -172,6 +181,21 @@
     let reviewing = null;
 
     const typeLabel = t => (TYPES[t] ? TYPES[t].label : t);
+    const attachLink = (l, big) => Number(l.has_attachment)
+      ? `<a href="/api/leaves/${l.id}/attachment" target="_blank" rel="noopener" class="${big ? 'erp-btn erp-btn-secondary h-8 px-2.5' : 'mt-0.5 inline-flex items-center gap-1 text-2xs text-brand-700 hover:underline'}"><i class="bi bi-paperclip"></i> ${esc(l.attachment_name || 'ไฟล์แนบ')}</a>`
+      : '';
+    let ATTACH_DAYS = 3;
+    const holidayCache = {};
+    async function ensureHolidays(year) {
+      if (holidayCache[year]) return holidayCache[year];
+      holidayCache[year] = getJson(`/api/holidays?year=${year}`).then(d => d.holidays || []).catch(() => []);
+      return holidayCache[year];
+    }
+    async function holidaysBetween(start, end) {
+      const years = [...new Set([start.slice(0, 4), end.slice(0, 4)])];
+      const lists = await Promise.all(years.map(ensureHolidays));
+      return lists.flat().filter(h => h.date >= start && h.date <= end);
+    }
     const typeBadge = t => ERP.badge(typeLabel(t), TYPE_TONE[t] || 'slate');
     const statusBadge = s => ERP.badge((STATUS[s] || [s])[0], (STATUS[s] || [0, 'slate'])[1]);
 
@@ -204,7 +228,8 @@
       try {
         const data = await getJson('/api/leaves/balance');
         balance = data.balance || {};
-        $('fyLabel').textContent = `ปีงบประมาณ ${data.fiscalYear.label} (${thaiDate(data.fiscalYear.start)} – ${thaiDate(data.fiscalYear.end)})`;
+        $('fyLabel').textContent = `ปีงบประมาณ ${data.fiscalYear.label} (${thaiDate(data.fiscalYear.start)} – ${thaiDate(data.fiscalYear.end)})` +
+          (data.staffStatus ? ` · สิทธิ์ตามประเภท: ${data.staffStatus}` : '');
         $('balanceCards').innerHTML = MAIN_TYPES.filter(k => balance[k]).map(k => balanceCard(k, balance[k])).join('');
       } catch (err) {
         $('balanceCards').innerHTML = `<div class="erp-panel col-span-full p-4 text-[13px] text-red-600"><i class="bi bi-exclamation-triangle"></i> โหลดสิทธิ์วันลาไม่สำเร็จ: ${esc(err.message)}</div>`;
@@ -236,7 +261,7 @@
           <td class="px-4 py-2.5">${typeBadge(l.leave_type)}</td>
           <td class="whitespace-nowrap px-3 py-2.5 text-slate-700">${range(l)}</td>
           ${daysCell(l)}
-          <td class="max-w-[260px] px-3 py-2.5 text-slate-600"><div class="line-clamp-2" title="${esc(l.reason)}">${esc(l.reason)}</div></td>
+          <td class="max-w-[260px] px-3 py-2.5 text-slate-600"><div class="line-clamp-2" title="${esc(l.reason)}">${esc(l.reason)}</div>${attachLink(l)}</td>
           <td class="px-3 py-2.5">${statusBadge(l.status)}</td>
           <td class="max-w-[220px] px-3 py-2.5 text-xs text-slate-600">${esc(l.reviewer || '—')}${l.review_comment ? `<div class="truncate text-slate-400" title="${esc(l.review_comment)}">${esc(l.review_comment)}</div>` : ''}</td>
           <td class="px-3 py-2.5 text-right">${l.status === 'pending' ? `<button type="button" class="erp-btn erp-btn-ghost h-8 px-2 text-red-600 hover:bg-red-50" data-cancel="${l.id}">ยกเลิก</button>` : ''}</td>
@@ -251,7 +276,7 @@
           <td class="px-3 py-2.5">${typeBadge(l.leave_type)}</td>
           <td class="whitespace-nowrap px-3 py-2.5 text-slate-700">${range(l)}</td>
           ${daysCell(l)}
-          <td class="max-w-[240px] px-3 py-2.5 text-slate-600"><div class="line-clamp-2" title="${esc(l.reason)}">${esc(l.reason)}</div></td>
+          <td class="max-w-[240px] px-3 py-2.5 text-slate-600"><div class="line-clamp-2" title="${esc(l.reason)}">${esc(l.reason)}</div>${attachLink(l)}</td>
           <td class="whitespace-nowrap px-3 py-2.5 text-xs text-slate-500">${dt(l.submitted_at)}</td>
           <td class="px-3 py-2.5 text-right">${l.employee_id === ME
             ? '<span class="text-2xs text-slate-400">ใบลาของคุณ</span>'
@@ -326,23 +351,25 @@
     }
 
     /* ---------------- New leave form ---------------- */
-    function countDays(start, end, type, half) {
+    // Mirrors countLeaveDays in src/utils/leave.js (server recomputes and is authoritative)
+    function countDays(start, end, type, half, holidaySet) {
       const t = TYPES[type];
       if (!start || !end || !t || end < start) return 0;
+      const working = d => { const dow = d.getDay(); return dow !== 0 && dow !== 6 && !holidaySet.has(d.toLocaleDateString('sv-SE')); };
       if (half !== 'none') {
         if (start !== end) return 0;
-        const dow = new Date(start + 'T12:00:00').getDay();
-        return t.countCalendarDays || (dow !== 0 && dow !== 6) ? 0.5 : 0;
+        return t.countCalendarDays || working(new Date(start + 'T12:00:00')) ? 0.5 : 0;
       }
       let n = 0;
       for (let d = new Date(start + 'T12:00:00'); d.toLocaleDateString('sv-SE') <= end; d.setDate(d.getDate() + 1)) {
-        const dow = d.getDay();
-        if (t.countCalendarDays || (dow !== 0 && dow !== 6)) n++;
+        if (t.countCalendarDays || working(d)) n++;
       }
       return n;
     }
 
-    function updateSummary() {
+    let summarySeq = 0;
+    async function updateSummary() {
+      const seq = ++summarySeq;
       const type = (document.querySelector('input[name="leave_type"]:checked') || {}).value;
       const start = $('f-start').value;
       const end = $('f-end').value;
@@ -353,16 +380,24 @@
       const el = $('daySummary');
       if (!start || !end) { el.textContent = 'เลือกวันที่เพื่อคำนวณจำนวนวันลา'; el.className = 'rounded-md bg-slate-50 px-3 py-2.5 text-[13px] text-slate-600 ring-1 ring-inset ring-slate-200'; return; }
       if (end < start) { el.textContent = 'วันที่สิ้นสุดต้องไม่ก่อนวันที่เริ่ม'; el.className = 'rounded-md bg-red-50 px-3 py-2.5 text-[13px] text-red-700 ring-1 ring-inset ring-red-200'; return; }
-      const days = countDays(start, end, type, half);
+      const hols = await holidaysBetween(start, end);
+      if (seq !== summarySeq) return; // a newer edit superseded this one
+      const days = countDays(start, end, type, half, new Set(hols.map(h => h.date)));
+      const needFile = type === 'sick' && ATTACH_DAYS > 0 && days >= ATTACH_DAYS;
+      $('fileRequired').classList.toggle('hidden', !needFile);
+      $('fileHint').textContent = needFile ? `ลาป่วยตั้งแต่ ${ATTACH_DAYS} วันขึ้นไป ต้องแนบใบรับรองแพทย์` : 'เช่น ใบรับรองแพทย์ หนังสือขออนุญาต';
+      $('fileHint').className = `mt-1.5 text-2xs ${needFile ? 'font-medium text-red-600' : 'text-slate-400'}`;
       const b = balance[type];
       const after = b && b.remaining != null ? b.remaining - days : null;
       const over = after != null && after < 0;
-      const basis = TYPES[type] && TYPES[type].countCalendarDays ? 'นับรวมวันหยุด' : 'นับเฉพาะวันทำการ จ.–ศ.';
+      const basis = TYPES[type] && TYPES[type].countCalendarDays ? 'นับรวมวันหยุด' : 'นับเฉพาะวันทำการ ไม่รวมวันหยุดราชการ';
+      const holText = hols.length && !(TYPES[type] && TYPES[type].countCalendarDays)
+        ? `<br><span class="text-2xs opacity-80"><i class="bi bi-calendar-heart"></i> ไม่นับ: ${hols.map(h => `${esc(h.name)} (${thaiDate(h.date)})`).join(', ')}</span>` : '';
       el.className = `rounded-md px-3 py-2.5 text-[13px] ring-1 ring-inset ${over || !days ? 'bg-red-50 text-red-700 ring-red-200' : 'bg-brand-50 text-brand-800 ring-brand-200'}`;
       el.innerHTML = !days
         ? 'ช่วงที่เลือกไม่มีวันทำการ'
         : `ลา <strong class="font-mono">${fmtDays(days)}</strong> วัน <span class="text-2xs opacity-70">(${basis})</span>` +
-          (after != null ? `<br>สิทธิ์คงเหลือหลังลา: <strong class="font-mono">${fmtDays(Math.max(after, 0))}</strong> วัน${over ? ' — <strong>สิทธิ์ไม่พอ</strong>' : ''}` : '');
+          (after != null ? `<br>สิทธิ์คงเหลือหลังลา: <strong class="font-mono">${fmtDays(Math.max(after, 0))}</strong> วัน${over ? ' — <strong>สิทธิ์ไม่พอ</strong>' : ''}` : '') + holText;
     }
 
     function openLeaveForm() {
@@ -382,8 +417,12 @@
     $('leaveFormEl').addEventListener('submit', async e => {
       e.preventDefault();
       const btn = $('submitLeaveBtn');
+      const file = $('f-file').files[0];
+      if (file && !['application/pdf', 'image/jpeg', 'image/png'].includes(file.type)) return ERP.toast('รองรับเฉพาะไฟล์ PDF, JPG หรือ PNG', 'error');
+      if (file && file.size > 4 * 1024 * 1024) return ERP.toast('ไฟล์ใหญ่เกิน 4 MB', 'error');
       btn.disabled = true;
       try {
+        const attachment = file ? { name: file.name, type: file.type, data: await readBase64(file) } : undefined;
         const data = await getJson('/api/leaves', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
@@ -393,7 +432,8 @@
             end_date: $('f-end').value,
             half_day: document.querySelector('input[name="half_day"]:checked').value,
             reason: $('f-reason').value.trim(),
-            contact: $('f-contact').value.trim()
+            contact: $('f-contact').value.trim(),
+            attachment
           })
         });
         ERP.toast(data.message || 'ส่งใบลาแล้ว', 'success');
@@ -406,6 +446,13 @@
       } finally {
         btn.disabled = false;
       }
+    });
+
+    const readBase64 = file => new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result).split(',')[1] || '');
+      reader.onerror = () => reject(new Error('อ่านไฟล์ไม่สำเร็จ'));
+      reader.readAsDataURL(file);
     });
 
     async function cancelLeave(id) {
@@ -431,6 +478,7 @@
           <div class="col-span-2"><dt class="text-2xs text-slate-500">วันที่</dt><dd class="m-0 font-medium text-slate-900">${range(l)}</dd></div>
           <div class="col-span-2"><dt class="mb-1 text-2xs text-slate-500">เหตุผล</dt><dd class="m-0 whitespace-pre-wrap rounded-md bg-slate-50 p-3 text-slate-700 ring-1 ring-inset ring-slate-200">${esc(l.reason)}</dd></div>
           ${l.contact ? `<div class="col-span-2"><dt class="text-2xs text-slate-500">ติดต่อระหว่างลา</dt><dd class="m-0 text-slate-700">${esc(l.contact)}</dd></div>` : ''}
+          <div class="col-span-2"><dt class="text-2xs text-slate-500">เอกสารประกอบ</dt><dd class="m-0">${Number(l.has_attachment) ? attachLink(l, true) : '<span class="text-slate-400">ไม่มี</span>'}</dd></div>
         </dl>`;
       $('reviewComment').value = '';
       document.querySelector('input[name="reviewStatus"][value="approved"]').checked = true;
@@ -503,7 +551,9 @@
 
     (async function boot() {
       try {
-        TYPES = (await getJson('/api/leaves/types')).types || {};
+        const typeData = await getJson('/api/leaves/types');
+        TYPES = typeData.types || {};
+        if (Number.isFinite(typeData.attachmentSickDays)) ATTACH_DAYS = typeData.attachmentSickDays;
       } catch { TYPES = {}; }
       $('typeOptions').innerHTML = Object.entries(TYPES).map(([k, t], i) => `
         <label class="flex cursor-pointer items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-[13px] text-slate-700 hover:border-slate-300 has-[:checked]:border-brand-500 has-[:checked]:bg-brand-50 has-[:checked]:text-brand-800">

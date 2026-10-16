@@ -57,13 +57,13 @@
           <table class="w-full border-collapse text-left text-[13px]">
             <thead class="sticky top-0 z-10 bg-slate-50 text-2xs uppercase tracking-wide text-slate-500">
               <tr class="border-b border-slate-200">
-                <% [['name','บุคลากร',''],['dept','กลุ่มงาน',''],['type','เวร',''],['days','วันทำงาน','text-right'],['total','ชั่วโมงรวม','text-right'],['avg','เฉลี่ย/วัน','text-right'],['max','สูงสุด/วัน','text-right'],['ot','OT','text-right']].forEach(([k, l, al], i) => { %>
+                <% [['name','บุคลากร',''],['dept','กลุ่มงาน',''],['type','เวร',''],['days','วันทำงาน','text-right'],['total','ชั่วโมงรวม','text-right'],['avg','เฉลี่ย/วัน','text-right'],['max','สูงสุด/วัน','text-right'],['ot','เกินเกณฑ์','text-right'],['approvedOt','OT อนุมัติ','text-right']].forEach(([k, l, al], i) => { %>
                   <th class="<%= i === 0 ? 'px-4' : 'px-3' %> py-2.5 font-semibold <%= al %>"><button type="button" class="uppercase hover:text-slate-800" data-sort="<%= k %>"><%= l %> <i class="bi bi-arrow-down-up text-[10px]"></i></button></th>
                 <% }); %>
               </tr>
             </thead>
             <tbody id="body" class="divide-y divide-slate-100">
-              <tr><td colspan="8" class="px-4 py-16 text-center text-slate-400">กำลังคำนวณ…</td></tr>
+              <tr><td colspan="9" class="px-4 py-16 text-center text-slate-400">กำลังคำนวณ…</td></tr>
             </tbody>
           </table>
         </div>
@@ -98,10 +98,18 @@
       const ym = `${year}-${String(month).padStart(2, '0')}`;
       const days = new Date(year, month, 0).getDate();
       const threshold = otThreshold();
-      $('otNote').textContent = `OT = ชั่วโมงที่เกิน ${threshold} ชม. ต่อวัน (ตั้งค่าได้ที่ ⚙ ตั้งค่าระบบ)`;
-      $('body').innerHTML = '<tr><td colspan="8" class="px-4 py-16 text-center text-slate-400">กำลังคำนวณ…</td></tr>';
+      $('otNote').textContent = `เกินเกณฑ์ = ชั่วโมงที่เกิน ${threshold} ชม./วันจากเวลาสแกน · OT อนุมัติ = จากคำขอ OT`;
+      $('body').innerHTML = '<tr><td colspan="9" class="px-4 py-16 text-center text-slate-400">กำลังคำนวณ…</td></tr>';
       try {
         const results = await Promise.all(['1', '2'].map(t => fetchTemplate(ym, t).then(d => ({ t, d }))));
+        // Approved OT requests for the month (empty if the OT module isn't migrated yet)
+        const otByEmployee = {};
+        try {
+          const lastDay = String(days).padStart(2, '0');
+          const otRes = await fetch(`/api/ot?scope=all&status=approved&from=${ym}-01&to=${ym}-${lastDay}`, { headers: { Accept: 'application/json' } });
+          const otData = otRes.ok ? await otRes.json() : {};
+          (otData.requests || []).forEach(r => { otByEmployee[r.employee_id] = (otByEmployee[r.employee_id] || 0) + Number(r.hours); });
+        } catch { /* OT unavailable */ }
         rows = [];
         results.forEach(({ t, d }) => {
           const scans = d.scans || {};
@@ -111,7 +119,8 @@
             const sum = WorkHours.summarizeHours(perDay, threshold);
             rows.push({
               id: String(p.FINGLE_ID || p.ID), name: `${p.HR_FNAME || ''} ${p.HR_LNAME || ''}`.trim() || 'ไม่ระบุชื่อ',
-              dept: (p.HR_DEPARTMENT_NAME || 'ไม่ระบุ').trim(), type: t, ...sum
+              dept: (p.HR_DEPARTMENT_NAME || 'ไม่ระบุ').trim(), type: t, ...sum,
+              approvedOt: Math.round((otByEmployee[String(p.FINGLE_ID || p.ID)] || 0) * 10) / 10
             });
           });
         });
@@ -119,7 +128,7 @@
         render();
       } catch (err) {
         console.error(err);
-        $('body').innerHTML = ERP.emptyRow(8, 'โหลดข้อมูลไม่สำเร็จ', 'bi-exclamation-triangle');
+        $('body').innerHTML = ERP.emptyRow(9, 'โหลดข้อมูลไม่สำเร็จ', 'bi-exclamation-triangle');
       }
     }
 
@@ -145,7 +154,7 @@
       $('kOt').textContent = fmt1(list.reduce((s, r) => s + r.ot, 0));
       $('kOtPeople').textContent = list.filter(r => r.ot > 0).length.toLocaleString('th-TH');
       $('foot').textContent = `${list.length.toLocaleString('th-TH')} คน · มีเวลาสแกนครบ ${worked.length.toLocaleString('th-TH')} คน`;
-      if (!list.length) { $('body').innerHTML = ERP.emptyRow(8, 'ไม่พบข้อมูล'); return; }
+      if (!list.length) { $('body').innerHTML = ERP.emptyRow(9, 'ไม่พบข้อมูล'); return; }
       const maxTotal = Math.max(1, ...list.map(r => r.total));
       const num = (v, tone) => `<td class="px-3 py-2.5 text-right font-mono text-xs ${v ? tone : 'text-slate-300'}">${v ? fmt1(v) : '–'}</td>`;
       $('body').innerHTML = list.map(r => `<tr class="hover:bg-slate-50">
@@ -161,6 +170,7 @@
         ${num(r.avg, 'text-slate-700')}
         ${num(r.max, 'text-slate-700')}
         ${num(r.ot, 'font-semibold text-amber-700')}
+        ${num(r.approvedOt, 'font-semibold text-brand-700')}
       </tr>`).join('');
     }
 
@@ -168,8 +178,8 @@
       const list = filtered();
       if (!list.length) return ERP.toast('ไม่มีข้อมูลสำหรับส่งออก');
       ERP.downloadCsv(`work-hours-${$('yearSel').value}-${String($('monthSel').value).padStart(2, '0')}.csv`,
-        ['รหัส', 'ชื่อ-นามสกุล', 'กลุ่มงาน', 'รูปแบบเวร', 'วันทำงาน', 'ชั่วโมงรวม', 'เฉลี่ย/วัน', 'สูงสุด/วัน', `OT (เกิน ${otThreshold()} ชม./วัน)`],
-        list.map(r => [r.id, r.name, r.dept, TYPE_LABEL[r.type], r.days, r.total, r.avg, r.max, r.ot]));
+        ['รหัส', 'ชื่อ-นามสกุล', 'กลุ่มงาน', 'รูปแบบเวร', 'วันทำงาน', 'ชั่วโมงรวม', 'เฉลี่ย/วัน', 'สูงสุด/วัน', `เกินเกณฑ์ (${otThreshold()} ชม./วัน)`, 'OT ที่อนุมัติ'],
+        list.map(r => [r.id, r.name, r.dept, TYPE_LABEL[r.type], r.days, r.total, r.avg, r.max, r.ot, r.approvedOt]));
     }
 
     document.querySelectorAll('[data-sort]').forEach(b => b.addEventListener('click', () => {
