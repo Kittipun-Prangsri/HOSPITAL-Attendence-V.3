@@ -2,6 +2,9 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const session = require('express-session');
+const helmet = require('helmet');
+const MySQLStore = require('express-mysql-session')(session);
+const { csrfProtection } = require('./middleware/csrf');
 const authRoutes = require('./routes/authRoutes');
 const apiRoutes = require('./routes/apiRoutes');
 const viewRoutes = require('./routes/viewRoutes');
@@ -17,10 +20,32 @@ if (!sessionSecret) {
 
 // Basic Middleware
 app.disable('x-powered-by');
+// Security headers. Pages still use inline <script> and onclick handlers, so script-src keeps
+// 'unsafe-inline'; external sources are limited to the CDNs actually used.
+// upgrade-insecure-requests is off because the intranet may be served over plain HTTP.
+app.use(helmet({
+  contentSecurityPolicy: {
+    useDefaults: false,
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", 'https://cdnjs.cloudflare.com'],
+      styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com', 'https://cdn.jsdelivr.net'],
+      fontSrc: ["'self'", 'data:', 'https://fonts.gstatic.com', 'https://cdn.jsdelivr.net'],
+      imgSrc: ["'self'", 'data:', 'blob:'],
+      connectSrc: ["'self'"],
+      frameSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
+      frameAncestors: ["'none'"]
+    }
+  },
+  crossOriginEmbedderPolicy: false,
+  frameguard: { action: 'deny' },
+  referrerPolicy: { policy: 'same-origin' },
+  hsts: process.env.NODE_ENV === 'production' ? { maxAge: 180 * 24 * 60 * 60 } : false
+}));
 app.use((req, res, next) => {
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'DENY');
-  res.setHeader('Referrer-Policy', 'same-origin');
   res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
   next();
 });
@@ -39,18 +64,39 @@ app.post('/api/leaves', express.json({ limit: '6mb' }));
 app.use(express.json({ limit: '100kb' }));
 app.use(express.urlencoded({ extended: true, limit: '100kb' }));
 
-// Session Configuration
+// Session Configuration — persisted in MySQL so restarts/deploys don't sign everyone out.
+// SESSION_STORE=memory keeps the old in-memory store for local development without a database.
+const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
+const sessionStore = process.env.SESSION_STORE === 'memory' ? undefined : new MySQLStore({
+  host: process.env.DB_HOST,
+  port: Number(process.env.DB_PORT) || 3306,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME_HOSPITAL,
+  charset: 'utf8mb4_unicode_ci',
+  createDatabaseTable: true,
+  clearExpired: true,
+  checkExpirationInterval: 15 * 60 * 1000,
+  expiration: SESSION_TTL_MS,
+  schema: { tableName: 'sessions' }
+});
+if (sessionStore && sessionStore.onReady) {
+  sessionStore.onReady().catch(err => console.error('[session] MySQL session store unavailable:', err.message));
+}
+
 app.use(session({
   secret: sessionSecret,
+  store: sessionStore,
   resave: false,
   saveUninitialized: false,
   cookie: {
     httpOnly: true,
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
-    maxAge: 24 * 60 * 60 * 1000
+    maxAge: SESSION_TTL_MS
   }
 }));
+app.use(csrfProtection);
 
 const chatbotService = require('./services/chatbotService');
 const notificationService = require('./services/notificationService');
