@@ -1,4 +1,5 @@
 const { hosofficePool } = require('../config/db');
+const { logAudit } = require('../utils/audit');
 
 exports.getPersonnel = async (req, res) => {
   try {
@@ -82,6 +83,7 @@ exports.updateStaff = async (req, res) => {
     if (result.affectedRows === 0) {
       return res.status(404).json({ success: false, message: 'Personnel not found.' });
     }
+    logAudit(req, 'update', 'staff', id, { fields: columns.map(([column]) => column) });
     res.json({ success: true, message: 'อัปเดตข้อมูลบุคลากรเรียบร้อยแล้ว' });
   } catch (error) {
     console.error('Error updating personnel:', error);

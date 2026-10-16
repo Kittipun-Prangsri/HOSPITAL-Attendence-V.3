@@ -1,4 +1,5 @@
 const { pool, hosofficePool } = require('../config/db');
+const { logAudit } = require('../utils/audit');
 const NotificationService = require('../services/notificationService');
 const { approvedLeaveMap, leaveFor } = require('../services/leaveCalendar');
 
@@ -93,6 +94,7 @@ exports.createExcuse = async (req, res) => {
                       `💬 เหตุผล: ${reason}`;
     await NotificationService.sendToAdmin(adminMsg);
     
+    logAudit(req, 'create', 'excuse', null, { date, issue_type });
     res.json({ success: true, message: 'บันทึกข้อมูลและส่งเรื่องแก้ต่างเรียบร้อยแล้ว' });
   } catch (error) {
     console.error('Error creating excuse:', error);
@@ -179,6 +181,7 @@ exports.reviewExcuse = async (req, res) => {
       }
     }
     
+    logAudit(req, status === 'approved' ? 'approve' : 'reject', 'excuse', id, { comment: admin_comment || null });
     res.json({ success: true, message: 'บันทึกผลการพิจารณาเรียบร้อยแล้ว' });
   } catch (error) {
     console.error('Error reviewing excuse:', error);
@@ -216,6 +219,7 @@ exports.deleteExcuse = async (req, res) => {
     // 3. Execute Deletion
     await pool.query('DELETE FROM attendance_excuses WHERE id = ?', [id]);
     
+    logAudit(req, 'delete', 'excuse', id);
     res.json({ success: true, message: 'ลบรายการเรียบร้อยแล้ว' });
   } catch (error) {
     console.error('Error deleting excuse:', error);
@@ -268,6 +272,7 @@ exports.sendReminders = async (req, res) => {
       }
     }
     
+    logAudit(req, 'send_reminders', 'excuse', null, { sent: successCount, failed: failCount });
     res.json({ success: true, message: `ส่งแจ้งเตือนสำเร็จ ${successCount} รายการ, ล้มเหลว ${failCount} รายการ` });
   } catch (error) {
     console.error('Error sending reminders:', error);

@@ -1,4 +1,5 @@
 const bcrypt = require('bcryptjs');
+const { logAudit } = require('../utils/audit');
 const { hosofficePool } = require('../config/db');
 
 exports.getLogin = (req, res) => {
@@ -33,6 +34,7 @@ exports.postLogin = async (req, res) => {
           role: roleLower
         };
         
+        logAudit(req, 'login', 'auth', user.id, null, req.session.user);
         return req.session.save((err) => {
           if (err) {
             console.error('[Auth] Session save error:', err);
@@ -46,6 +48,7 @@ exports.postLogin = async (req, res) => {
     } else {
       console.log(`[Auth] User not found: ${username}`);
     }
+    logAudit(req, 'login_failed', 'auth', null, { username: String(username).slice(0, 50) }, { username: null, fullname: null, role: null });
     res.render('login', { error: 'ชื่อผู้ใช้งานหรือรหัสผ่านไม่ถูกต้อง' });
   } catch (error) {
     console.error('[Auth] Login error:', error);
@@ -54,6 +57,7 @@ exports.postLogin = async (req, res) => {
 };
 
 exports.logout = (req, res) => {
+  if (req.session && req.session.user) logAudit(req, 'logout', 'auth', req.session.user.username);
   req.session.destroy();
   res.redirect('/login');
 };

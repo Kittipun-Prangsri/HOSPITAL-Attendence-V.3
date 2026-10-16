@@ -10,6 +10,9 @@ const excuseController = require('../controllers/excuseController');
 const leaveController = require('../controllers/leaveController');
 const settingsController = require('../controllers/settingsController');
 const inboxController = require('../controllers/inboxController');
+const calendarController = require('../controllers/calendarController');
+const otController = require('../controllers/otController');
+const auditController = require('../controllers/auditController');
 
 // Data endpoints
 router.get('/data', checkAuth, apiController.getData);
@@ -68,6 +71,25 @@ router.get('/leaves/:id(\\d+)/attachment', checkAuth, leaveController.getAttachm
 // Shared work settings (read: everyone, write: admin/super — enforced in controller)
 router.get('/settings', checkAuth, settingsController.getSettings);
 router.put('/settings', checkAuth, settingsController.saveSettings);
+
+// Public holidays (read: everyone, write: admin/super — enforced in controller)
+router.get('/holidays', checkAuth, calendarController.listHolidays);
+router.post('/holidays', checkAuth, calendarController.saveHoliday);
+router.post('/holidays/fixed', checkAuth, calendarController.addFixedHolidays);
+router.delete('/holidays/:date', checkAuth, calendarController.deleteHoliday);
+
+// Leave quotas per staff type (read: admin/super, write: super)
+router.get('/leave-policy', checkAuth, calendarController.getPolicy);
+router.put('/leave-policy', checkAuth, calendarController.savePolicy);
+
+// Overtime requests
+router.get('/ot', checkAuth, otController.listOt);
+router.post('/ot', checkAuth, otController.createOt);
+router.post('/ot/:id(\\d+)/cancel', checkAuth, otController.cancelOt);
+router.post('/ot/:id(\\d+)/review', checkAuth, otController.reviewOt);
+
+// System-wide audit trail (super only — enforced in controller)
+router.get('/audit', checkAuth, auditController.listAudit);
 
 // Topbar notification inbox
 router.get('/notifications/inbox', checkAuth, inboxController.getInbox);

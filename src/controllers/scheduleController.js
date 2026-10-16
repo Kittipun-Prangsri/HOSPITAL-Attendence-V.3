@@ -1,4 +1,5 @@
 const { pool, hosofficePool } = require('../config/db');
+const { logAudit } = require('../utils/audit');
 
 const OFF_SHIFTS = new Set(['', 'OFF', 'EMPTY']);
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -63,6 +64,7 @@ exports.postSchedule = async (req, res) => {
     }
     await auditScheduleChange(connection, employeeId, date, previousShift, isWorkingShift(shift) ? shift.trim() : null, req.session.user.username);
     await connection.commit();
+    logAudit(req, 'update', 'schedule', `${employeeId}@${date}`, { from: previousShift || null, to: isWorkingShift(shift) ? shift.trim() : null });
     res.json({ success: true });
   } catch (err) {
     await connection.rollback();
@@ -120,6 +122,7 @@ exports.saveMonthlySchedule = async (req, res) => {
       await auditScheduleChange(connection, employeeId, date, oldShift, null, req.session.user.username);
     }
     await connection.commit();
+    logAudit(req, 'save_month', 'schedule', yearMonth, { entries: entries.length });
     res.json({ success: true, entries: entries.length });
   } catch (err) {
     await connection.rollback();

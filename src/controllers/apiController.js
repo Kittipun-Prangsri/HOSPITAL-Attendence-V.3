@@ -1,5 +1,6 @@
 const { pool, hosofficePool } = require('../config/db');
 const { approvedLeaveMap, leaveFor } = require('../services/leaveCalendar');
+const { getHolidaySet } = require('../services/holidays');
 
 exports.getData = async (req, res) => {
   try {
@@ -262,7 +263,9 @@ async function syncIncidentsForMonth(year, month) {
   for (const l of leaves) {
     leavesMap[l.hr_person_id] = l;
   }
-  const appLeaves = await approvedLeaveMap(`${targetMonth}-01`, `${targetMonth}-${String(daysInMonth).padStart(2, '0')}`);
+  const monthEnd = `${targetMonth}-${String(daysInMonth).padStart(2, '0')}`;
+  const appLeaves = await approvedLeaveMap(`${targetMonth}-01`, monthEnd);
+  const holidays = await getHolidaySet(`${targetMonth}-01`, monthEnd);
 
   // 4. Get excuses from local DB (using pool)
   const [excuses] = await pool.query(`
@@ -348,7 +351,8 @@ async function syncIncidentsForMonth(year, month) {
         }
       } else {
         // No check-in
-        if (templateId === 2 || !isWeekend) {
+        // Normal-template staff are off on weekends and public holidays; shift (template 2) staff are not
+        if (templateId === 2 || (!isWeekend && !holidays.has(dateStr))) {
           const excuseStatus = excusesMap[fingleId]?.[dateStr] || excusesMap[cid]?.[dateStr];
           const currentStatus = incidentsMap[fingleId]?.[dateStr]?.['ABSENT'];
 

@@ -19,6 +19,9 @@ const pages = [
   { path: '/admin/permissions', view: 'permissions' },
   { path: '/excuses', view: 'excuses' },
   { path: '/leave', view: 'leave' },
+  { path: '/ot', view: 'ot' },
+  { path: '/admin/calendar', view: 'calendar' },
+  { path: '/admin/audit', view: 'audit' },
   { path: '/departments', view: 'departments', departments: DEPARTMENTS },
   { path: '/flex-preview', view: 'flex-preview' }
 ];
@@ -36,10 +39,10 @@ const viewLocals = p => ({
 pages.forEach(p => {
   const adminPaths = [
     '/attendance', '/personnel', '/scheduling', '/reports', 
-    '/report/daily', '/report/monthly', '/report/hours', '/departments'
+    '/report/daily', '/report/monthly', '/report/hours', '/departments', '/admin/calendar'
   ];
   const superPaths = [
-    '/admin/users', '/admin/permissions', '/permissions'
+    '/admin/users', '/admin/permissions', '/permissions', '/admin/audit'
   ];
   const isDept = p.path.startsWith('/department/');
 

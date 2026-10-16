@@ -14,6 +14,7 @@ const NAV_SECTIONS = [
     items: [
       { href: '/schedule', label: 'ตารางเวรของฉัน', icon: 'bi-calendar-check', access: 'all' },
       { href: '/leave', label: 'การลา', icon: 'bi-calendar2-x', access: 'all' },
+      { href: '/ot', label: 'ขอทำงานล่วงเวลา (OT)', icon: 'bi-stopwatch', access: 'all' },
       { href: '/excuses', label: 'แจ้งสาเหตุการลงเวลา', icon: 'bi-clipboard2-pulse', access: 'all' }
     ]
   },
@@ -39,8 +40,10 @@ const NAV_SECTIONS = [
   {
     title: 'ตั้งค่าระบบ',
     items: [
+      { href: '/admin/calendar', label: 'วันหยุดและนโยบายการลา', icon: 'bi-calendar-heart', access: 'admin' },
       { href: '/admin/users', label: 'จัดการผู้เข้าใช้', icon: 'bi-person-gear', access: 'super' },
       { href: '/admin/permissions', label: 'สิทธิ์ตามบทบาท', icon: 'bi-shield-lock', access: 'super' },
+      { href: '/admin/audit', label: 'บันทึกการใช้งาน', icon: 'bi-journal-text', access: 'super' },
       { href: '/flex-preview', label: 'จำลอง LINE Flex', icon: 'bi-line', access: 'super' }
     ]
   }

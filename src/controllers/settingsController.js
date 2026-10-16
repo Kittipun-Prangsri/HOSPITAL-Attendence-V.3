@@ -1,4 +1,5 @@
 const { pool } = require('../config/db');
+const { logAudit } = require('../utils/audit');
 
 const SETTINGS_KEY = 'work_settings';
 const TIME_RE = /^([01]\d|2[0-4]):[0-5]\d$/;
@@ -60,6 +61,7 @@ exports.saveSettings = async (req, res) => {
        ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value), updated_by = VALUES(updated_by)`,
       [SETTINGS_KEY, JSON.stringify(value), user.fullname]
     );
+    logAudit(req, 'update', 'settings', null, value);
     res.json({ success: true, settings: value });
   } catch (err) {
     console.error('Error saving settings:', err);

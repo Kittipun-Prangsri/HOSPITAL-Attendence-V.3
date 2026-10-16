@@ -1,4 +1,5 @@
 const bcrypt = require('bcryptjs');
+const { logAudit } = require('../utils/audit');
 const crypto = require('crypto');
 const { pool, hosofficePool } = require('../config/db');
 
@@ -59,6 +60,7 @@ exports.saveUser = async (req, res) => {
           [dbRole, line_user_id || null, telegram_chat_id || null, username]
         );
       }
+      logAudit(req, 'update', 'user', username, { fullname, role, passwordChanged: Boolean(password) });
       res.json({ success: true, message: 'User updated successfully' });
     } else {
       if (typeof password !== 'string' || password.length < 8) {
@@ -73,6 +75,7 @@ exports.saveUser = async (req, res) => {
         'INSERT INTO hr_person (HR_CID, HR_FNAME, HR_LNAME, USER_TYPE, HR_PASSWORD_HASH, LINE_YOUR_USER_ID, TELEGRAM_CHAT_ID) VALUES (?, ?, ?, ?, ?, ?, ?)',
         [username, fname, lname, dbRole, hashed, line_user_id || null, telegram_chat_id || null]
       );
+      logAudit(req, 'create', 'user', username, { fullname, role });
       res.json({ success: true, message: 'User created successfully' });
     }
   } catch (error) {
@@ -211,6 +214,7 @@ exports.deleteUser = async (req, res) => {
       'UPDATE hr_person SET USER_TYPE = NULL, HR_PASSWORD_HASH = NULL WHERE ID = ?',
       [id]
     );
+    logAudit(req, 'delete', 'user', id);
     res.json({ success: true, message: 'User deleted successfully' });
   } catch (error) {
     console.error('Error deleting user:', error);
@@ -230,6 +234,7 @@ exports.resetPassword = async (req, res) => {
     if (result.affectedRows === 0) {
       return res.status(404).json({ success: false, error: 'ไม่พบผู้ใช้งานนี้ในระบบ' });
     }
+    logAudit(req, 'reset_password', 'user', id);
     res.json({
       success: true,
       message: 'รีเซ็ตรหัสผ่านสำเร็จ กรุณาบันทึกรหัสชั่วคราวและส่งให้ผู้ใช้ผ่านช่องทางที่ปลอดภัย',

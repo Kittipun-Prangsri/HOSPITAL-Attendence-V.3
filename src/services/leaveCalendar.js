@@ -1,11 +1,12 @@
 const { pool } = require('../config/db');
 const { LEAVE_TYPES } = require('../constants/leave');
 const { parseDate } = require('../utils/leave');
+const { getHolidaySet } = require('./holidays');
 
 /**
  * Approved leave days from the in-app leave module, expanded per calendar day.
  * Returns Map<`${employee_id}_${YYYY-MM-DD}`, { label, halfDay }>.
- * Weekend days are only included for types that count calendar days.
+ * Weekends and public holidays are only included for types that count calendar days.
  * Fails soft (empty map) so attendance keeps working before migration 004 runs.
  */
 async function approvedLeaveMap(from, to) {
@@ -16,6 +17,7 @@ async function approvedLeaveMap(from, to) {
        FROM leave_requests WHERE status = 'approved' AND start_date <= ? AND end_date >= ?`,
       [to, from]
     );
+    const holidays = rows.length ? await getHolidaySet(from, to) : new Set();
     const lo = parseDate(from);
     const hi = parseDate(to);
     rows.forEach(r => {
@@ -24,8 +26,9 @@ async function approvedLeaveMap(from, to) {
       const end = parseDate(r.end_date);
       for (let d = new Date(Math.max(start, lo)); d <= end && d <= hi; d.setUTCDate(d.getUTCDate() + 1)) {
         const dow = d.getUTCDay();
-        if (!type.countCalendarDays && (dow === 0 || dow === 6)) continue;
-        map.set(`${r.employee_id}_${d.toISOString().slice(0, 10)}`, { label: type.label, halfDay: r.half_day });
+        const key = d.toISOString().slice(0, 10);
+        if (!type.countCalendarDays && (dow === 0 || dow === 6 || holidays.has(key))) continue;
+        map.set(`${r.employee_id}_${key}`, { label: type.label, halfDay: r.half_day });
       }
     });
   } catch (err) {

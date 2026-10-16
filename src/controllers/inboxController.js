@@ -13,7 +13,7 @@ async function safe(fn, fallback) {
 exports.getInbox = async (req, res) => {
   const user = req.session.user;
   const items = [];
-  const counts = { pendingExcuses: 0, pendingLeaves: 0, failedDeliveries: 0 };
+  const counts = { pendingExcuses: 0, pendingLeaves: 0, pendingOt: 0, failedDeliveries: 0 };
 
   if (isReviewer(user)) {
     const excuses = await safe(async () => (await pool.query(
@@ -37,6 +37,18 @@ exports.getInbox = async (req, res) => {
         title: `ใบลารออนุมัติ ${leaves.length} รายการ`,
         desc: leaves.slice(0, 3).map(l => `${l.fullname} (${(LEAVE_TYPES[l.leave_type] || {}).label || 'ลา'} ${Number(l.days)} วัน)`).join(', '),
         time: leaves[0].submitted_at
+      });
+    }
+
+    const ots = await safe(async () => (await pool.query(
+      "SELECT fullname, hours, submitted_at FROM ot_requests WHERE status = 'pending' ORDER BY submitted_at DESC LIMIT 50"))[0], []);
+    counts.pendingOt = ots.length;
+    if (ots.length) {
+      items.push({
+        kind: 'action', tone: 'amber', icon: 'bi-stopwatch', href: '/ot#approvals',
+        title: `คำขอ OT รออนุมัติ ${ots.length} รายการ`,
+        desc: ots.slice(0, 3).map(o => `${o.fullname} (${Number(o.hours)} ชม.)`).join(', '),
+        time: ots[0].submitted_at
       });
     }
 
@@ -74,7 +86,18 @@ exports.getInbox = async (req, res) => {
     time: l.reviewed_at
   }));
 
+  const myOts = await safe(async () => (await pool.query(
+    `SELECT status, hours, reviewer, DATE_FORMAT(work_date, '%Y-%m-%d') AS work_date, reviewed_at FROM ot_requests
+     WHERE employee_id = ? AND status IN ('approved', 'rejected') AND reviewed_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
+     ORDER BY reviewed_at DESC LIMIT 5`, [user.username, RECENT_DAYS]))[0], []);
+  myOts.forEach(o => items.push({
+    kind: 'result', tone: o.status === 'approved' ? 'green' : 'red', icon: o.status === 'approved' ? 'bi-check2-circle' : 'bi-x-circle', href: '/ot',
+    title: `OT ${Number(o.hours)} ชม. ${o.status === 'approved' ? 'อนุมัติแล้ว' : 'ไม่อนุมัติ'}`,
+    desc: `วันที่ ${new Date(`${o.work_date}T00:00:00`).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })}${o.reviewer ? ` · โดย ${o.reviewer}` : ''}`,
+    time: o.reviewed_at
+  }));
+
   items.sort((a, b) => (a.kind === 'result') - (b.kind === 'result') || new Date(b.time || 0) - new Date(a.time || 0));
-  const badge = counts.pendingExcuses + counts.pendingLeaves + counts.failedDeliveries + myExcuses.length + myLeaves.length;
+  const badge = counts.pendingExcuses + counts.pendingLeaves + counts.pendingOt + counts.failedDeliveries + myExcuses.length + myLeaves.length + myOts.length;
   res.json({ success: true, items, counts, badge });
 };
