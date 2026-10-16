@@ -145,6 +145,63 @@ const migrations = [
         ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
       `);
     }
+  },
+  {
+    id: '005_holidays_ot_attachments_audit',
+    up: async () => {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS holidays (
+          holiday_date DATE PRIMARY KEY,
+          name VARCHAR(150) NOT NULL,
+          created_by VARCHAR(150) NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+      `);
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS ot_requests (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          employee_id VARCHAR(50) NOT NULL,
+          hr_person_id INT NULL,
+          fullname VARCHAR(150) NOT NULL,
+          dept VARCHAR(150) NULL,
+          work_date DATE NOT NULL,
+          start_time CHAR(5) NOT NULL,
+          end_time CHAR(5) NOT NULL,
+          hours DECIMAL(4,1) NOT NULL,
+          reason TEXT NOT NULL,
+          status ENUM('pending', 'approved', 'rejected', 'cancelled') NOT NULL DEFAULT 'pending',
+          reviewer VARCHAR(150) NULL,
+          review_comment TEXT NULL,
+          submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          reviewed_at TIMESTAMP NULL,
+          KEY idx_ot_employee (employee_id, work_date),
+          KEY idx_ot_status (status, work_date)
+        ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+      `);
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS audit_log (
+          id BIGINT AUTO_INCREMENT PRIMARY KEY,
+          actor_id VARCHAR(50) NULL,
+          actor_name VARCHAR(150) NULL,
+          actor_role VARCHAR(20) NULL,
+          action VARCHAR(50) NOT NULL,
+          entity VARCHAR(50) NOT NULL,
+          entity_id VARCHAR(100) NULL,
+          detail TEXT NULL,
+          ip VARCHAR(64) NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          KEY idx_audit_created (created_at),
+          KEY idx_audit_entity (entity, created_at)
+        ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+      `);
+      const [cols] = await pool.query("SHOW COLUMNS FROM leave_requests LIKE 'attachment_path'");
+      if (cols.length === 0) {
+        await pool.query(`ALTER TABLE leave_requests
+          ADD COLUMN attachment_path VARCHAR(255) NULL AFTER contact,
+          ADD COLUMN attachment_name VARCHAR(255) NULL AFTER attachment_path,
+          ADD COLUMN attachment_type VARCHAR(50) NULL AFTER attachment_name`);
+      }
+    }
   }
 ];
 
