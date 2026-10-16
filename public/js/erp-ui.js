@@ -3,6 +3,32 @@
    Classes used here are picked up by tailwind.config.js `content` globs.
    ========================================================================== */
 (function () {
+  /* Same-origin fetch wrapper: attach the CSRF token to state-changing requests and
+     send the user to the login page when the session has expired (API answers 401). */
+  if (typeof window !== 'undefined' && window.fetch && !window.fetch.__erpWrapped) {
+    const nativeFetch = window.fetch.bind(window);
+    const tokenMeta = document.querySelector('meta[name="csrf-token"]');
+    const csrfToken = tokenMeta ? tokenMeta.getAttribute('content') : '';
+    const wrapped = (input, init = {}) => {
+      const method = String(init.method || (input && input.method) || 'GET').toUpperCase();
+      const url = typeof input === 'string' ? input : (input && input.url) || '';
+      const sameOrigin = url.startsWith('/') || url.startsWith(location.origin);
+      if (csrfToken && sameOrigin && !['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+        const headers = new Headers(init.headers || (input && input.headers) || {});
+        headers.set('X-CSRF-Token', csrfToken);
+        init = Object.assign({}, init, { headers });
+      }
+      return nativeFetch(input, init).then(res => {
+        if (res.status === 401 && sameOrigin && url.startsWith('/api/')) {
+          window.location.href = '/login';
+        }
+        return res;
+      });
+    };
+    wrapped.__erpWrapped = true;
+    window.fetch = wrapped;
+  }
+
   const TONES = {
     green: 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200',
     brand: 'bg-brand-50 text-brand-700 ring-1 ring-inset ring-brand-200',
