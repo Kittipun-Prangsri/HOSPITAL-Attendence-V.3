@@ -1,4 +1,5 @@
 const { pool, hosofficePool } = require('../config/db');
+const { markIncidentsStale } = require('../services/incidentSync');
 const NotificationService = require('../services/notificationService');
 const { LEAVE_TYPES } = require('../constants/leave');
 const { validateLeaveRequest, fiscalYearOf, summarizeBalance, parseDate, attachmentRequired } = require('../utils/leave');
@@ -192,6 +193,7 @@ exports.reviewLeave = async (req, res) => {
        WHERE id = ? AND status = 'pending'`,
       [status, user.fullname, comment ? comment.trim() || null : null, leave.id]
     );
+    markIncidentsStale({ from: leave.start_date, to: leave.end_date });
     logAudit(req, status === 'approved' ? 'approve' : 'reject', 'leave', leave.id, { employee: leave.fullname, days: Number(leave.days), comment: comment || null });
 
     if (leave.hr_person_id) {

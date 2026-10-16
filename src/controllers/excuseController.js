@@ -1,4 +1,5 @@
 const { pool, hosofficePool } = require('../config/db');
+const { markIncidentsStale } = require('../services/incidentSync');
 const { logAudit } = require('../utils/audit');
 const NotificationService = require('../services/notificationService');
 const { approvedLeaveMap, leaveFor } = require('../services/leaveCalendar');
@@ -165,6 +166,7 @@ exports.reviewExcuse = async (req, res) => {
     const [rows] = await pool.query('SELECT username, date, issue_type FROM attendance_excuses WHERE id = ?', [id]);
     if (rows.length > 0) {
       const excuse = rows[0];
+      markIncidentsStale(excuse.date instanceof Date ? excuse.date : String(excuse.date));
       const [userRows] = await hosofficePool.query('SELECT LINE_YOUR_USER_ID as line_user_id, TELEGRAM_CHAT_ID as telegram_chat_id, CONCAT(HR_FNAME, \' \', HR_LNAME) as fullname FROM hr_person WHERE HR_CID = ? OR FINGLE_ID = ? LIMIT 1', [excuse.username, excuse.username]);
       if (userRows.length > 0) {
         const { line_user_id, telegram_chat_id, fullname } = userRows[0];

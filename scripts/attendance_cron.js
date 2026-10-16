@@ -186,6 +186,22 @@ async function runWeeklySummary() {
 }
 
 // Schedule: Every Friday at 17:00
+// Nightly: keep incident_logs current for this and last month so report views stay fast
+cron.schedule('0 1 * * *', async () => {
+  const now = new Date();
+  const months = [[now.getFullYear(), now.getMonth() + 1]];
+  const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  months.push([prev.getFullYear(), prev.getMonth() + 1]);
+  for (const [y, m] of months) {
+    try {
+      await syncIncidentsForMonth(y, m);
+      console.log(`[cron] incidents synced for ${y}-${String(m).padStart(2, '0')}`);
+    } catch (err) {
+      console.error(`[cron] incident sync failed for ${y}-${m}:`, err.message);
+    }
+  }
+}, { timezone: process.env.APP_TIMEZONE || 'Asia/Bangkok' });
+
 cron.schedule('0 17 * * 5', () => {
   runWeeklySummary();
 }, {

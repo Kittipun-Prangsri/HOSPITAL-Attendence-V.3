@@ -1,4 +1,5 @@
 const { pool, hosofficePool } = require('../config/db');
+const { ensureIncidentsSynced } = require('../services/incidentSync');
 const { approvedLeaveMap, leaveFor } = require('../services/leaveCalendar');
 const { getHolidaySet } = require('../services/holidays');
 const { getWorkSettings, resolveWorkSettings } = require('../services/workSettings');
@@ -404,8 +405,13 @@ exports.getMonthlyReport = async (req, res) => {
     const yearNum = parseInt(year);
     const targetMonth = `${yearNum}-${monthNum.toString().padStart(2, '0')}`;
 
-    // Sync incidents for the selected month dynamically
-    await syncIncidentsForMonth(yearNum, monthNum);
+    // Refresh incidents at most every few minutes (nightly cron does the heavy lifting);
+    // a failed sync still returns the last known data instead of an error page
+    try {
+      await ensureIncidentsSynced(yearNum, monthNum, syncIncidentsForMonth);
+    } catch (syncErr) {
+      console.error('Incident sync failed, serving cached incidents:', syncErr.message);
+    }
 
     const currentUser = req.session.user;
     const isPrivileged = currentUser && (currentUser.role === 'admin' || currentUser.role === 'super');

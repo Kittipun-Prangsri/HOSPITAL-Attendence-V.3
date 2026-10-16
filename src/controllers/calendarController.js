@@ -1,4 +1,5 @@
 const { pool, hosofficePool } = require('../config/db');
+const { markIncidentsStale } = require('../services/incidentSync');
 const { LEAVE_TYPES } = require('../constants/leave');
 const { parseDate } = require('../utils/leave');
 const { POLICY_KEY, getLeavePolicy } = require('../services/leavePolicy');
@@ -56,6 +57,7 @@ exports.saveHoliday = async (req, res) => {
       'INSERT INTO holidays (holiday_date, name, created_by) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE name = VALUES(name), created_by = VALUES(created_by)',
       [date, name, user.fullname]
     );
+    markIncidentsStale(date);
     logAudit(req, 'upsert', 'holiday', date, { name });
     res.json({ success: true, message: 'บันทึกวันหยุดแล้ว' });
   } catch (error) {
@@ -69,7 +71,10 @@ exports.deleteHoliday = async (req, res) => {
   if (!parseDate(req.params.date)) return res.status(400).json({ success: false, error: 'วันที่ไม่ถูกต้อง' });
   try {
     const [result] = await pool.query('DELETE FROM holidays WHERE holiday_date = ?', [req.params.date]);
-    if (result.affectedRows) logAudit(req, 'delete', 'holiday', req.params.date);
+    if (result.affectedRows) {
+      markIncidentsStale(req.params.date);
+      logAudit(req, 'delete', 'holiday', req.params.date);
+    }
     res.json({ success: true, message: 'ลบวันหยุดแล้ว' });
   } catch (error) {
     console.error('Error deleting holiday:', error);
@@ -86,6 +91,7 @@ exports.addFixedHolidays = async (req, res) => {
   try {
     const values = FIXED_HOLIDAYS.map(([md, name]) => [`${year}-${md}`, name, user.fullname]);
     const [result] = await pool.query('INSERT IGNORE INTO holidays (holiday_date, name, created_by) VALUES ?', [values]);
+    markIncidentsStale({ from: `${year}-01-01`, to: `${year}-12-31` });
     logAudit(req, 'import', 'holiday', String(year), { added: result.affectedRows });
     res.json({ success: true, added: result.affectedRows, message: `เพิ่มวันหยุด ${result.affectedRows} วัน` });
   } catch (error) {
