@@ -8,6 +8,8 @@ const checkAuth = (req, res, next) => {
     res.locals.user = req.session.user; // Make user data available in EJS
     res.locals.RBAC_ENABLED = RBAC_ENABLED; // Expose to EJS views
     next();
+  } else if (isApiRequest(req)) {
+    res.status(401).json({ success: false, error: 'กรุณาเข้าสู่ระบบใหม่', loginRequired: true });
   } else {
     res.redirect('/login');
   }

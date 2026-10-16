@@ -27,20 +27,26 @@ exports.postLogin = async (req, res) => {
 
       if (isMatch) {
         console.log(`[Auth] Login successful for ${username} (${user.fullname})`);
-        req.session.user = { 
-          id: user.id, 
-          username: user.fingle_id || user.cid, 
-          fullname: user.fullname, 
-          role: roleLower
-        };
-        
-        logAudit(req, 'login', 'auth', user.id, null, req.session.user);
-        return req.session.save((err) => {
-          if (err) {
-            console.error('[Auth] Session save error:', err);
-            return res.render('login', { error: 'เกิดข้อผิดพลาดในการบันทึกเซสชัน' });
+        // New session id on login (prevents session fixation); CSRF token is re-issued with it
+        return req.session.regenerate((regenErr) => {
+          if (regenErr) {
+            console.error('[Auth] Session regenerate error:', regenErr);
+            return res.render('login', { error: 'เกิดข้อผิดพลาดในการสร้างเซสชัน' });
           }
-          res.redirect('/');
+          req.session.user = {
+            id: user.id,
+            username: user.fingle_id || user.cid,
+            fullname: user.fullname,
+            role: roleLower
+          };
+          logAudit(req, 'login', 'auth', user.id, null, req.session.user);
+          req.session.save((err) => {
+            if (err) {
+              console.error('[Auth] Session save error:', err);
+              return res.render('login', { error: 'เกิดข้อผิดพลาดในการบันทึกเซสชัน' });
+            }
+            res.redirect('/');
+          });
         });
       } else {
         console.log(`[Auth] Password mismatch for ${username}`);
