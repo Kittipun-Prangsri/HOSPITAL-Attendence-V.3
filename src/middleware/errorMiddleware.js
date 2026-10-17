@@ -1,7 +1,10 @@
 const errorHandler = (err, req, res, next) => {
-  console.error(err.stack);
-
   const statusCode = err.statusCode || 500;
+  // A 404 (browsers probing /apple-touch-icon.png, /favicon.ico, bots) is not a server fault:
+  // one short line instead of a 25-line stack trace that buries real errors in the PM2 log.
+  if (statusCode === 404) console.warn(`[404] ${req.method} ${req.originalUrl}`);
+  else console.error(err.stack);
+
   const message = err.message || 'Internal Server Error';
 
   if (req.xhr || (req.headers.accept && req.headers.accept.indexOf('json') > -1)) {
