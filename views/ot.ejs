@@ -5,7 +5,7 @@
   <%- include("components/erp-head", { title: "ขอทำงานล่วงเวลา (OT)" }) %>
 </head>
 
-<% const isReviewer = locals.user && (user.role === 'admin' || user.role === 'super'); %>
+<% const isReviewer = locals.user && (user.role === 'admin' || user.role === 'super' || locals.isHead); %>
 
 <body class="erp-page">
   <%- include("components/sidebar") %>

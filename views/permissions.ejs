@@ -20,9 +20,10 @@
         { label: 'ข้อมูลการลงเวลา / ทะเบียนบุคลากร', user: 'เฉพาะของตนเอง', admin: 'ทุกคน', super: 'ทุกคน' },
         { label: 'แก้ไขข้อมูลติดต่อ / ช่องทางแจ้งเตือน', user: 'เฉพาะของตนเอง', admin: 'ทุกคน', super: 'ทุกคน' },
         { label: 'ยื่นใบลา / คำร้องแก้ต่าง', user: 'ได้', admin: 'ได้ (ใบลา)', super: 'ได้ (ใบลา)' },
-        { label: 'อนุมัติใบลา / คำร้องแก้ต่าง', user: '—', admin: 'ได้ (ยกเว้นของตนเอง)', super: 'ได้ (ยกเว้นของตนเอง)' },
+        { label: 'อนุมัติใบลา / คำร้องแก้ต่าง', user: 'หัวหน้ากลุ่มงาน: เฉพาะกลุ่มงานตน', admin: 'ได้ (ยกเว้นของตนเอง)', super: 'ได้ (ยกเว้นของตนเอง)' },
         { label: 'ขอ OT', user: 'ได้', admin: 'ได้', super: 'ได้' },
-        { label: 'อนุมัติ OT', user: '—', admin: 'ได้ (ยกเว้นของตนเอง)', super: 'ได้ (ยกเว้นของตนเอง)' },
+        { label: 'อนุมัติ OT', user: 'หัวหน้ากลุ่มงาน: เฉพาะกลุ่มงานตน', admin: 'ได้ (ยกเว้นของตนเอง)', super: 'ได้ (ยกเว้นของตนเอง)' },
+        { label: 'ตรวจการสแกนผ่านมือถือ (นอกพื้นที่)', user: 'หัวหน้ากลุ่มงาน: เฉพาะกลุ่มงานตน', admin: 'ได้ (ยกเว้นของตนเอง)', super: 'ได้ (ยกเว้นของตนเอง)' },
         { label: 'เปิดดูไฟล์แนบใบลา', user: 'เฉพาะของตนเอง', admin: 'ทุกคน', super: 'ทุกคน' },
                 { label: 'จัดตารางเวร / ลงเวร', user: '—', admin: 'ได้', super: 'ได้' },
         { label: 'จัดการวันหยุดราชการ', user: '—', admin: 'ได้', super: 'ได้' },
@@ -107,8 +108,86 @@
           </p>
         </section>
       </div>
+
+      <!-- Department heads -->
+      <section class="erp-panel mt-5 overflow-hidden" aria-labelledby="headsTitle">
+        <div class="flex flex-wrap items-center gap-2 border-b border-slate-200 px-4 py-3">
+          <h3 id="headsTitle" class="text-[13px] font-semibold text-slate-800"><i class="bi bi-diagram-3 mr-1 text-sky-600" aria-hidden="true"></i>หัวหน้ากลุ่มงาน</h3>
+          <span class="text-2xs text-slate-500">พิจารณาใบลา, OT, คำร้องแก้ต่าง และการสแกนนอกพื้นที่ ได้เฉพาะบุคลากรในกลุ่มงานที่กำหนด (ไม่รวมของตนเอง) · มีผลภายใน 1 นาที</span>
+        </div>
+        <div class="max-h-[70vh] overflow-auto">
+          <table class="w-full border-collapse text-left text-[13px]">
+            <thead class="sticky top-0 bg-slate-50 text-2xs uppercase tracking-wide text-slate-500">
+              <tr class="border-b border-slate-200"><th class="px-4 py-2.5 font-semibold">กลุ่มงาน</th><th class="w-20 px-2 py-2.5 text-center font-semibold">บุคลากร</th><th class="px-3 py-2.5 font-semibold">หัวหน้า</th><th class="w-48 px-3 py-2.5"></th></tr>
+            </thead>
+            <tbody id="headsBody" class="divide-y divide-slate-100"><tr><td colspan="4" class="px-4 py-10 text-center text-slate-400">กำลังโหลด…</td></tr></tbody>
+          </table>
+        </div>
+      </section>
     </div>
   </div>
+
+  <script>
+    const $h = id => document.getElementById(id);
+    const escH = ERP.escapeHtml;
+    async function hJson(url, opts) {
+      const res = await fetch(url, Object.assign({ headers: { Accept: 'application/json', 'Content-Type': 'application/json' } }, opts));
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.success === false) throw new Error(data.error || `HTTP ${res.status}`);
+      return data;
+    }
+    async function loadHeads() {
+      try {
+        const { departments } = await hJson('/api/department-heads');
+        $h('headsBody').innerHTML = departments.map(d => `<tr data-dept="${d.id}">
+          <td class="px-4 py-2.5 font-medium text-slate-900">${escH(d.name)}</td>
+          <td class="px-2 py-2.5 text-center font-mono text-xs text-slate-500">${d.staff}</td>
+          <td class="px-3 py-2.5"><div class="flex flex-wrap gap-1.5">${d.heads.length ? d.heads.map(h => `
+            <span class="inline-flex items-center gap-1 rounded-full bg-sky-50 py-0.5 pl-2.5 pr-1 text-xs text-sky-800 ring-1 ring-inset ring-sky-200">${escH(h.name)}
+              <button type="button" class="grid h-5 w-5 place-items-center rounded-full hover:bg-sky-100" data-remove="${d.id}:${h.hrPersonId}" data-label="${escH(h.name)}" aria-label="ยกเลิก ${escH(h.name)}"><i class="bi bi-x"></i></button></span>`).join('')
+            : '<span class="text-2xs text-slate-400">ยังไม่กำหนด (แอดมินพิจารณาแทน)</span>'}</div></td>
+          <td class="relative px-3 py-2.5">
+            <input type="search" class="erp-input h-8 text-xs" placeholder="+ เพิ่มหัวหน้า (พิมพ์ชื่อ)" data-search="${d.id}" autocomplete="off">
+            <div class="absolute left-3 right-3 top-11 z-20 hidden max-h-60 overflow-auto rounded-md bg-white shadow-lg ring-1 ring-slate-200" data-results="${d.id}"></div>
+          </td></tr>`).join('') || ERP.emptyRow(4, 'ไม่พบกลุ่มงานใน HOSoffice');
+      } catch (err) {
+        $h('headsBody').innerHTML = ERP.emptyRow(4, err.message, 'bi-exclamation-triangle');
+      }
+    }
+    let searchTimer;
+    $h('headsBody').addEventListener('input', e => {
+      const input = e.target.closest('[data-search]');
+      if (!input) return;
+      clearTimeout(searchTimer);
+      const box = document.querySelector(`[data-results="${input.dataset.search}"]`);
+      if (input.value.trim().length < 2) { box.classList.add('hidden'); return; }
+      searchTimer = setTimeout(async () => {
+        try {
+          const { people } = await hJson('/api/department-heads/people?q=' + encodeURIComponent(input.value.trim()));
+          box.innerHTML = people.length ? people.map(p => `<button type="button" class="block w-full px-3 py-2 text-left text-xs hover:bg-slate-50" data-pick="${input.dataset.search}:${p.id}">
+            <span class="font-medium text-slate-900">${escH(p.name)}</span> <span class="font-mono text-slate-400">${escH(p.employeeId || '')}</span><br><span class="text-2xs text-slate-500">${escH(p.dept || '')}</span></button>`).join('')
+            : '<div class="px-3 py-2 text-xs text-slate-400">ไม่พบ</div>';
+          box.classList.remove('hidden');
+        } catch (err) { ERP.toast(err.message, 'error'); }
+      }, 250);
+    });
+    $h('headsBody').addEventListener('click', async e => {
+      const pick = e.target.closest('[data-pick]');
+      const rem = e.target.closest('[data-remove]');
+      try {
+        if (pick) {
+          const [departmentId, hrPersonId] = pick.dataset.pick.split(':').map(Number);
+          ERP.toast((await hJson('/api/department-heads', { method: 'POST', body: JSON.stringify({ departmentId, hrPersonId }) })).message, 'success');
+          loadHeads();
+        } else if (rem && confirm(`ยกเลิก ${rem.dataset.label} จากการเป็นหัวหน้ากลุ่มงานนี้?`)) {
+          const [d, p] = rem.dataset.remove.split(':');
+          ERP.toast((await hJson(`/api/department-heads/${d}/${p}`, { method: 'DELETE' })).message, 'success');
+          loadHeads();
+        }
+      } catch (err) { ERP.toast(err.message, 'error'); }
+    });
+    loadHeads();
+  </script>
 </body>
 
 </html>

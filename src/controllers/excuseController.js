@@ -5,6 +5,7 @@ const NotificationService = require('../services/notificationService');
 const { approvedLeaveMap, leaveFor } = require('../services/leaveCalendar');
 const { getWorkSettings } = require('../services/workSettings');
 const { lateThresholdFor, isLateCheckIn, normalizeClock, toDateKey } = require('../utils/attendanceTime');
+const { reviewScope, canReview, scopeFilter } = require('../services/reviewScope');
 
 // Format past date helper
 function getPastDateString(daysAgo) {
@@ -26,9 +27,15 @@ exports.getExcuses = async (req, res) => {
     let query = 'SELECT id, username, fullname, date, issue_type, reason, status, admin_comment, submitted_at, reviewed_at FROM attendance_excuses';
     let params = [];
     
-    if (user.role !== 'admin' && user.role !== 'super') {
+    const rs = await reviewScope(user);
+    if (!rs) {
       query += ' WHERE username = ?';
       params.push(user.username);
+    } else if (!rs.all) {
+      // Department head: own excuses plus those of the departments they look after
+      const f = scopeFilter(rs, { employeeCol: 'username' });
+      query += ` WHERE (username = ? OR ${f.sql})`;
+      params.push(user.username, ...f.params);
     }
     
     query += ' ORDER BY date DESC, submitted_at DESC';
@@ -147,12 +154,22 @@ exports.updateExcuse = async (req, res) => {
  */
 exports.reviewExcuse = async (req, res) => {
   const { id, status, admin_comment } = req.body;
-  
+  const user = req.session.user;
+
   if (!id || !['approved', 'rejected'].includes(status)) {
     return res.status(400).json({ success: false, error: 'ข้อมูลไม่ครบถ้วนสำหรับการอนุมัติ' });
   }
-  
+
   try {
+    const rs = await reviewScope(user);
+    if (!rs) return res.status(403).json({ success: false, error: 'สิทธิ์ไม่เพียงพอ' });
+    const [[target]] = await pool.query('SELECT username FROM attendance_excuses WHERE id = ?', [id]);
+    if (!target) return res.status(404).json({ success: false, error: 'ไม่พบรายการ' });
+    if (target.username === user.username) return res.status(403).json({ success: false, error: 'ไม่สามารถพิจารณาใบชี้แจงของตนเองได้' });
+    if (!canReview(rs, { employeeId: target.username })) {
+      return res.status(403).json({ success: false, error: 'พิจารณาได้เฉพาะบุคลากรในกลุ่มงานที่ท่านดูแล' });
+    }
+
     // 1. Update the database
     await pool.query(
       'UPDATE attendance_excuses SET status = ?, admin_comment = ?, reviewed_at = CURRENT_TIMESTAMP WHERE id = ?',

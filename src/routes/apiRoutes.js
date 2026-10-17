@@ -13,6 +13,7 @@ const inboxController = require('../controllers/inboxController');
 const liffController = require('../controllers/liffController');
 const faceController = require('../controllers/faceController');
 const reportController = require('../controllers/reportController');
+const departmentHeadsController = require('../controllers/departmentHeadsController');
 const calendarController = require('../controllers/calendarController');
 const otController = require('../controllers/otController');
 const auditController = require('../controllers/auditController');
@@ -59,7 +60,7 @@ router.get('/excuses', checkAuth, excuseController.getExcuses);
 router.post('/excuses', checkAuth, excuseController.createExcuse);
 router.put('/excuses/:id', checkAuth, excuseController.updateExcuse);
 router.delete('/excuses/:id', checkAuth, excuseController.deleteExcuse);
-router.post('/excuses/review', checkAuth, checkAdmin, excuseController.reviewExcuse);
+router.post('/excuses/review', checkAuth, excuseController.reviewExcuse); // admins, or heads for their departments
 router.get('/excuses/reminders', checkAuth, checkAdmin, excuseController.getRemindersList);
 router.post('/excuses/send-reminders', checkAuth, checkAdmin, excuseController.sendReminders);
 
@@ -113,13 +114,18 @@ router.post('/face/enrollments/:id/review', checkAuth, checkAdmin, faceControlle
 router.post('/face/enrollments/:id/revoke', checkAuth, checkAdmin, faceController.revoke);
 router.get('/mobile-scan/settings', checkAuth, checkAdmin, faceController.getSettings);
 router.put('/mobile-scan/settings', checkAuth, checkSuper, faceController.saveSettings);
+// Department heads (super only): who reviews which department
+router.get('/department-heads', checkAuth, checkSuper, departmentHeadsController.list);
+router.get('/department-heads/people', checkAuth, checkSuper, departmentHeadsController.searchPeople);
+router.post('/department-heads', checkAuth, checkSuper, departmentHeadsController.add);
+router.delete('/department-heads/:departmentId(\\d+)/:hrPersonId(\\d+)', checkAuth, checkSuper, departmentHeadsController.remove);
 // Monthly HR pack (.xlsx: summary, day grid, OT, leave)
 router.get('/report/monthly/hr-export', checkAuth, checkAdmin, reportController.hrExport);
 // Phase 2: scanning
 router.post('/face/scan/challenge', checkAuth, faceController.scanChallenge);
 router.post('/face/scan', checkAuth, faceController.scan);
-router.get('/mobile-scans', checkAuth, checkAdmin, faceController.listScans);
+router.get('/mobile-scans', checkAuth, faceController.listScans);
 router.get('/mobile-scans/:id/photo', checkAuth, faceController.scanPhoto);
-router.post('/mobile-scans/:id/review', checkAuth, checkAdmin, faceController.reviewScan);
+router.post('/mobile-scans/:id/review', checkAuth, faceController.reviewScan);
 
 module.exports = router;

@@ -7,6 +7,7 @@ const { decodeJpeg, savePhoto, photoPath, deletePhoto } = require('../utils/face
 const { getMobileScanSettings, saveMobileScanSettings, validate } = require('../services/mobileScanSettings');
 const consent = require('../constants/faceConsent');
 const mobileScan = require('../services/mobileScan');
+const { reviewScope, canReview, scopeFilter } = require('../services/reviewScope');
 
 const isAdmin = u => u && (u.role === 'admin' || u.role === 'super');
 
@@ -180,13 +181,16 @@ exports.scan = async (req, res) => {
 };
 
 exports.listScans = async (req, res) => {
-  if (!isAdmin(req.session.user)) return res.status(403).json({ success: false, error: 'สิทธิ์ไม่เพียงพอ' });
+  const rs = await reviewScope(req.session.user);
+  if (!rs) return res.status(403).json({ success: false, error: 'สิทธิ์ไม่เพียงพอ' });
   const status = ['pending', 'accepted', 'rejected', 'all'].includes(req.query.status) ? req.query.status : 'pending';
   const date = /^\d{4}-\d{2}-\d{2}$/.test(req.query.date || '') ? req.query.date : null;
   const where = [];
   const params = [];
   if (status !== 'all') { where.push('status = ?'); params.push(status); }
   if (date) { where.push('scanned_at >= ? AND scanned_at < DATE_ADD(?, INTERVAL 1 DAY)'); params.push(date, date); }
+  const f = scopeFilter(rs, { employeeCol: 'employee_id' });
+  if (f.sql) { where.push(f.sql); params.push(...f.params); }
   try {
     const [rows] = await pool.query(
       `SELECT id, employee_id, DATE_FORMAT(scanned_at, '%Y-%m-%d %H:%i:%s') AS scanned_at, direction, latitude, longitude,
@@ -200,7 +204,7 @@ exports.listScans = async (req, res) => {
         "SELECT FINGLE_ID, CONCAT(HR_FNAME, ' ', HR_LNAME) AS name FROM hr_person WHERE FINGLE_ID IN (?)", [ids]);
       names = Object.fromEntries(people.map(p => [p.FINGLE_ID, p.name]));
     }
-    const [[counts]] = await pool.query("SELECT SUM(status = 'pending') AS pending FROM mobile_scans");
+    const [[counts]] = await pool.query(`SELECT SUM(status = 'pending') AS pending FROM mobile_scans${f.sql ? ' WHERE ' + f.sql : ''}`, f.params);
     res.json({
       success: true,
       scans: rows.map(r => ({ ...r, fullname: names[r.employee_id] || r.employee_id, has_photo: Boolean(r.has_photo), inside_area: Boolean(r.inside_area) })),
@@ -219,7 +223,7 @@ exports.scanPhoto = async (req, res) => {
   try {
     const [[row]] = await pool.query('SELECT employee_id, photo_file FROM mobile_scans WHERE id = ?', [id]);
     if (!row || !row.photo_file) return res.status(404).end();
-    if (!isAdmin(user)) {
+    if (!canReview(await reviewScope(user), { employeeId: row.employee_id })) {
       const person = await personOf(user);
       if (!person || person.fingle_id !== row.employee_id) return res.status(403).end();
     }
@@ -235,7 +239,8 @@ exports.scanPhoto = async (req, res) => {
 
 exports.reviewScan = async (req, res) => {
   const user = req.session.user;
-  if (!isAdmin(user)) return res.status(403).json({ success: false, error: 'สิทธิ์ไม่เพียงพอ' });
+  const rs = await reviewScope(user);
+  if (!rs) return res.status(403).json({ success: false, error: 'สิทธิ์ไม่เพียงพอ' });
   const id = Number(req.params.id);
   const { decision } = req.body || {};
   const note = typeof (req.body || {}).note === 'string' ? req.body.note.trim().slice(0, 255) : '';
@@ -245,6 +250,7 @@ exports.reviewScan = async (req, res) => {
     const me = await personOf(user);
     const [[row]] = await pool.query('SELECT employee_id FROM mobile_scans WHERE id = ?', [id]);
     if (row && me && me.fingle_id === row.employee_id) return res.status(403).json({ success: false, error: 'ไม่สามารถอนุมัติการสแกนของตนเองได้' });
+    if (row && !canReview(rs, { employeeId: row.employee_id })) return res.status(403).json({ success: false, error: 'พิจารณาได้เฉพาะบุคลากรในกลุ่มงานที่ท่านดูแล' });
     const r = await mobileScan.reviewScan(id, decision, user.fullname, note);
     if (r.error) return res.status(r.code).json({ success: false, error: r.error });
     logAudit(req, decision, 'mobile_scan', id, { employeeId: r.row.employee_id, note: note || undefined });

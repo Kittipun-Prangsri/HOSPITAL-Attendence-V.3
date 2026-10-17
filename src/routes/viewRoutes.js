@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { checkAuth, checkAdmin, checkSuper } = require('../middleware/auth');
+const { checkAuth, checkAdmin, checkSuper, checkReviewer } = require('../middleware/auth');
 const { DEPARTMENTS } = require('../constants/departments');
 const { NAV_SECTIONS, canAccess, findNavItem, isActive } = require('../constants/navigation');
 
@@ -40,14 +40,16 @@ const viewLocals = p => ({
 pages.forEach(p => {
   const adminPaths = [
     '/attendance', '/personnel', '/scheduling', '/reports', 
-    '/report/daily', '/report/monthly', '/report/hours', '/departments', '/admin/calendar', '/admin/face'
+    '/report/daily', '/report/monthly', '/report/hours', '/departments', '/admin/calendar'
   ];
   const superPaths = [
     '/admin/users', '/admin/permissions', '/permissions', '/admin/audit'
   ];
   const isDept = p.path.startsWith('/department/');
 
-  if (superPaths.includes(p.path)) {
+  if (p.path === '/admin/face') {
+    router.get(p.path, checkAuth, checkReviewer, (req, res) => res.render(p.view, viewLocals(p)));
+  } else if (superPaths.includes(p.path)) {
     router.get(p.path, checkAuth, checkSuper, (req, res) => {
       res.render(p.view, viewLocals(p));
     });

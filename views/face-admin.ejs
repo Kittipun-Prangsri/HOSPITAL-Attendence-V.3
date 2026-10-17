@@ -5,7 +5,7 @@
   <%- include("components/erp-head", { title: "ใบหน้า / สแกนมือถือ" }) %>
 </head>
 
-<% const isSuper = locals.user && user.role === 'super'; %>
+<% const isSuper = locals.user && user.role === 'super'; const isAdminView = locals.user && (user.role === 'admin' || user.role === 'super'); %>
 
 <body class="erp-page">
   <%- include("components/sidebar") %>
@@ -15,18 +15,22 @@
     <div class="erp px-4 py-5 lg:px-6">
       <section class="mb-5" aria-labelledby="face-heading">
         <h2 id="face-heading" class="text-xl font-semibold text-slate-900">ใบหน้า / สแกนผ่านมือถือ</h2>
-        <p class="mt-1 text-[13px] text-slate-500">อนุมัติการลงทะเบียนใบหน้า (เทียบกับรูปบัตร/ตัวจริง) · กำหนดพื้นที่และเกณฑ์การสแกนผ่านมือถือ · ข้อมูลใบหน้าเป็นข้อมูลอ่อนไหวตาม PDPA</p>
+        <p class="mt-1 text-[13px] text-slate-500"><% if (!isAdminView) { %>ตรวจการสแกนผ่านมือถือของบุคลากรในกลุ่มงานที่ท่านดูแล (นอกพื้นที่ / GPS ไม่แม่น / ใบหน้าก้ำกึ่ง)<% } else { %>อนุมัติการลงทะเบียนใบหน้า (เทียบกับรูปบัตร/ตัวจริง) · กำหนดพื้นที่และเกณฑ์การสแกนผ่านมือถือ · ข้อมูลใบหน้าเป็นข้อมูลอ่อนไหวตาม PDPA<% } %></p>
       </section>
 
       <section class="erp-panel overflow-hidden">
         <div class="flex gap-1 border-b border-slate-200 px-3" role="tablist" id="tabBar">
+          <% if (isAdminView) { %>
           <button type="button" role="tab" class="erp-tab active" data-tab="pending" aria-selected="true"><i class="bi bi-hourglass-split" aria-hidden="true"></i> รออนุมัติ <span id="pendingCount" class="hidden rounded bg-amber-100 px-1.5 font-mono text-2xs text-amber-700"></span></button>
           <button type="button" role="tab" class="erp-tab" data-tab="approved" aria-selected="false"><i class="bi bi-patch-check" aria-hidden="true"></i> ลงทะเบียนแล้ว <span id="approvedCount" class="rounded bg-slate-100 px-1.5 font-mono text-2xs text-slate-600"></span></button>
-          <button type="button" role="tab" class="erp-tab" data-tab="scans" aria-selected="false"><i class="bi bi-phone" aria-hidden="true"></i> สแกนผ่านมือถือ <span id="scanPendingCount" class="hidden rounded bg-amber-100 px-1.5 font-mono text-2xs text-amber-700"></span></button>
+          <% } %>
+          <button type="button" role="tab" class="erp-tab <%= isAdminView ? '' : 'active' %>" data-tab="scans" aria-selected="<%= !isAdminView %>"><i class="bi bi-phone" aria-hidden="true"></i> สแกนผ่านมือถือ <span id="scanPendingCount" class="hidden rounded bg-amber-100 px-1.5 font-mono text-2xs text-amber-700"></span></button>
+          <% if (isAdminView) { %>
           <button type="button" role="tab" class="erp-tab" data-tab="settings" aria-selected="false"><i class="bi bi-sliders" aria-hidden="true"></i> ตั้งค่าสแกนมือถือ</button>
+          <% } %>
         </div>
 
-        <div id="tab-pending" class="p-4">
+        <div id="tab-pending" class="p-4" <%- isAdminView ? '' : 'style="display:none;"' %>>
           <div id="pendingGrid" class="grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-3"></div>
         </div>
 
@@ -41,7 +45,7 @@
           </div>
         </div>
 
-        <div id="tab-scans" style="display:none;">
+        <div id="tab-scans" <%- isAdminView ? 'style="display:none;"' : '' %>>
           <div class="flex flex-wrap items-center gap-2 border-b border-slate-200 p-3">
             <select id="scanStatus" class="erp-input w-auto" aria-label="สถานะ">
               <option value="pending">รอตรวจ</option><option value="accepted">บันทึกแล้ว</option><option value="rejected">ไม่ผ่าน</option><option value="all">ทั้งหมด</option>
@@ -307,8 +311,11 @@
       if (b.dataset.tab === 'scans') loadScans();
       if (b.dataset.tab === 'settings' && !settingsLoaded) loadSettings();
     });
-    const loadData = loadPending;
-    loadPending();
+    const IS_ADMIN = <%- JSON.stringify(!!isAdminView) %>;
+    // Department heads only review mobile scans of their departments
+    const loadData = IS_ADMIN ? loadPending : loadScans;
+    if (IS_ADMIN && location.hash === '#scans') document.querySelector('#tabBar [data-tab="scans"]').click();
+    else loadData();
   </script>
 </body>
 

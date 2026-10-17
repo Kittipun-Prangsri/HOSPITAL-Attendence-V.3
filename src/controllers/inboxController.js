@@ -1,7 +1,7 @@
 const { pool } = require('../config/db');
 const { LEAVE_TYPES } = require('../constants/leave');
 
-const isReviewer = user => user && (user.role === 'admin' || user.role === 'super');
+const { reviewScope, scopeFilter } = require('../services/reviewScope');
 const RECENT_DAYS = 14;
 
 // Each source is isolated so one missing table (e.g. migration not yet run) doesn't empty the inbox
@@ -13,11 +13,19 @@ async function safe(fn, fallback) {
 exports.getInbox = async (req, res) => {
   const user = req.session.user;
   const items = [];
-  const counts = { pendingExcuses: 0, pendingLeaves: 0, pendingOt: 0, failedDeliveries: 0 };
+  const counts = { pendingExcuses: 0, pendingLeaves: 0, pendingOt: 0, pendingScans: 0, failedDeliveries: 0 };
 
-  if (isReviewer(user)) {
+  // Admins see every pending item; department heads only those of their departments (never their own)
+  const rs = await safe(() => reviewScope(user), null);
+  if (rs) {
+    const scoped = (cols, extra = '') => {
+      const f = scopeFilter(rs, cols);
+      return { sql: f.sql ? ` AND ${f.sql}` : '', params: f.params, extra };
+    };
+    const ex = scoped({ employeeCol: 'username' });
     const excuses = await safe(async () => (await pool.query(
-      "SELECT id, fullname, date, submitted_at FROM attendance_excuses WHERE status = 'pending' ORDER BY submitted_at DESC LIMIT 50"))[0], []);
+      `SELECT id, fullname, date, submitted_at FROM attendance_excuses WHERE status = 'pending' AND username <> ?${ex.sql}
+       ORDER BY submitted_at DESC LIMIT 50`, [user.username, ...ex.params]))[0], []);
     counts.pendingExcuses = excuses.length;
     if (excuses.length) {
       items.push({
@@ -28,8 +36,10 @@ exports.getInbox = async (req, res) => {
       });
     }
 
+    const lv = scoped({ personCol: 'hr_person_id', employeeCol: 'employee_id' });
     const leaves = await safe(async () => (await pool.query(
-      "SELECT id, fullname, leave_type, days, submitted_at FROM leave_requests WHERE status = 'pending' ORDER BY submitted_at DESC LIMIT 50"))[0], []);
+      `SELECT id, fullname, leave_type, days, submitted_at FROM leave_requests WHERE status = 'pending' AND employee_id <> ?${lv.sql}
+       ORDER BY submitted_at DESC LIMIT 50`, [user.username, ...lv.params]))[0], []);
     counts.pendingLeaves = leaves.length;
     if (leaves.length) {
       items.push({
@@ -40,8 +50,10 @@ exports.getInbox = async (req, res) => {
       });
     }
 
+    const ot = scoped({ personCol: 'hr_person_id', employeeCol: 'employee_id' });
     const ots = await safe(async () => (await pool.query(
-      "SELECT fullname, hours, submitted_at FROM ot_requests WHERE status = 'pending' ORDER BY submitted_at DESC LIMIT 50"))[0], []);
+      `SELECT fullname, hours, submitted_at FROM ot_requests WHERE status = 'pending' AND employee_id <> ?${ot.sql}
+       ORDER BY submitted_at DESC LIMIT 50`, [user.username, ...ot.params]))[0], []);
     counts.pendingOt = ots.length;
     if (ots.length) {
       items.push({
@@ -52,8 +64,21 @@ exports.getInbox = async (req, res) => {
       });
     }
 
-    const failed = await safe(async () => (await pool.query(
-      "SELECT COUNT(*) AS n, MAX(updated_at) AS last FROM notification_deliveries WHERE status = 'failed'"))[0][0], { n: 0 });
+    const ms = scoped({ employeeCol: 'employee_id' });
+    const scans = await safe(async () => (await pool.query(
+      `SELECT COUNT(*) AS n, MAX(created_at) AS last FROM mobile_scans WHERE status = 'pending'${ms.sql}`, ms.params))[0][0], { n: 0 });
+    counts.pendingScans = Number(scans.n) || 0;
+    if (counts.pendingScans) {
+      items.push({
+        kind: 'action', tone: 'amber', icon: 'bi-phone', href: '/admin/face#scans',
+        title: `สแกนผ่านมือถือรอตรวจ ${counts.pendingScans} รายการ`,
+        desc: 'นอกพื้นที่ / GPS ไม่แม่น / ใบหน้าก้ำกึ่ง', time: scans.last
+      });
+    }
+
+    // Delivery failures are a system concern: admins only
+    const failed = rs.all ? await safe(async () => (await pool.query(
+      "SELECT COUNT(*) AS n, MAX(updated_at) AS last FROM notification_deliveries WHERE status = 'failed'"))[0][0], { n: 0 }) : { n: 0 };
     counts.failedDeliveries = Number(failed.n) || 0;
     if (counts.failedDeliveries) {
       items.push({
@@ -98,6 +123,6 @@ exports.getInbox = async (req, res) => {
   }));
 
   items.sort((a, b) => (a.kind === 'result') - (b.kind === 'result') || new Date(b.time || 0) - new Date(a.time || 0));
-  const badge = counts.pendingExcuses + counts.pendingLeaves + counts.pendingOt + counts.failedDeliveries + myExcuses.length + myLeaves.length + myOts.length;
+  const badge = counts.pendingExcuses + counts.pendingLeaves + counts.pendingOt + counts.pendingScans + counts.failedDeliveries + myExcuses.length + myLeaves.length + myOts.length;
   res.json({ success: true, items, counts, badge });
 };

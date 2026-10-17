@@ -13,7 +13,7 @@ const LEAVE_COLUMNS = `id, employee_id, hr_person_id, fullname, dept, leave_type
   half_day, days, reason, contact, status, reviewer, review_comment, submitted_at, reviewed_at,
   attachment_name, (attachment_path IS NOT NULL) AS has_attachment`;
 
-const isReviewer = user => user && (user.role === 'admin' || user.role === 'super');
+const { reviewScope, canReview, scopeFilter } = require('../services/reviewScope');
 const todayStr = () => new Date().toLocaleDateString('sv-SE', { timeZone: process.env.APP_TIMEZONE || 'Asia/Bangkok' });
 const thaiDate = d => new Date(`${d}T00:00:00`).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
 const rangeText = r => (r.start_date === r.end_date ? thaiDate(r.start_date) : `${thaiDate(r.start_date)} – ${thaiDate(r.end_date)}`);
@@ -41,7 +41,11 @@ exports.listLeaves = async (req, res) => {
     const where = [];
     const params = [];
     if (scope === 'all') {
-      if (!isReviewer(user)) return res.status(403).json({ success: false, error: 'สิทธิ์ไม่เพียงพอ' });
+      // Admins see everyone; department heads see their departments
+      const rs = await reviewScope(user);
+      if (!rs) return res.status(403).json({ success: false, error: 'สิทธิ์ไม่เพียงพอ' });
+      const f = scopeFilter(rs, { personCol: 'hr_person_id', employeeCol: 'employee_id' });
+      if (f.sql) { where.push(f.sql); params.push(...f.params); }
     } else {
       where.push('employee_id = ?');
       params.push(user.username);
@@ -70,7 +74,13 @@ exports.listLeaves = async (req, res) => {
 /** Balance for the current fiscal year (reviewers may query another employee). */
 exports.getBalance = async (req, res) => {
   const user = req.session.user;
-  const employeeId = isReviewer(user) && req.query.employee_id ? String(req.query.employee_id) : user.username;
+  let employeeId = user.username;
+  if (req.query.employee_id && String(req.query.employee_id) !== user.username) {
+    if (!canReview(await reviewScope(user), { employeeId: String(req.query.employee_id) })) {
+      return res.status(403).json({ success: false, error: 'สิทธิ์ไม่เพียงพอ' });
+    }
+    employeeId = String(req.query.employee_id);
+  }
   try {
     const [{ fy, rows }, { status, quotas }] = await Promise.all([
       requestsInFiscalYear(employeeId, parseDate(req.query.date) ? req.query.date : todayStr()),
@@ -175,7 +185,8 @@ exports.cancelLeave = async (req, res) => {
 
 exports.reviewLeave = async (req, res) => {
   const user = req.session.user;
-  if (!isReviewer(user)) return res.status(403).json({ success: false, error: 'สิทธิ์ไม่เพียงพอ' });
+  const rs = await reviewScope(user);
+  if (!rs) return res.status(403).json({ success: false, error: 'สิทธิ์ไม่เพียงพอ' });
   const { status, comment } = req.body || {};
   if (!['approved', 'rejected'].includes(status)) return res.status(400).json({ success: false, error: 'ผลการพิจารณาไม่ถูกต้อง' });
   if (comment != null && (typeof comment !== 'string' || comment.length > 1000)) {
@@ -187,6 +198,9 @@ exports.reviewLeave = async (req, res) => {
     const leave = rows[0];
     if (leave.status !== 'pending') return res.status(409).json({ success: false, error: 'ใบลานี้ถูกพิจารณาหรือยกเลิกไปแล้ว' });
     if (leave.employee_id === user.username) return res.status(403).json({ success: false, error: 'ไม่สามารถอนุมัติใบลาของตนเองได้' });
+    if (!canReview(rs, { hrPersonId: leave.hr_person_id, employeeId: leave.employee_id })) {
+      return res.status(403).json({ success: false, error: 'พิจารณาได้เฉพาะบุคลากรในกลุ่มงานที่ท่านดูแล' });
+    }
 
     await pool.query(
       `UPDATE leave_requests SET status = ?, reviewer = ?, review_comment = ?, reviewed_at = CURRENT_TIMESTAMP
@@ -223,10 +237,12 @@ exports.reviewLeave = async (req, res) => {
 exports.getAttachment = async (req, res) => {
   const user = req.session.user;
   try {
-    const [rows] = await pool.query('SELECT employee_id, attachment_path, attachment_name, attachment_type FROM leave_requests WHERE id = ?', [req.params.id]);
+    const [rows] = await pool.query('SELECT employee_id, hr_person_id, attachment_path, attachment_name, attachment_type FROM leave_requests WHERE id = ?', [req.params.id]);
     const row = rows[0];
     if (!row || !row.attachment_path) return res.status(404).json({ success: false, error: 'ไม่พบไฟล์แนบ' });
-    if (row.employee_id !== user.username && !isReviewer(user)) return res.status(403).json({ success: false, error: 'สิทธิ์ไม่เพียงพอ' });
+    if (row.employee_id !== user.username && !canReview(await reviewScope(user), { hrPersonId: row.hr_person_id, employeeId: row.employee_id })) {
+      return res.status(403).json({ success: false, error: 'สิทธิ์ไม่เพียงพอ' });
+    }
     const full = resolveAttachment(row.attachment_path);
     if (!full) return res.status(404).json({ success: false, error: 'ไม่พบไฟล์แนบ' });
     logAudit(req, 'view', 'leave_attachment', req.params.id);

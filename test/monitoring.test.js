@@ -49,3 +49,21 @@ test('HOSoffice leave codes and app leave labels map to leave buckets', () => {
   assert.equal(leaveBucket('ลาคลอดบุตร'), 'other');
   assert.equal(leaveBucket(''), 'other');
 });
+
+test('review scope: admins everyone, heads their departments only', () => {
+  const { canReview, scopeFilter } = require('../src/services/reviewScope');
+  const head = { all: false, departments: [1], personIds: new Set(['1']), employeeIds: new Set(['1001', '1100000000001']) };
+  assert.equal(canReview({ all: true }, { hrPersonId: 99 }), true);
+  assert.equal(canReview(head, { hrPersonId: 1 }), true);
+  assert.equal(canReview(head, { employeeId: '1100000000001' }), true, 'national-id username');
+  assert.equal(canReview(head, { hrPersonId: 3, employeeId: '1003' }), false);
+  assert.equal(canReview(null, { hrPersonId: 1 }), false);
+  assert.deepEqual(scopeFilter({ all: true }, { personCol: 'p' }), { sql: '', params: [] });
+  assert.deepEqual(scopeFilter(head, { personCol: 'hr_person_id', employeeCol: 'employee_id' }),
+    { sql: '(hr_person_id IN (?) OR employee_id IN (?))', params: [['1'], ['1001', '1100000000001']] });
+  assert.equal(scopeFilter({ all: false, personIds: new Set(), employeeIds: new Set() }, { personCol: 'x' }).sql, '1 = 0', 'empty department matches nothing');
+  const { canAccess } = require('../src/constants/navigation');
+  assert.equal(canAccess('reviewer', 'user', true), true);
+  assert.equal(canAccess('reviewer', 'user', false), false);
+  assert.equal(canAccess('admin', 'user', true), false, 'heads do not get admin menus');
+});

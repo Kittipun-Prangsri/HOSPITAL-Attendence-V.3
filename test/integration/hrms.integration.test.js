@@ -180,7 +180,7 @@ test.after(async () => {
 test('migrations created every table and sessions persist in MySQL', async () => {
   const [tables] = await admin.query('SELECT table_name AS t FROM information_schema.tables WHERE table_schema = ?', [HOSPITAL_DB]);
   const names = tables.map(r => r.t || r.TABLE_NAME);
-  for (const t of ['schema_migrations', 'leave_requests', 'app_settings', 'holidays', 'ot_requests', 'audit_log', 'incident_logs', 'scan_outages', 'face_enrollments', 'mobile_scans', 'sessions']) {
+  for (const t of ['schema_migrations', 'leave_requests', 'app_settings', 'holidays', 'ot_requests', 'audit_log', 'incident_logs', 'scan_outages', 'face_enrollments', 'mobile_scans', 'department_heads', 'sessions']) {
     assert.ok(names.includes(t), `missing table ${t}`);
   }
   const [[{ n }]] = await admin.query(`SELECT COUNT(*) AS n FROM ${HOSPITAL_DB}.sessions`);
@@ -318,7 +318,7 @@ test('OT request, overlap guard and approval', async () => {
 
 test('inbox and audit trail reflect what happened', async () => {
   const inbox = (await call(users.admin, 'GET', '/api/notifications/inbox')).body;
-  assert.equal(inbox.counts.pendingLeaves, 2); // staff's 3-day sick leave + admin's own request
+  assert.equal(inbox.counts.pendingLeaves, 1); // staff's 3-day sick leave (the admin's own request is not theirs to approve)
   assert.ok(inbox.items.some(i => i.href.startsWith('/leave')));
   const staffInbox = (await call(users.staff, 'GET', '/api/notifications/inbox')).body;
   assert.ok(staffInbox.items.some(i => /อนุมัติแล้ว/.test(i.title)), 'staff sees their approved leave/OT');
@@ -730,6 +730,54 @@ test('monthly HR pack: one workbook with summary, day grid, OT and leave sheets'
   const ids = [];
   wb2.getWorksheet('สรุปรายเดือน').eachRow((r, n) => { if (n > 4 && /^\d{4}$/.test(String(r.getCell(2).value))) ids.push(r.getCell(2).value); });
   assert.deepEqual(ids.sort(), ['1003', '1004']);
+});
+
+test('department heads review only their own department', async () => {
+  // Departments: 1 = nursing (1001 staff, 1002 temp), 2 = digital health (1003 admin, 1004 super)
+  assert.equal((await call(users.admin, 'POST', '/api/department-heads', { departmentId: 1, hrPersonId: 2 })).status, 403, 'super only');
+  const add = await call(users.super, 'POST', '/api/department-heads', { departmentId: 1, hrPersonId: 2 });
+  assert.equal(add.status, 200, JSON.stringify(add.body));
+  const list = (await call(users.super, 'GET', '/api/department-heads')).body.departments;
+  assert.deepEqual(list.find(d => d.id === 1).heads.map(h => h.hrPersonId), [2]);
+
+  // Pending OT from someone in the department and someone outside it
+  const otIn = await call(users.staff, 'POST', '/api/ot', { work_date: '2026-09-22', start_time: '16:30', end_time: '18:30', reason: 'ward' });
+  const otOut = await call(users.admin, 'POST', '/api/ot', { work_date: '2026-09-22', start_time: '16:30', end_time: '18:30', reason: 'it' });
+  assert.equal(otIn.status, 200); assert.equal(otOut.status, 200);
+  const seen = (await call(users.temp, 'GET', '/api/ot?scope=all&status=pending')).body.requests.map(r => r.employee_id);
+  assert.ok(seen.includes('1001'));
+  assert.ok(!seen.includes('1003'), 'other departments are hidden');
+  assert.equal((await call(users.temp, 'POST', `/api/ot/${otOut.body.id}/review`, { status: 'approved' })).status, 403);
+  assert.equal((await call(users.temp, 'POST', `/api/ot/${otIn.body.id}/review`, { status: 'approved' })).status, 200);
+
+  // Excuses: own department yes, other department no, never their own
+  const exIn = await call(users.staff, 'POST', '/api/excuses', { date: '2026-09-23', issue_type: 'absent', reason: 'ป่วยกะทันหัน' });
+  const exOut = await call(users.admin, 'POST', '/api/excuses', { date: '2026-09-23', issue_type: 'absent', reason: 'ประชุม' });
+  const exSelf = await call(users.temp, 'POST', '/api/excuses', { date: '2026-09-24', issue_type: 'late', reason: 'รถเสีย' });
+  const exList = (await call(users.temp, 'GET', '/api/excuses')).body.excuses;
+  const idOf = (u, d) => exList.find(e => e.username === u && toDateKeyLocal(e.date) === d);
+  function toDateKeyLocal(v) { return new Date(v).toLocaleDateString('sv-SE', { timeZone: 'Asia/Bangkok' }); }
+  assert.ok(exIn.status === 200 && exOut.status === 200 && exSelf.status === 200);
+  assert.ok(idOf('1001', '2026-09-23'), 'head sees department excuses');
+  assert.ok(!exList.some(e => e.username === '1003'), 'but not other departments');
+  assert.equal((await call(users.temp, 'POST', '/api/excuses/review', { id: idOf('1001', '2026-09-23').id, status: 'approved' })).status, 200);
+  assert.equal((await call(users.temp, 'POST', '/api/excuses/review', { id: idOf('1002', '2026-09-24').id, status: 'approved' })).status, 403, 'not their own');
+  assert.equal((await call(users.staff, 'POST', '/api/excuses/review', { id: idOf('1002', '2026-09-24').id, status: 'approved' })).status, 403, 'plain staff cannot review');
+
+  // Pages: head reaches the mobile-scan review page; plain staff do not
+  const page = await fetch(`${base}/admin/face`, { headers: { Cookie: users.temp.cookie }, redirect: 'manual' });
+  assert.equal(page.status, 200);
+  assert.match(await page.text(), /สแกนผ่านมือถือ/);
+  assert.equal((await fetch(`${base}/admin/face`, { headers: { Cookie: users.staff.cookie }, redirect: 'manual' })).status, 302);
+  assert.equal((await call(users.temp, 'GET', '/api/mobile-scans?status=all')).status, 200);
+  assert.equal((await call(users.staff, 'GET', '/api/mobile-scans?status=all')).status, 403);
+  const inbox = (await call(users.temp, 'GET', '/api/notifications/inbox')).body;
+  assert.equal(inbox.counts.failedDeliveries, 0, 'system alerts stay with admins');
+
+  // Removing the head takes the rights away (cache is cleared on change)
+  assert.equal((await call(users.super, 'DELETE', '/api/department-heads/1/2')).status, 200);
+  assert.equal((await call(users.temp, 'GET', '/api/ot?scope=all')).status, 403);
+  await call(users.admin, 'POST', `/api/ot/${otOut.body.id}/review`, { status: 'rejected' });
 });
 
 test('escalation finds approvals pending for more than two days', async () => {

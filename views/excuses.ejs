@@ -5,7 +5,7 @@
   <%- include("components/erp-head", { title: "แจ้งสาเหตุการลงเวลา" }) %>
 </head>
 
-<% const isReviewer = locals.user && (user.role === 'admin' || user.role === 'super'); %>
+<% const isAdminView = locals.user && (user.role === 'admin' || user.role === 'super'); const isReviewer = isAdminView || Boolean(locals.isHead); %>
 
 <body class="erp-page">
   <%- include('components/sidebar') %>
@@ -43,9 +43,11 @@
             <button type="button" role="tab" class="erp-tab tab-btn whitespace-nowrap" id="tabBtn-reviewed" onclick="switchTab('reviewed')">
               <i class="bi bi-check2-all" aria-hidden="true"></i> ประวัติการพิจารณา
             </button>
+            <% if (isAdminView) { %>
             <button type="button" role="tab" class="erp-tab tab-btn whitespace-nowrap" id="tabBtn-reminders" onclick="switchTab('reminders')">
               <i class="bi bi-bell" aria-hidden="true"></i> ค้างส่งเหตุผล (3–7 วัน) <span id="reminder-badge" class="hidden rounded bg-red-100 px-1.5 font-mono text-2xs text-red-600">0</span>
             </button>
+            <% } %>
           </div>
 
           <!-- TAB: PENDING -->
@@ -227,7 +229,9 @@
 
   <script>
     const userRole = <%- JSON.stringify(locals.user ? user.role : 'user') %>;
-    const IS_REVIEWER = userRole === 'admin' || userRole === 'super';
+    const IS_ADMIN = userRole === 'admin' || userRole === 'super';
+    // Department heads review their departments; the reminder broadcast stays with admins
+    const IS_REVIEWER = <%- JSON.stringify(!!isReviewer) %>;
     const ISSUE = {
       'scan-failed': ['สแกนไม่ผ่าน', 'sky', 'bi-camera'],
       absent: ['ขาดงาน', 'slate', 'bi-x-square'],
@@ -340,7 +344,7 @@
         $('pending-list').innerHTML = ERP.emptyRow(6, 'โหลดข้อมูลไม่สำเร็จ', 'bi-exclamation-triangle');
       }
     }
-    const loadData = () => { fetchAdminExcuses(); fetchReminders(); };
+    const loadData = () => { fetchAdminExcuses(); if (IS_ADMIN) fetchReminders(); };
 
     function renderAdminExcuses() {
       const pending = allExcuses.filter(ex => ex.status === 'pending');
@@ -501,7 +505,7 @@
         if (e.key === 'Escape' && !$('reviewModal').classList.contains('hidden')) closeReviewModal();
       });
       fetchAdminExcuses();
-      fetchReminders();
+      if (IS_ADMIN) fetchReminders();
     }
   </script>
 </body>

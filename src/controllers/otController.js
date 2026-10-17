@@ -7,7 +7,7 @@ const { logAudit } = require('../utils/audit');
 const OT_COLUMNS = `id, employee_id, hr_person_id, fullname, dept, DATE_FORMAT(work_date, '%Y-%m-%d') AS work_date,
   start_time, end_time, hours, reason, status, reviewer, review_comment, submitted_at, reviewed_at`;
 
-const isReviewer = u => u && (u.role === 'admin' || u.role === 'super');
+const { reviewScope, canReview, scopeFilter } = require('../services/reviewScope');
 const thaiDate = d => new Date(`${d}T00:00:00`).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
 
 exports.listOt = async (req, res) => {
@@ -17,7 +17,10 @@ exports.listOt = async (req, res) => {
     const where = [];
     const params = [];
     if (scope === 'all') {
-      if (!isReviewer(user)) return res.status(403).json({ success: false, error: 'สิทธิ์ไม่เพียงพอ' });
+      const rs = await reviewScope(user);
+      if (!rs) return res.status(403).json({ success: false, error: 'สิทธิ์ไม่เพียงพอ' });
+      const f = scopeFilter(rs, { personCol: 'hr_person_id', employeeCol: 'employee_id' });
+      if (f.sql) { where.push(f.sql); params.push(...f.params); }
     } else {
       where.push('employee_id = ?');
       params.push(user.username);
@@ -98,7 +101,8 @@ exports.cancelOt = async (req, res) => {
 
 exports.reviewOt = async (req, res) => {
   const user = req.session.user;
-  if (!isReviewer(user)) return res.status(403).json({ success: false, error: 'สิทธิ์ไม่เพียงพอ' });
+  const rs = await reviewScope(user);
+  if (!rs) return res.status(403).json({ success: false, error: 'สิทธิ์ไม่เพียงพอ' });
   const { status, comment } = req.body || {};
   if (!['approved', 'rejected'].includes(status)) return res.status(400).json({ success: false, error: 'ผลการพิจารณาไม่ถูกต้อง' });
   if (comment != null && (typeof comment !== 'string' || comment.length > 1000)) return res.status(400).json({ success: false, error: 'ความเห็นยาวเกินไป' });
@@ -108,6 +112,9 @@ exports.reviewOt = async (req, res) => {
     if (!ot) return res.status(404).json({ success: false, error: 'ไม่พบคำขอ OT' });
     if (ot.status !== 'pending') return res.status(409).json({ success: false, error: 'คำขอนี้ถูกพิจารณาหรือยกเลิกไปแล้ว' });
     if (ot.employee_id === user.username) return res.status(403).json({ success: false, error: 'ไม่สามารถอนุมัติคำขอของตนเองได้' });
+    if (!canReview(rs, { hrPersonId: ot.hr_person_id, employeeId: ot.employee_id })) {
+      return res.status(403).json({ success: false, error: 'พิจารณาได้เฉพาะบุคลากรในกลุ่มงานที่ท่านดูแล' });
+    }
     await pool.query(
       "UPDATE ot_requests SET status = ?, reviewer = ?, review_comment = ?, reviewed_at = CURRENT_TIMESTAMP WHERE id = ? AND status = 'pending'",
       [status, user.fullname, comment ? comment.trim() || null : null, ot.id]

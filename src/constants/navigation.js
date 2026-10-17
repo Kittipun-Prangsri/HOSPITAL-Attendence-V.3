@@ -1,7 +1,8 @@
 const { DEPARTMENTS } = require('./departments');
 
 // Single source for sidebar, breadcrumb and quick-search menu.
-// access: 'all' = every signed-in user, 'admin' = admin + super, 'super' = super only
+// access: 'all' = every signed-in user, 'admin' = admin + super, 'super' = super only,
+//         'reviewer' = admin + super + department heads
 const NAV_SECTIONS = [
   {
     title: 'ภาพรวม',
@@ -41,7 +42,7 @@ const NAV_SECTIONS = [
     title: 'ตั้งค่าระบบ',
     items: [
       { href: '/admin/calendar', label: 'วันหยุดและนโยบายการลา', icon: 'bi-calendar-heart', access: 'admin' },
-      { href: '/admin/face', label: 'ใบหน้า / สแกนมือถือ', icon: 'bi-person-bounding-box', access: 'admin' },
+      { href: '/admin/face', label: 'ใบหน้า / สแกนมือถือ', icon: 'bi-person-bounding-box', access: 'reviewer' },
       { href: '/admin/users', label: 'จัดการผู้เข้าใช้', icon: 'bi-person-gear', access: 'super' },
       { href: '/admin/permissions', label: 'สิทธิ์ตามบทบาท', icon: 'bi-shield-lock', access: 'super' },
       { href: '/admin/audit', label: 'บันทึกการใช้งาน', icon: 'bi-journal-text', access: 'super' },
@@ -50,8 +51,9 @@ const NAV_SECTIONS = [
   }
 ];
 
-function canAccess(access, role) {
+function canAccess(access, role, isHead = false) {
   if (access === 'all') return true;
+  if (access === 'reviewer') return role === 'admin' || role === 'super' || Boolean(isHead);
   if (access === 'admin') return role === 'admin' || role === 'super';
   if (access === 'super') return role === 'super';
   return false;

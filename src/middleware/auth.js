@@ -11,7 +11,13 @@ const checkAuth = (req, res, next) => {
   if (req.session.user) {
     res.locals.user = req.session.user; // Make user data available in EJS
     res.locals.RBAC_ENABLED = RBAC_ENABLED; // Expose to EJS views
-    next();
+    const u = req.session.user;
+    if (u.role === 'admin' || u.role === 'super') return next();
+    // Department heads get review screens for their departments (lookup is cached for a minute)
+    require('../services/reviewScope').reviewScope(u)
+      .then(scope => { res.locals.isHead = Boolean(scope); })
+      .catch(() => { res.locals.isHead = false; })
+      .finally(() => next());
   } else if (isApiRequest(req)) {
     res.status(401).json({ success: false, error: 'กรุณาเข้าสู่ระบบใหม่', loginRequired: true });
   } else {
@@ -53,7 +59,16 @@ const checkSuper = (req, res, next) => {
   }
 };
 
+/** Admins, or department heads (set by checkAuth). Use after checkAuth. */
+const checkReviewer = (req, res, next) => {
+  const u = req.session.user;
+  if (u && (u.role === 'admin' || u.role === 'super' || res.locals.isHead)) return next();
+  if (isApiRequest(req)) return res.status(403).json({ success: false, error: 'สิทธิ์ไม่เพียงพอ' });
+  return res.redirect('/');
+};
+
 module.exports = {
+  checkReviewer,
   safeReturnTo,
   checkAuth,
   checkAdmin,

@@ -299,6 +299,22 @@ const migrations = [
         ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
       `);
     }
+  },
+  {
+    // Department heads: may review leave / OT / excuses / mobile scans of staff in these departments only
+    id: '010_department_heads',
+    up: async () => {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS department_heads (
+          hr_person_id INT NOT NULL,
+          department_id INT NOT NULL,
+          created_by VARCHAR(150) NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (hr_person_id, department_id),
+          KEY idx_dept_heads_dept (department_id)
+        ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+      `);
+    }
   }
 ];
 

@@ -2,12 +2,12 @@
   const route = typeof activeRoute !== 'undefined' ? activeRoute : '/';
   const navRole = locals.RBAC_ENABLED === false ? 'super' : (locals.user && user.role ? user.role : 'staff');
   const sections = locals.NAV_SECTIONS || [];
-  const allowed = access => (locals.navCanAccess ? navCanAccess(access, navRole) : access === 'all');
+  const allowed = access => (locals.navCanAccess ? navCanAccess(access, navRole, locals.isHead) : access === 'all');
   const fullname = locals.user && user.fullname ? user.fullname : 'ผู้ใช้งาน';
   const roleMeta = {
     super: { label: 'ผู้ดูแลระบบสูงสุด', cls: 'bg-brand-400/20 text-brand-200' },
     admin: { label: 'ผู้ดูแลระบบ', cls: 'bg-amber-400/20 text-amber-200' }
-  }[navRole] || { label: 'เจ้าหน้าที่', cls: 'bg-white/10 text-slate-300' };
+  }[navRole] || (locals.isHead ? { label: 'หัวหน้ากลุ่มงาน', cls: 'bg-sky-400/20 text-sky-200' } : { label: 'เจ้าหน้าที่', cls: 'bg-white/10 text-slate-300' });
 %>
 <%# ERP shell stylesheet is linked here so every page picks it up after its own CSS %>
 <link rel="stylesheet" href="<%= asset('/css/erp.css') %>" />
