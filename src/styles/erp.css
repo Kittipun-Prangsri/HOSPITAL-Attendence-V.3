@@ -223,7 +223,7 @@
   }
 }
 
-/* Neutralise legacy ui-refresh.css `!important` input/button rules inside the shell */
+/* Keep shell controls compact regardless of page-level button/input styles */
 .erp .erp-input:focus {
   border-color: theme('colors.brand.500') !important;
   box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.2) !important;

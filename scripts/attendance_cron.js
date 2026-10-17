@@ -186,6 +186,21 @@ async function runWeeklySummary() {
 }
 
 // Schedule: Every Friday at 17:00
+// Weekday mornings: remind admins about approvals waiting more than 2 days
+cron.schedule('30 8 * * 1-5', async () => {
+  try {
+    const { collectStalePending, formatEscalation, DEFAULT_DAYS } = require('../src/services/pendingEscalation');
+    const message = formatEscalation(await collectStalePending(DEFAULT_DAYS), DEFAULT_DAYS, process.env.SYSTEM_URL || '');
+    if (message) {
+      const NotificationService = require('../src/services/notificationService');
+      await NotificationService.sendToAdmin(message);
+      console.log('[cron] pending-approval escalation sent');
+    }
+  } catch (err) {
+    console.error('[cron] escalation failed:', err.message);
+  }
+}, { timezone: process.env.APP_TIMEZONE || 'Asia/Bangkok' });
+
 // Nightly: keep incident_logs current for this and last month so report views stay fast
 cron.schedule('0 1 * * *', async () => {
   const now = new Date();

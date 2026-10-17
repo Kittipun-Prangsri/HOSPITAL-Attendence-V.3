@@ -202,6 +202,21 @@ const migrations = [
           ADD COLUMN attachment_type VARCHAR(50) NULL AFTER attachment_name`);
       }
     }
+  },
+  {
+    // The weekly page stored MORNING/AFTERNOON/NIGHT while the monthly planner stored เช้า/บ่าย/ดึก.
+    // Convert everything to the canonical codes (src/utils/shifts.js); custom names stay as typed.
+    id: '006_canonical_shift_codes',
+    up: async () => {
+      await pool.query(`
+        UPDATE schedule_entries SET shift = CASE
+          WHEN LOWER(TRIM(shift)) IN ('morning', 'เช้า', 'เวรเช้า', 'กะเช้า') THEN 'MORNING'
+          WHEN LOWER(TRIM(shift)) IN ('afternoon', 'บ่าย', 'เวรบ่าย', 'กะบ่าย') THEN 'AFTERNOON'
+          WHEN LOWER(TRIM(shift)) IN ('night', 'ดึก', 'เวรดึก', 'กะดึก') THEN 'NIGHT'
+          ELSE shift END
+        WHERE LOWER(TRIM(shift)) IN ('morning', 'เช้า', 'เวรเช้า', 'กะเช้า', 'afternoon', 'บ่าย', 'เวรบ่าย', 'กะบ่าย', 'night', 'ดึก', 'เวรดึก', 'กะดึก')
+      `);
+    }
   }
 ];
 
@@ -229,4 +244,4 @@ if (require.main === module) {
     .catch(error => { console.error('[migrate] Failed:', error.message); process.exit(1); });
 }
 
-module.exports = { runMigrations };
+module.exports = { runMigrations, migrations };

@@ -327,3 +327,61 @@ test('inbox and audit trail reflect what happened', async () => {
     assert.ok(seen.has(k), `audit should contain ${k}`);
   }
 });
+
+test('health probe reports both databases', async () => {
+  const res = await fetch(`${base}/health`);
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.status, 'ok');
+  assert.equal(body.checks.hospitalDb.ok, true);
+  assert.equal(body.checks.hosofficeDb.ok, true);
+});
+
+test('shift names are stored as one canonical code and shown in Thai', async () => {
+  const save = await call(users.admin, 'POST', '/api/schedule/save', { year: 2026, month: 9, schedule: { 1001: { 16: 'เช้า' }, 1002: { 16: 'บ่าย' }, 1003: { 16: 'เวรพิเศษ OR' } } });
+  assert.equal(save.status, 200, JSON.stringify(save.body));
+  const [rows] = await admin.query(`SELECT employee_id, shift FROM ${HOSPITAL_DB}.schedule_entries WHERE schedule_date = ? ORDER BY employee_id`, [DAY]);
+  assert.deepEqual(rows.map(r => r.shift), ['MORNING', 'AFTERNOON', 'เวรพิเศษ OR']);
+
+  const weekly = await call(users.admin, 'POST', '/api/schedule', { emp_id: '1004', shift: 'NIGHT', date: DAY });
+  assert.equal(weekly.status, 200);
+  const load = (await call(users.admin, 'GET', '/api/schedule/load?year=2026&month=9')).body.data.schedule;
+  assert.equal(load['1001'][16], 'เช้า');
+  assert.equal(load['1004'][16], 'ดึก');
+  const dash = (await call(users.admin, 'GET', `/api/data?date=${DAY}`)).body;
+  assert.equal(findEmp(dash, '1001').shift, 'morning');
+  const staff = (await call(users.staff, 'GET', '/api/schedule/staff/1001/2026-09')).body;
+  assert.deepEqual(staff.shifts, [{ day: 16, shift: 'เช้า' }]);
+
+  // Legacy rows written by both old screens are converted by migration 006
+  await admin.query(`INSERT INTO ${HOSPITAL_DB}.schedule_entries (employee_id, schedule_date, shift) VALUES ('1002', '2026-09-17', 'เช้า'), ('1003', '2026-09-17', 'morning'), ('1004', '2026-09-17', ' ดึก ')`);
+  const { migrations } = require('../../scripts/migrations');
+  await migrations.find(m => m.id === '006_canonical_shift_codes').up();
+  const [legacy] = await admin.query(`SELECT shift FROM ${HOSPITAL_DB}.schedule_entries WHERE schedule_date = '2026-09-17' ORDER BY employee_id`);
+  assert.deepEqual(legacy.map(r => r.shift), ['MORNING', 'MORNING', 'NIGHT']);
+});
+
+test('incident rebuild removes stale rows left by the old date bug', async () => {
+  // A wrong ABSENT for someone who scanned in, as the pre-fix sync produced
+  await admin.query(`INSERT INTO ${HOSPITAL_DB}.incident_logs (employee_id, incident_date, incident_type, status) VALUES ('1001', ?, 'ABSENT', 'OVERDUE')`, [DAY]);
+  const { rebuildIncidents } = require('../../src/services/incidentRebuild');
+  const { syncIncidentsForMonth } = require('../../src/controllers/apiController');
+  const dry = await rebuildIncidents({ from: '2026-09', to: '2026-09', dryRun: true, syncFn: syncIncidentsForMonth });
+  assert.equal(dry[0].after, null);
+  assert.deepEqual(await incidents('1001', DAY), [{ incident_type: 'ABSENT', status: 'OVERDUE' }], 'dry run changes nothing');
+  const [result] = await rebuildIncidents({ from: '2026-09', to: '2026-09', dryRun: false, syncFn: syncIncidentsForMonth });
+  assert.ok(result.after > 0);
+  assert.deepEqual(await incidents('1001', DAY), []);
+  // Settings now allow 60 minutes (threshold 09:00), so the 08:45 scan is no longer late after a rebuild
+  assert.deepEqual(await incidents('1002', DAY), [], 'rebuild applies the current late threshold');
+  assert.deepEqual((await incidents('1003', DAY)).map(r => r.incident_type), ['ABSENT']);
+});
+
+test('escalation finds approvals pending for more than two days', async () => {
+  const { collectStalePending, formatEscalation } = require('../../src/services/pendingEscalation');
+  assert.equal((await collectStalePending(2)).leaves.length, 0);
+  await admin.query(`UPDATE ${HOSPITAL_DB}.leave_requests SET submitted_at = DATE_SUB(NOW(), INTERVAL 3 DAY) WHERE status = 'pending'`);
+  const stale = await collectStalePending(2);
+  assert.equal(stale.leaves.length, 2);
+  assert.match(formatEscalation(stale), /ใบลา 2 รายการ/);
+});

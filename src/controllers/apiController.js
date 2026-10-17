@@ -542,3 +542,6 @@ exports.getMonthlyReport = async (req, res) => {
     res.status(500).json({ success: false, message: 'Internal server error', report: [] });
   }
 };
+
+// Used by scripts/attendance_cron.js (weekly + nightly) and scripts/rebuild_incidents.js
+exports.syncIncidentsForMonth = syncIncidentsForMonth;

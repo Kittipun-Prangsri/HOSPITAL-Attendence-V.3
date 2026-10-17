@@ -11,6 +11,7 @@
     "watch:css": "tailwindcss -c tailwind.config.js -i src/styles/erp.css -o public/css/erp.css --watch",
     "init-db": "node scripts/init_db.js",
     "migrate": "node scripts/migrations.js",
+    "rebuild-incidents": "node scripts/rebuild_incidents.js",
     "import-legacy-schedules": "node scripts/import_legacy_schedules.js",
     "reset-password": "node scripts/reset_hosoffice_password.js",
     "rotate-db-password": "node scripts/rotate_db_password.js",

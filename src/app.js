@@ -5,6 +5,7 @@ const session = require('express-session');
 const helmet = require('helmet');
 const MySQLStore = require('express-mysql-session')(session);
 const { csrfProtection } = require('./middleware/csrf');
+const healthController = require('./controllers/healthController');
 const authRoutes = require('./routes/authRoutes');
 const apiRoutes = require('./routes/apiRoutes');
 const viewRoutes = require('./routes/viewRoutes');
@@ -174,6 +175,9 @@ app.post(['/', '/webhook'], async (req, res) => {
     res.status(500).send(error.message);
   }
 });
+
+// Health probe for PM2 / uptime monitors (no auth, no internal details)
+app.get('/health', healthController.health);
 
 // Routes
 app.use('/', authRoutes);

@@ -1,4 +1,5 @@
 const { pool, hosofficePool } = require('../config/db');
+const { toShiftCode, toShiftLabel } = require('../utils/shifts');
 const { logAudit } = require('../utils/audit');
 
 const OFF_SHIFTS = new Set(['', 'OFF', 'EMPTY']);
@@ -57,14 +58,14 @@ exports.postSchedule = async (req, res) => {
         `INSERT INTO schedule_entries (employee_id, schedule_date, shift, created_by)
          VALUES (?, ?, ?, ?)
          ON DUPLICATE KEY UPDATE shift = VALUES(shift), created_by = VALUES(created_by)`,
-        [employeeId, date, shift.trim(), req.session.user.username]
+        [employeeId, date, toShiftCode(shift), req.session.user.username]
       );
     } else {
       await connection.query('DELETE FROM schedule_entries WHERE employee_id = ? AND schedule_date = ?', [employeeId, date]);
     }
-    await auditScheduleChange(connection, employeeId, date, previousShift, isWorkingShift(shift) ? shift.trim() : null, req.session.user.username);
+    await auditScheduleChange(connection, employeeId, date, previousShift, isWorkingShift(shift) ? toShiftCode(shift) : null, req.session.user.username);
     await connection.commit();
-    logAudit(req, 'update', 'schedule', `${employeeId}@${date}`, { from: previousShift || null, to: isWorkingShift(shift) ? shift.trim() : null });
+    logAudit(req, 'update', 'schedule', `${employeeId}@${date}`, { from: previousShift || null, to: isWorkingShift(shift) ? toShiftCode(shift) : null });
     res.json({ success: true });
   } catch (err) {
     await connection.rollback();
@@ -95,7 +96,7 @@ exports.saveMonthlySchedule = async (req, res) => {
       if (!Number.isInteger(dayNum) || dayNum < 1 || dayNum > daysInMonth || !validShift(shift)) {
         return res.status(400).json({ error: 'Invalid schedule day or shift' });
       }
-      if (isWorkingShift(shift)) entries.push([employeeId, `${yearMonth}-${String(dayNum).padStart(2, '0')}`, shift.trim(), req.session.user.username]);
+      if (isWorkingShift(shift)) entries.push([employeeId, `${yearMonth}-${String(dayNum).padStart(2, '0')}`, toShiftCode(shift), req.session.user.username]);
     }
   }
 
@@ -146,7 +147,7 @@ exports.loadMonthlySchedule = async (req, res) => {
     const schedule = {};
     rows.forEach(row => {
       if (!schedule[row.employee_id]) schedule[row.employee_id] = {};
-      schedule[row.employee_id][row.day] = row.shift;
+      schedule[row.employee_id][row.day] = toShiftLabel(row.shift);
     });
     res.json({ success: true, data: rows.length ? { year: Number(year), month: Number(month), schedule } : null });
   } catch (err) {
@@ -173,7 +174,7 @@ exports.getStaffSchedule = async (req, res) => {
        WHERE employee_id = ? AND schedule_date >= ? AND schedule_date < DATE_ADD(?, INTERVAL 1 MONTH) ORDER BY schedule_date`,
       [id, `${yearMonth}-01`, `${yearMonth}-01`]
     );
-    const shifts = scheduleRows.map(row => ({ day: row.day, shift: row.shift }));
+    const shifts = scheduleRows.map(row => ({ day: row.day, shift: toShiftLabel(row.shift) }));
 
     let times = [];
     try {
@@ -249,8 +250,8 @@ exports.getScheduleAudit = async (req, res) => {
       employeeId: row.employee_id,
       employeeName: nameMap[row.employee_id] || row.employee_id,
       date: row.schedule_date,
-      previousShift: row.previous_shift,
-      newShift: row.new_shift,
+      previousShift: row.previous_shift ? toShiftLabel(row.previous_shift) : null,
+      newShift: row.new_shift ? toShiftLabel(row.new_shift) : null,
       changedBy: row.changed_by,
       changedAt: row.changed_at
     }));
