@@ -1,7 +1,7 @@
 const { pool } = require('../config/db');
 const { lateThresholdFor } = require('../utils/attendanceTime');
 
-const DEFAULTS = { workStart: '08:00', lateMin: 31 };
+const DEFAULTS = { workStart: '08:00', workEnd: '16:00', lateMin: 31 };
 const TTL_MS = 60 * 1000;
 let cache = { value: null, at: 0 };
 
@@ -19,6 +19,7 @@ async function getWorkSettings() {
       const raw = typeof rows[0].setting_value === 'string' ? JSON.parse(rows[0].setting_value) : rows[0].setting_value;
       value = {
         workStart: raw.workStart || DEFAULTS.workStart,
+        workEnd: raw.workEnd || DEFAULTS.workEnd,
         lateMin: Number.isFinite(Number(raw.lateMin)) ? Number(raw.lateMin) : DEFAULTS.lateMin,
         // Settings → ประเภทเวร: [{ name, start, end }] — start times for shift-aware incidents
         shifts: Array.isArray(raw.shifts) ? raw.shifts : [],

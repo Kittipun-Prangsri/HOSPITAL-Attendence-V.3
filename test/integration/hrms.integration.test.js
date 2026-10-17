@@ -780,6 +780,28 @@ test('department heads review only their own department', async () => {
   await call(users.admin, 'POST', `/api/ot/${otOut.body.id}/review`, { status: 'rejected' });
 });
 
+test('evening reminder finds office staff who scanned in but not out', async () => {
+  const reminder = require('../../src/services/checkoutReminder');
+  await admin.query(`UPDATE ${HOSOFFICE_DB}.hr_person SET TELEGRAM_CHAT_ID = '777' WHERE FINGLE_ID = '1002'`);
+  const personal = [];
+  const adminMsgs = [];
+  // DAY: 1001 07:55 + 16:10 (scanned out, and on the roster) · 1002 08:45 only · 1003/1004 never scanned
+  const r = await reminder.run({
+    now: new Date(`${DAY}T17:30:00+07:00`),
+    sendPersonal: async (chat, msg) => { personal.push([chat, msg]); return true; },
+    sendAdmin: async msg => { adminMsgs.push(msg); return true; }
+  });
+  assert.deepEqual(r.missing, ['1002']);
+  assert.equal(r.notified, 1);
+  assert.equal(personal[0][0], '777');
+  assert.match(personal[0][1], /08:45/);
+  assert.match(adminMsgs[0], /ยังไม่สแกนออก 1 คน/);
+  assert.match(adminMsgs[0], /สมชาย/);
+  const weekend = await reminder.run({ now: new Date('2026-09-19T17:30:00+07:00'), sendPersonal: async () => true, sendAdmin: async () => true });
+  assert.equal(weekend.skipped, 'not a working day');
+  await admin.query(`UPDATE ${HOSOFFICE_DB}.hr_person SET TELEGRAM_CHAT_ID = NULL WHERE FINGLE_ID = '1002'`);
+});
+
 test('escalation finds approvals pending for more than two days', async () => {
   const { collectStalePending, formatEscalation } = require('../../src/services/pendingEscalation');
   assert.equal((await collectStalePending(2)).leaves.length, 0);

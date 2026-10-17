@@ -67,3 +67,15 @@ test('review scope: admins everyone, heads their departments only', () => {
   assert.equal(canAccess('reviewer', 'user', false), false);
   assert.equal(canAccess('admin', 'user', true), false, 'heads do not get admin menus');
 });
+
+test('forgot-checkout selection and schedule', () => {
+  const { findMissingCheckouts, cronFor } = require('../src/services/checkoutReminder');
+  const people = ['A', 'B', 'C', 'D', 'E'].map(f => ({ fingle: f }));
+  const scans = { A: { first: '07:50', last: '16:05' }, B: { first: '07:58', last: '07:58' }, C: { first: '08:10', last: '13:00' }, E: { first: '07:40', last: '07:40' } };
+  const r = findMissingCheckouts({ people, scans, rostered: new Set(['E']), onLeave: new Set(), cutoff: '14:00' });
+  assert.deepEqual(r.map(p => p.fingle), ['B', 'C'], 'A scanned out, D never came, E is on the roster');
+  assert.deepEqual(findMissingCheckouts({ people, scans, rostered: new Set(), onLeave: new Set(['B', 'C', 'E']), cutoff: '14:00' }), [], 'leave today');
+  assert.equal(cronFor('17:30'), '30 17 * * 1-5');
+  assert.equal(cronFor('7:05'), '5 7 * * 1-5');
+  assert.equal(cronFor('bad'), '30 17 * * 1-5');
+});

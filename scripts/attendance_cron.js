@@ -251,6 +251,19 @@ cron.schedule('0 3 * * *', async () => {
   }
 }, { timezone: process.env.APP_TIMEZONE || 'Asia/Bangkok' });
 
+// Working-day evenings (FORGOT_CHECKOUT_TIME, default 17:30): remind office staff who did not scan out
+{
+  const checkout = require('../src/services/checkoutReminder');
+  cron.schedule(checkout.cronFor(), async () => {
+    try {
+      const r = await checkout.run();
+      if (!r.skipped) console.log(`[cron] checkout reminder ${r.date}: ${r.missing.length} missing, ${r.notified} notified`);
+    } catch (err) {
+      console.error('[cron] checkout reminder failed:', err.message);
+    }
+  }, { timezone: process.env.APP_TIMEZONE || 'Asia/Bangkok' });
+}
+
 cron.schedule('0 17 * * 5', () => {
   runWeeklySummary();
 }, {
@@ -258,7 +271,7 @@ cron.schedule('0 17 * * 5', () => {
   timezone: "Asia/Bangkok"
 });
 
-console.log('Attendance cron initialized: incident sync 01:00, scan-photo purge 02:00, backup 03:00, escalation 08:30 Mon–Fri, weekly summary Fri 17:00, scanner watch /10min, DB watch /5min');
+console.log('Attendance cron initialized: incident sync 01:00, scan-photo purge 02:00, backup 03:00, escalation 08:30 Mon–Fri, checkout reminder 17:30 Mon–Fri, weekly summary Fri 17:00, scanner watch /10min, DB watch /5min');
 
 module.exports = { runWeeklySummary };
 
