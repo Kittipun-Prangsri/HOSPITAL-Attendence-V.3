@@ -224,7 +224,7 @@ cron.schedule('0 17 * * 5', () => {
   timezone: "Asia/Bangkok"
 });
 
-console.log('Attendance Cron Job Initialized (Every Friday at 17:00)');
+console.log('Attendance cron initialized: incident sync 01:00 daily, escalation 08:30 Mon–Fri, weekly summary Fri 17:00');
 
 module.exports = { runWeeklySummary };
 

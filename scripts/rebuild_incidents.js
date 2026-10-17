@@ -5,6 +5,7 @@
  *
  *   npm run rebuild-incidents -- --from 2026-01 --to 2026-10            # dry run: show current counts
  *   npm run rebuild-incidents -- --from 2026-01 --to 2026-10 --confirm  # delete + resync
+ *   node scripts/rebuild_incidents.js 2026-01 2026-10                     # same, positional (PowerShell)
  */
 require('dotenv').config();
 process.env.TZ = process.env.APP_TIMEZONE || 'Asia/Bangkok';
@@ -13,10 +14,12 @@ const { syncIncidentsForMonth } = require('../src/controllers/apiController');
 const { pool, hosofficePool } = require('../src/config/db');
 
 const arg = name => { const i = process.argv.indexOf(`--${name}`); return i > -1 ? process.argv[i + 1] : undefined; };
+// Windows PowerShell's npm shim strips `--from`/`--to`, leaving bare months: accept those too.
+const positional = process.argv.slice(2).filter(a => /^\d{4}-\d{2}$/.test(a));
 
 (async () => {
-  const from = arg('from');
-  const to = arg('to') || from;
+  const from = arg('from') || positional[0];
+  const to = arg('to') || positional[1] || from;
   const confirm = process.argv.includes('--confirm');
   try {
     const results = await rebuildIncidents({ from, to, dryRun: !confirm, syncFn: syncIncidentsForMonth });
