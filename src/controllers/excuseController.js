@@ -4,7 +4,7 @@ const { logAudit } = require('../utils/audit');
 const NotificationService = require('../services/notificationService');
 const { approvedLeaveMap, leaveFor } = require('../services/leaveCalendar');
 const { getWorkSettings } = require('../services/workSettings');
-const { lateThresholdFor, isLateCheckIn, normalizeClock } = require('../utils/attendanceTime');
+const { lateThresholdFor, isLateCheckIn, normalizeClock, toDateKey } = require('../utils/attendanceTime');
 
 // Format past date helper
 function getPastDateString(daysAgo) {
@@ -15,10 +15,7 @@ function getPastDateString(daysAgo) {
 
 // DATE columns come back as local-midnight Date objects (pool timezone +07:00);
 // toISOString() would shift them to the previous day, so format in local time.
-function localDateKey(value) {
-  if (value instanceof Date) return value.toLocaleDateString('sv-SE');
-  return String(value).slice(0, 10);
-}
+const localDateKey = value => toDateKey(value);
 
 /**
  * Fetch excuses. Admins/managers see all; users see only theirs.

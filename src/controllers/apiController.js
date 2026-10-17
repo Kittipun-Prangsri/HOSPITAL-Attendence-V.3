@@ -3,7 +3,7 @@ const { ensureIncidentsSynced } = require('../services/incidentSync');
 const { approvedLeaveMap, leaveFor } = require('../services/leaveCalendar');
 const { getHolidaySet } = require('../services/holidays');
 const { getWorkSettings, resolveWorkSettings } = require('../services/workSettings');
-const { lateThresholdFor, isLateAt } = require('../utils/attendanceTime');
+const { lateThresholdFor, isLateAt, toDateKey } = require('../utils/attendanceTime');
 
 exports.getData = async (req, res) => {
   try {
@@ -248,7 +248,7 @@ async function syncIncidentsForMonth(year, month) {
   const scansMap = {};
   for (const s of scans) {
     if (!scansMap[s.EmployeeID]) scansMap[s.EmployeeID] = {};
-    scansMap[s.EmployeeID][s.AccessDate] = s.time_in;
+    scansMap[s.EmployeeID][toDateKey(s.AccessDate)] = s.time_in; // DATE column → Date object
   }
 
   // 3. Get leaves schedule for the month
@@ -280,7 +280,7 @@ async function syncIncidentsForMonth(year, month) {
   for (const e of excuses) {
     if (!excusesMap[e.username]) excusesMap[e.username] = {};
     // Local formatting: toISOString() shifts +07:00 DATE values to the previous day
-    const dateKey = e.date instanceof Date ? e.date.toLocaleDateString('sv-SE') : String(e.date).slice(0, 10);
+    const dateKey = toDateKey(e.date);
     excusesMap[e.username][dateKey] = e.status;
   }
 
@@ -293,7 +293,7 @@ async function syncIncidentsForMonth(year, month) {
 
   const incidentsMap = {};
   for (const inc of incidents) {
-    const dateKey = inc.incident_date instanceof Date ? inc.incident_date.toLocaleDateString('sv-SE') : String(inc.incident_date).slice(0, 10);
+    const dateKey = toDateKey(inc.incident_date);
     if (!incidentsMap[inc.employee_id]) incidentsMap[inc.employee_id] = {};
     if (!incidentsMap[inc.employee_id][dateKey]) {
       incidentsMap[inc.employee_id][dateKey] = {};

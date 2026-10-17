@@ -41,4 +41,14 @@ function isLateAt(time, settings) {
   return Boolean(t) && isLateCheckIn(t, lateThresholdFor(settings));
 }
 
-module.exports = { getTimeInTimezone, isLateCheckIn, normalizeClock, lateThresholdFor, isLateAt };
+/**
+ * 'YYYY-MM-DD' for a DATE column value. mysql2 returns DATE as a Date at midnight in the pool
+ * timezone (+07:00); toISOString() or String() would shift/garble it, so format in the app timezone.
+ */
+function toDateKey(value, timezone = process.env.APP_TIMEZONE || DEFAULT_TIMEZONE) {
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value.toLocaleDateString('sv-SE', { timeZone: timezone });
+  if (value == null) return null;
+  return String(value).slice(0, 10);
+}
+
+module.exports = { getTimeInTimezone, isLateCheckIn, normalizeClock, lateThresholdFor, isLateAt, toDateKey };

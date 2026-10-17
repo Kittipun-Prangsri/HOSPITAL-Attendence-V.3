@@ -17,6 +17,7 @@
     "check": "node --check src/index.js && node --check src/controllers/scheduleController.js && node --check src/services/realtimeNotifier.js && node --check scripts/migrations.js",
     "check-contrast": "node scripts/check_color_contrast.js",
     "test": "node --test test/*.test.js",
+    "test:integration": "node --test --test-concurrency=1 test/integration/*.test.js",
     "sync": "node scripts/sync_hikvision.js",
     "check-db": "node scripts/check_db.js",
     "check-tables": "node scripts/check_tables.js",

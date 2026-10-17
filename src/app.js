@@ -84,6 +84,9 @@ if (sessionStore && sessionStore.onReady) {
   sessionStore.onReady().catch(err => console.error('[session] MySQL session store unavailable:', err.message));
 }
 
+// Exposed so tests (and graceful shutdown) can close the store's connection pool
+app.locals.sessionStore = sessionStore;
+
 app.use(session({
   secret: sessionSecret,
   store: sessionStore,

@@ -2,7 +2,7 @@ const { pool, hosofficePool } = require('../config/db');
 const NotificationService = require('./notificationService');
 const flexBuilder = require('./flexBuilder');
 const { getLateThreshold } = require('./workSettings');
-const { isLateCheckIn, normalizeClock } = require('../utils/attendanceTime');
+const { isLateCheckIn, normalizeClock, toDateKey } = require('../utils/attendanceTime');
 
 let intervalId = null;
 const processingScans = new Set();
@@ -54,9 +54,8 @@ async function checkNewScans() {
     if (scans.length === 0) return;
 
     for (const scan of scans) {
-      const dateStr = typeof scan.AccessDate === 'string'
-        ? scan.AccessDate.slice(0, 10)
-        : (scan.AccessDate instanceof Date ? scan.AccessDate.toISOString().slice(0, 10) : String(scan.AccessDate));
+      // toISOString() would record the previous day for a +07:00 DATE value
+      const dateStr = toDateKey(scan.AccessDate);
 
       const scanKey = `${scan.EmployeeID}_${dateStr}_${scan.AccessTime}`;
       if (processingScans.has(scanKey)) {

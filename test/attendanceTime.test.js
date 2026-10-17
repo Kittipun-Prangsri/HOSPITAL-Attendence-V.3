@@ -31,3 +31,13 @@ test('isLateAt uses one rule for HH:MM and HH:MM:SS scans', () => {
   assert.equal(normalizeClock('7:05'), '07:05:00');
   assert.equal(normalizeClock('25:00'), null);
 });
+
+test('toDateKey formats DATE values in the app timezone regardless of host TZ', () => {
+  const { toDateKey } = require('../src/utils/attendanceTime');
+  // What mysql2 returns for DATE '2026-09-16' with timezone +07:00
+  const fromDb = new Date('2026-09-16T00:00:00+07:00');
+  assert.equal(toDateKey(fromDb, 'Asia/Bangkok'), '2026-09-16');
+  assert.notEqual(fromDb.toISOString().slice(0, 10), '2026-09-16'); // the old bug
+  assert.equal(toDateKey('2026-09-16T00:00:00.000Z'), '2026-09-16');
+  assert.equal(toDateKey(null), null);
+});
