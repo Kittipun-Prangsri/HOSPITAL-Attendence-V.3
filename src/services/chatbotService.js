@@ -2,6 +2,9 @@ const { hosofficePool } = require('../config/db');
 const flexBuilder = require('./flexBuilder');
 const { getLateThreshold } = require('./workSettings');
 const { isLateCheckIn, normalizeClock, toDateKey } = require('../utils/attendanceTime');
+const { pool } = require('../config/db');
+const { fiscalYearOf, summarizeBalance } = require('../utils/leave');
+const { quotasForEmployee } = require('./leavePolicy');
 
 class ChatbotService {
   /**
@@ -17,6 +20,9 @@ class ChatbotService {
     }
     if (action === 'latest_scan') {
       return await this.handleLatestScanFlex(userId);
+    }
+    if (action === 'leave_balance') {
+      return await this.handleLeaveBalance(userId);
     }
     if (action === 'excuse' || action === 'leave') {
       let fullname = 'บุคลากร';
@@ -94,6 +100,41 @@ class ChatbotService {
     } catch (err) {
       console.error('[Chatbot] latest scan card failed:', err.message);
       return 'ขออภัยครับ ดึงข้อมูลการสแกนล่าสุดไม่สำเร็จ ลองใหม่อีกครั้ง';
+    }
+  }
+
+  /** Remaining leave days for the current fiscal year (own data only), same numbers as the leave page. */
+  async handleLeaveBalance(userId) {
+    const me = await this.resolveRequester(userId);
+    if (!me) return 'บัญชีนี้ยังไม่ได้ผูกกับรหัสพนักงาน\nพิมพ์ "ขอไอดี" แล้วแจ้งฝ่าย IT / HR ให้ผูกบัญชีครับ';
+    try {
+      const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Bangkok' });
+      const fy = fiscalYearOf(today);
+      const [[rows], { quotas }, [[person]]] = await Promise.all([
+        pool.query(
+          `SELECT leave_type, days, status FROM leave_requests
+           WHERE employee_id = ? AND start_date BETWEEN ? AND ? AND status IN ('approved', 'pending')`,
+          [me.empId, fy.start, fy.end]),
+        quotasForEmployee(me.empId),
+        hosofficePool.query("SELECT CONCAT(TRIM(HR_FNAME), ' ', TRIM(HR_LNAME)) AS fullname FROM hr_person WHERE FINGLE_ID = ? LIMIT 1", [me.empId])
+      ]);
+      const balance = summarizeBalance(rows, quotas);
+      const fmt = n => (Number.isInteger(n) ? String(n) : n.toFixed(1));
+      // Main types always; the rest only when they were used this year
+      const lines = Object.entries(balance)
+        .filter(([key, b]) => ['sick', 'personal', 'vacation'].includes(key) || b.used || b.pending)
+        .filter(([, b]) => b.quota !== 0)
+        .map(([, b]) => {
+          const extra = [b.used ? `ใช้ ${fmt(b.used)}` : '', b.pending ? `รออนุมัติ ${fmt(b.pending)}` : ''].filter(Boolean).join(' · ');
+          const left = b.remaining == null ? 'ไม่จำกัด' : `เหลือ ${fmt(b.remaining)} วัน`;
+          return `• ${b.label}: ${left}${extra ? ` (${extra})` : ''}`;
+        });
+      const base = (process.env.SYSTEM_URL || '').trim().replace(/\/+$/, '');
+      return `🏖️ สิทธิ์ลาคงเหลือ ปีงบประมาณ ${fy.label}\n👤 ${(person && person.fullname || me.empId).trim()}\n\n${lines.join('\n')}` +
+        (base.startsWith('http') ? `\n\nยื่นลาออนไลน์: ${base}/leave` : '');
+    } catch (err) {
+      console.error('[Chatbot] leave balance failed:', err.message);
+      return 'ขออภัยครับ คำนวณสิทธิ์ลาไม่สำเร็จ ลองใหม่อีกครั้ง';
     }
   }
 

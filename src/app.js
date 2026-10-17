@@ -134,13 +134,23 @@ const notificationService = require('./services/notificationService');
 
 // Buttons under every bot reply. Each one is a postback answered with a reply message, which LINE does
 // not count against the monthly push quota, so the scan card stays available on the free plan.
-const LINE_QUICK_REPLY = {
-  items: [
-    { type: 'action', action: { type: 'postback', label: '📇 สแกนล่าสุด', data: 'action=latest_scan', displayText: 'สแกนล่าสุด' } },
-    { type: 'action', action: { type: 'postback', label: '📋 ประวัติวันนี้', data: 'action=today_history', displayText: 'ดูประวัติการเข้างาน' } },
-    { type: 'action', action: { type: 'postback', label: '📝 ยื่นใบลา', data: 'action=excuse', displayText: 'ยื่นใบลา' } }
-  ]
-};
+// Labels ≤ 20 characters (LINE limit); links appear only when LIFF_ID / SYSTEM_URL are configured.
+function lineQuickReply() {
+  const pb = (label, data, displayText) => ({ type: 'action', action: { type: 'postback', label, data, displayText } });
+  const uri = (label, url) => ({ type: 'action', action: { type: 'uri', label, uri: url } });
+  const liffId = (process.env.LIFF_ID || '').trim();
+  const base = (process.env.SYSTEM_URL || '').trim().replace(/\/+$/, '');
+  const items = [
+    liffId && uri('📸 สแกนใบหน้า', `https://liff.line.me/${liffId}`),
+    pb('📇 สแกนล่าสุด', 'action=latest_scan', 'สแกนล่าสุด'),
+    pb('📋 ประวัติวันนี้', 'action=today_history', 'ดูประวัติการเข้างาน'),
+    pb('🏖️ สิทธิ์ลาคงเหลือ', 'action=leave_balance', 'สิทธิ์ลาคงเหลือ'),
+    pb('📝 ยื่นใบลา', 'action=excuse', 'ยื่นใบลา'),
+    base.startsWith('http') && uri('🗓️ ตารางเวร', `${base}/schedule`),
+    { type: 'action', action: { type: 'message', label: '🔑 ขอไอดี', text: 'ขอไอดี' } }
+  ].filter(Boolean);
+  return { items };
+}
 
 // LINE Webhook Route (Highest Priority)
 app.post(['/', '/webhook'], verifyLineSignature, async (req, res) => {
@@ -160,11 +170,14 @@ app.post(['/', '/webhook'], verifyLineSignature, async (req, res) => {
 
             // Typing the same label shown on a Flex button should behave like tapping it
             const historyTextMatch = /^(?:ดูประวัติการเข้างาน|ดูประวัติการสแกน|ดูประวัติ|ขอดูการสแกนวันนี้|ขอดูแสกนวันนี้)$/i.test(cleanText);
+            const balanceTextMatch = /^(?:สิทธิ์ลาคงเหลือ|สิทธิ์ลา|สิทธิลา|วันลาคงเหลือ|วันลาเหลือ|เหลือวันลา)$/i.test(cleanText);
             const latestTextMatch = /^(?:สแกนล่าสุด|แสกนล่าสุด|ล่าสุด|การ์ด|การ์ดสแกน|latest)$/i.test(cleanText);
             const excuseTextMatch = /^(?:ยื่นใบลา\s*\/\s*แจ้งเหตุสาย|ยื่นใบลา|แจ้งเหตุสาย|แจ้งเหตุ|ขอใบลา|ใบลา|แก้ต่าง)$/i.test(cleanText);
 
             let flexReply = null;
-            if (latestTextMatch) {
+            if (balanceTextMatch) {
+              flexReply = await chatbotService.handlePostback('action=leave_balance', lineUserId);
+            } else if (latestTextMatch) {
               flexReply = await chatbotService.handlePostback('action=latest_scan', lineUserId);
             } else if (historyTextMatch) {
               flexReply = await chatbotService.handlePostback('action=today_history', lineUserId);
@@ -173,7 +186,7 @@ app.post(['/', '/webhook'], verifyLineSignature, async (req, res) => {
             }
 
             if (flexReply) {
-              await notificationService.replyLineMessage(event.replyToken, flexReply, LINE_QUICK_REPLY);
+              await notificationService.replyLineMessage(event.replyToken, flexReply, lineQuickReply());
             } else {
               // Check if message matches chatbot commands
               let replyText = await chatbotService.handleMessage(incomingText, lineUserId);
@@ -184,21 +197,21 @@ app.post(['/', '/webhook'], verifyLineSignature, async (req, res) => {
                             `คัดลอกไอดีด้านบนเพื่อนำไปวางในช่อง 'LINE ID' ในฟอร์มลงทะเบียนพนักงานเพื่อรับข้อความแจ้งเตือนครับ`;
               }
 
-              await notificationService.replyLineMessage(event.replyToken, replyText, LINE_QUICK_REPLY);
+              await notificationService.replyLineMessage(event.replyToken, replyText, lineQuickReply());
             }
           } else if (event.type === 'postback' && event.postback && event.postback.data) {
             const lineUserId = event.source.userId;
             const replyText = await chatbotService.handlePostback(event.postback.data, lineUserId);
 
             if (replyText) {
-              await notificationService.replyLineMessage(event.replyToken, replyText, LINE_QUICK_REPLY);
+              await notificationService.replyLineMessage(event.replyToken, replyText, lineQuickReply());
             }
           } else if (event.type === 'follow') {
             const replyText = `สวัสดีครับ ยินดีต้อนรับสู่ระบบบันทึกเวลาปฏิบัติงาน KHH Attendance\n\n` +
                               `LINE User ID ของคุณคือ:\n${event.source.userId}\n\n` +
                               `คัดลอกไอดีด้านบนเพื่อนำไปวางในช่อง 'LINE ID' ในฟอร์มลงทะเบียนพนักงานเพื่อรับข้อความแจ้งเตือนครับ`;
             
-            await notificationService.replyLineMessage(event.replyToken, replyText, LINE_QUICK_REPLY);
+            await notificationService.replyLineMessage(event.replyToken, replyText, lineQuickReply());
           }
         } catch (eventErr) {
           console.error(`[Webhook Event Processing Error]:`, eventErr);

@@ -582,6 +582,16 @@ test('LIFF sign-in refuses to work without a LINE Login channel and never trusts
   assert.equal(res.status, 503);
 });
 
+test('LINE leave-balance reply shows own remaining days only to linked staff', async () => {
+  const chatbot = require('../../src/services/chatbotService');
+  assert.match(await chatbot.handlePostback('action=leave_balance', 'Ustranger'), /ยังไม่ได้ผูก/);
+  const text = await chatbot.handlePostback('action=leave_balance', 'Utest1001');
+  assert.match(text, /สิทธิ์ลาคงเหลือ ปีงบประมาณ 25\d\d/);
+  assert.match(text, /สมหญิง/);
+  assert.match(text, /ลาป่วย: เหลือ/);
+  assert.match(text, /ลาพักผ่อน/);
+});
+
 test('escalation finds approvals pending for more than two days', async () => {
   const { collectStalePending, formatEscalation } = require('../../src/services/pendingEscalation');
   assert.equal((await collectStalePending(2)).leaves.length, 0);
