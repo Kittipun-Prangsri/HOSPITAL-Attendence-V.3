@@ -85,14 +85,15 @@ async function runWeeklySummary() {
     }
 
     // Active employees with at least one notification channel linked
-    const [employees] = await hosofficePool.query(`
-      SELECT p.ID, p.FINGLE_ID, CONCAT(p.HR_FNAME, ' ', p.HR_LNAME) AS fullname,
-             p.LINE_YOUR_USER_ID AS line_user_id, p.TELEGRAM_CHAT_ID AS telegram_chat_id
+    const links = await require('../src/services/messagingLinks').linksFor();
+    const linkedIds = [...links.keys()];
+    const [people] = linkedIds.length ? await hosofficePool.query(`
+      SELECT p.ID, p.FINGLE_ID, CONCAT(p.HR_FNAME, ' ', p.HR_LNAME) AS fullname
       FROM hr_person p
-      WHERE p.HR_STATUS_ID IN (?)
+      WHERE p.HR_STATUS_ID IN (?) AND p.ID IN (?)
         AND p.FINGLE_ID IS NOT NULL AND p.FINGLE_ID != ''
-        AND (NULLIF(TRIM(p.LINE_YOUR_USER_ID), '') IS NOT NULL OR NULLIF(TRIM(p.TELEGRAM_CHAT_ID), '') IS NOT NULL)
-    `, [ACTIVE_STATUS_IDS]);
+    `, [ACTIVE_STATUS_IDS, linkedIds]) : [[]];
+    const employees = people.map(p => ({ ...p, line_user_id: links.get(String(p.ID)).line, telegram_chat_id: links.get(String(p.ID)).telegram }));
 
     if (employees.length === 0) {
       console.log('[WeeklySummary] No employees with a linked LINE/Telegram contact. Nothing to send.');

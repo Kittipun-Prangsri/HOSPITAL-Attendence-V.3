@@ -224,12 +224,17 @@ exports.logAttendance = async (req, res) => {
     // 1. Fetch employee details from HOSoffice DB hr_person
     const { hosofficePool } = require('../config/db');
     const [empRows] = await hosofficePool.query(
-      "SELECT LINE_YOUR_USER_ID as line_user_id, TELEGRAM_CHAT_ID as telegram_chat_id, CONCAT(HR_FNAME, ' ', HR_LNAME) as fullname FROM hr_person WHERE FINGLE_ID = ? OR HR_CID = ?",
+      "SELECT ID, CONCAT(HR_FNAME, ' ', HR_LNAME) as fullname FROM hr_person WHERE FINGLE_ID = ? OR HR_CID = ?",
       [employeeId, employeeId]
     );
 
     if (empRows.length === 0) {
       return res.status(404).json({ success: false, error: 'Employee not found' });
+    }
+    {
+      const links = await require('../services/messagingLinks').linkOf(empRows[0].ID);
+      empRows[0].line_user_id = links.line;
+      empRows[0].telegram_chat_id = links.telegram;
     }
 
     const { fullname, line_user_id } = empRows[0];

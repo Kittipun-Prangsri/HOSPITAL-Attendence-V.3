@@ -24,9 +24,11 @@ function tooManyAttempts(key) {
 
 async function personOf(user) {
   const [rows] = await hosofficePool.query(
-    `SELECT p.ID AS id, p.FINGLE_ID AS fingle_id, CONCAT(p.HR_FNAME, ' ', p.HR_LNAME) AS fullname, p.LINE_YOUR_USER_ID AS line_user_id
+    `SELECT p.ID AS id, p.FINGLE_ID AS fingle_id, CONCAT(p.HR_FNAME, ' ', p.HR_LNAME) AS fullname
      FROM hr_person p WHERE p.ID = ? LIMIT 1`, [user.id]);
-  return rows[0] || null;
+  if (!rows[0]) return null;
+  rows[0].line_user_id = (await require('../services/messagingLinks').linkOf(rows[0].id)).line;
+  return rows[0];
 }
 
 /** Remove the biometric data of the given enrolment rows (template + photo), keeping an audit row. */

@@ -43,7 +43,7 @@ async function run({ now = new Date(), sendPersonal, sendAdmin } = {}) {
   // Office staff only (hiling template 1); shift workers are judged by their roster
   const [people] = await hosofficePool.query(
     `SELECT p.ID AS id, p.FINGLE_ID AS fingle, p.HR_CID AS cid, CONCAT(p.HR_FNAME, ' ', p.HR_LNAME) AS name,
-            p.TELEGRAM_CHAT_ID AS telegram, COALESCE(d.HR_DEPARTMENT_NAME, '-') AS dept
+            COALESCE(d.HR_DEPARTMENT_NAME, '-') AS dept
      FROM hr_person p
      LEFT JOIN hr_person_hiling_time h ON h.HR_PERSON_ID = p.ID
      LEFT JOIN hr_department d ON d.HR_DEPARTMENT_ID = p.HR_DEPARTMENT_ID
@@ -54,6 +54,8 @@ async function run({ now = new Date(), sendPersonal, sendAdmin } = {}) {
      FROM hikvision WHERE AccessDate = ? AND (AuthenticationResult IS NULL OR AuthenticationResult <> 'Failed')
      GROUP BY EmployeeID`, [date]);
   const scans = Object.fromEntries(scanRows.map(r => [r.EmployeeID, r]));
+  const links = await require('./messagingLinks').linksFor(people.map(p => p.id));
+  people.forEach(p => { p.telegram = (links.get(String(p.id)) || {}).telegram || null; });
   const [rosterRows] = await pool.query('SELECT employee_id FROM schedule_entries WHERE schedule_date = ?', [date]);
   const rostered = new Set(rosterRows.map(r => r.employee_id));
 

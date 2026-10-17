@@ -315,6 +315,44 @@ const migrations = [
         ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
       `);
     }
+  },
+  {
+    // LINE / Telegram links live in the app DB from now on (HOSoffice hr_person is no longer written).
+    // One active account per person per channel, one person per account. History goes to audit_log.
+    id: '011_messaging_links',
+    up: async () => {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS messaging_links (
+          hr_person_id INT NOT NULL,
+          channel VARCHAR(10) NOT NULL,
+          external_id VARCHAR(64) NOT NULL,
+          linked_via VARCHAR(20) NOT NULL,
+          linked_by VARCHAR(150) NULL,
+          linked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (hr_person_id, channel),
+          UNIQUE KEY uniq_channel_external (channel, external_id)
+        ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+      `);
+      // One-time import of the links HR typed into HOSoffice (valid formats only; first owner wins on duplicates)
+      let rows = [];
+      try {
+        [rows] = await hosofficePool.query(
+          "SELECT ID, LINE_YOUR_USER_ID AS line, TELEGRAM_CHAT_ID AS tg FROM hr_person WHERE COALESCE(LINE_YOUR_USER_ID, '') <> '' OR COALESCE(TELEGRAM_CHAT_ID, '') <> '' ORDER BY ID");
+      } catch (err) {
+        console.warn('[migrate] 011: HOSoffice link columns not readable, nothing imported:', err.message);
+      }
+      const values = [];
+      for (const r of rows) {
+        const line = String(r.line || '').trim();
+        const tg = String(r.tg || '').trim();
+        if (/^U[0-9a-f]{32}$/.test(line)) values.push([r.ID, 'line', line, 'import', 'migration 011']);
+        if (/^-?\d{4,20}$/.test(tg)) values.push([r.ID, 'telegram', tg, 'import', 'migration 011']);
+      }
+      if (values.length) {
+        await pool.query('INSERT IGNORE INTO messaging_links (hr_person_id, channel, external_id, linked_via, linked_by) VALUES ?', [values]);
+      }
+      console.log(`[migrate] 011: imported ${values.length} LINE/Telegram link(s) from HOSoffice`);
+    }
   }
 ];
 

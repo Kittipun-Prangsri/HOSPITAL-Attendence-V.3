@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const { pool, hosofficePool } = require('../config/db');
 
 const NotificationService = require('../services/notificationService');
+const { attachLinks, applyLinkInput, linkOf } = require('../services/messagingLinks');
 
 exports.getUsers = async (req, res) => {
   try {
@@ -13,13 +14,12 @@ exports.getUsers = async (req, res) => {
         p.HR_CID as username, 
         CONCAT(p.HR_FNAME, " ", p.HR_LNAME) as fullname, 
         p.USER_TYPE as role, 
-        p.LINE_YOUR_USER_ID as line_user_id,
-        p.TELEGRAM_CHAT_ID as telegram_chat_id,
         d.HR_DEPARTMENT_NAME as dept
       FROM hr_person p
       LEFT JOIN hr_department d ON p.HR_DEPARTMENT_ID = d.HR_DEPARTMENT_ID
       WHERE p.USER_TYPE IS NOT NULL AND p.HR_CID IS NOT NULL`
     );
+    await attachLinks(rows, 'id');
     const mappedRows = rows.map(r => ({
       ...r,
       role: r.role ? r.role.toLowerCase() : 'user'
@@ -47,19 +47,20 @@ exports.saveUser = async (req, res) => {
     // Check if this record already exists in hr_person (by HR_CID / username)
     const [existing] = await hosofficePool.query('SELECT ID FROM hr_person WHERE HR_CID = ?', [username]);
 
+    const saveLinks = async personId => {
+      for (const [channel, value] of [['line', line_user_id], ['telegram', telegram_chat_id]]) {
+        await applyLinkInput({ personId, channel, value: value === undefined ? undefined : value || '', via: 'admin', by: req.session.user.fullname });
+      }
+    };
+
     if (existing.length > 0) {
       if (password) {
         const hashed = await bcrypt.hash(password, 12);
-        await hosofficePool.query(
-          'UPDATE hr_person SET USER_TYPE = ?, HR_PASSWORD_HASH = ?, LINE_YOUR_USER_ID = ?, TELEGRAM_CHAT_ID = ? WHERE HR_CID = ?',
-          [dbRole, hashed, line_user_id || null, telegram_chat_id || null, username]
-        );
+        await hosofficePool.query('UPDATE hr_person SET USER_TYPE = ?, HR_PASSWORD_HASH = ? WHERE HR_CID = ?', [dbRole, hashed, username]);
       } else {
-        await hosofficePool.query(
-          'UPDATE hr_person SET USER_TYPE = ?, LINE_YOUR_USER_ID = ?, TELEGRAM_CHAT_ID = ? WHERE HR_CID = ?',
-          [dbRole, line_user_id || null, telegram_chat_id || null, username]
-        );
+        await hosofficePool.query('UPDATE hr_person SET USER_TYPE = ? WHERE HR_CID = ?', [dbRole, username]);
       }
+      await saveLinks(existing[0].ID);
       logAudit(req, 'update', 'user', username, { fullname, role, passwordChanged: Boolean(password) });
       res.json({ success: true, message: 'User updated successfully' });
     } else {
@@ -71,14 +72,16 @@ exports.saveUser = async (req, res) => {
       const fname = nameParts[0] || 'New';
       const lname = nameParts.slice(1).join(' ') || 'User';
 
-      await hosofficePool.query(
-        'INSERT INTO hr_person (HR_CID, HR_FNAME, HR_LNAME, USER_TYPE, HR_PASSWORD_HASH, LINE_YOUR_USER_ID, TELEGRAM_CHAT_ID) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [username, fname, lname, dbRole, hashed, line_user_id || null, telegram_chat_id || null]
+      const [created] = await hosofficePool.query(
+        'INSERT INTO hr_person (HR_CID, HR_FNAME, HR_LNAME, USER_TYPE, HR_PASSWORD_HASH) VALUES (?, ?, ?, ?, ?)',
+        [username, fname, lname, dbRole, hashed]
       );
+      await saveLinks(created.insertId);
       logAudit(req, 'create', 'user', username, { fullname, role });
       res.json({ success: true, message: 'User created successfully' });
     }
   } catch (error) {
+    if (error.code === 'TAKEN' || error.code === 'FORMAT') return res.status(error.code === 'TAKEN' ? 409 : 400).json({ error: error.message });
     console.error('Error saving user:', error);
     res.status(500).json({ error: 'Failed to save user' });
   }
@@ -88,13 +91,13 @@ exports.testLine = async (req, res) => {
   const { userId } = req.body;
   try {
     const [rows] = await hosofficePool.query(
-      'SELECT LINE_YOUR_USER_ID as line_user_id, CONCAT(HR_FNAME, " ", HR_LNAME) as fullname FROM hr_person WHERE ID = ?',
+      'SELECT CONCAT(HR_FNAME, " ", HR_LNAME) as fullname FROM hr_person WHERE ID = ?',
       [userId]
     );
     if (rows.length === 0) {
       return res.status(404).json({ success: false, error: 'ไม่พบผู้ใช้งานนี้ในระบบ' });
     }
-    const user = rows[0];
+    const user = { ...rows[0], line_user_id: (await linkOf(userId)).line };
     if (!user.line_user_id) {
       return res.status(400).json({ success: false, error: 'ผู้ใช้งานนี้ยังไม่ได้ระบุ LINE ID' });
     }
@@ -180,13 +183,13 @@ exports.testTelegram = async (req, res) => {
   const { userId } = req.body;
   try {
     const [rows] = await hosofficePool.query(
-      'SELECT TELEGRAM_CHAT_ID as telegram_chat_id, CONCAT(HR_FNAME, " ", HR_LNAME) as fullname FROM hr_person WHERE ID = ?',
+      'SELECT CONCAT(HR_FNAME, " ", HR_LNAME) as fullname FROM hr_person WHERE ID = ?',
       [userId]
     );
     if (rows.length === 0) {
       return res.status(404).json({ success: false, error: 'ไม่พบผู้ใช้งานนี้ในระบบ' });
     }
-    const user = rows[0];
+    const user = { ...rows[0], telegram_chat_id: (await linkOf(userId)).telegram };
     if (!user.telegram_chat_id) {
       return res.status(400).json({ success: false, error: 'ผู้ใช้งานนี้ยังไม่ได้ระบุ Telegram Chat ID' });
     }

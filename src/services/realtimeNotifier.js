@@ -3,6 +3,7 @@ const NotificationService = require('./notificationService');
 const flexBuilder = require('./flexBuilder');
 const { getLateThreshold } = require('./workSettings');
 const { isLateCheckIn, normalizeClock, toDateKey } = require('../utils/attendanceTime');
+const { linkOf } = require('./messagingLinks');
 
 let intervalId = null;
 const processingScans = new Set();
@@ -72,8 +73,7 @@ async function checkNewScans() {
 
         // Fetch HR person info for full name & channels
         const [hrRows] = await hosofficePool.query(`
-          SELECT p.LINE_YOUR_USER_ID as line_user_id,
-                 p.TELEGRAM_CHAT_ID as telegram_chat_id,
+          SELECT p.ID,
                  NULLIF(TRIM(CONCAT(COALESCE(TRIM(p.HR_FNAME),''), ' ', COALESCE(TRIM(p.HR_LNAME),''))), '') as hr_fullname
           FROM hr_person p
           WHERE p.FINGLE_ID = ? OR CAST(p.ID AS CHAR) = ? OR p.HR_CID = ? OR p.PERMIS_ID = ?
@@ -81,6 +81,11 @@ async function checkNewScans() {
         `, [scan.EmployeeID, scan.EmployeeID, scan.EmployeeID, scan.EmployeeID]);
 
         const hr = hrRows[0] || {};
+        if (hr.ID) {
+          const links = await linkOf(hr.ID);
+          hr.line_user_id = links.line;
+          hr.telegram_chat_id = links.telegram;
+        }
         const fullname = hr.hr_fullname || (scan.PersonName && !scan.PersonName.includes('เธ') ? scan.PersonName : scan.EmployeeID);
 
         // Record initial delivery row

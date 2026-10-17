@@ -6,6 +6,7 @@ const { approvedLeaveMap, leaveFor } = require('../services/leaveCalendar');
 const { getWorkSettings } = require('../services/workSettings');
 const { lateThresholdFor, isLateCheckIn, normalizeClock, toDateKey } = require('../utils/attendanceTime');
 const { reviewScope, canReview, scopeFilter } = require('../services/reviewScope');
+const { linkOf, linksFor } = require('../services/messagingLinks');
 
 // Format past date helper
 function getPastDateString(daysAgo) {
@@ -197,9 +198,10 @@ exports.reviewExcuse = async (req, res) => {
     if (rows.length > 0) {
       const excuse = rows[0];
       markIncidentsStale(excuse.date instanceof Date ? excuse.date : String(excuse.date));
-      const [userRows] = await hosofficePool.query('SELECT LINE_YOUR_USER_ID as line_user_id, TELEGRAM_CHAT_ID as telegram_chat_id, CONCAT(HR_FNAME, \' \', HR_LNAME) as fullname FROM hr_person WHERE HR_CID = ? OR FINGLE_ID = ? LIMIT 1', [excuse.username, excuse.username]);
+      const [userRows] = await hosofficePool.query('SELECT ID, CONCAT(HR_FNAME, \' \', HR_LNAME) as fullname FROM hr_person WHERE HR_CID = ? OR FINGLE_ID = ? LIMIT 1', [excuse.username, excuse.username]);
       if (userRows.length > 0) {
-        const { line_user_id, telegram_chat_id, fullname } = userRows[0];
+        const { fullname } = userRows[0];
+        const { line: line_user_id, telegram: telegram_chat_id } = await linkOf(userRows[0].ID);
         
         let thaiIssue = 'แสกนไม่ติด';
         if (excuse.issue_type === 'absent') thaiIssue = 'ขาดงาน';
@@ -289,9 +291,9 @@ exports.sendReminders = async (req, res) => {
   try {
     for (const c of candidates) {
       // Find notification IDs of candidate
-      const [userRows] = await hosofficePool.query('SELECT LINE_YOUR_USER_ID as line_user_id, TELEGRAM_CHAT_ID as telegram_chat_id FROM hr_person WHERE HR_CID = ? OR FINGLE_ID = ? LIMIT 1', [c.username, c.username]);
+      const [userRows] = await hosofficePool.query('SELECT ID FROM hr_person WHERE HR_CID = ? OR FINGLE_ID = ? LIMIT 1', [c.username, c.username]);
       if (userRows.length > 0) {
-        const { line_user_id, telegram_chat_id } = userRows[0];
+        const { line: line_user_id, telegram: telegram_chat_id } = await linkOf(userRows[0].ID);
         const thaiIssue = c.issue_type === 'late' ? 'มาสาย' : 'ขาดงาน / ไม่แสกนเข้างาน';
         const msg = `⚠️ *แจ้งเตือน: ค้างส่งใบแก้ต่างการลงเวลา*\n\n` +
                     `👤 สวัสดีคุณ: ${c.fullname}\n` +
@@ -324,7 +326,9 @@ exports.compileReminderCandidates = async () => {
   const lateThresholdTime = lateThresholdFor(workSettings);
 
   // 1. Get all local users who are registered
-  const [users] = await hosofficePool.query('SELECT FINGLE_ID as employee_id, HR_CID as username, CONCAT(HR_FNAME, \' \', HR_LNAME) as fullname, LINE_YOUR_USER_ID as line_user_id, TELEGRAM_CHAT_ID as telegram_chat_id FROM hr_person WHERE USER_TYPE IS NOT NULL AND HR_CID IS NOT NULL');
+  const [users] = await hosofficePool.query('SELECT ID, FINGLE_ID as employee_id, HR_CID as username, CONCAT(HR_FNAME, \' \', HR_LNAME) as fullname FROM hr_person WHERE USER_TYPE IS NOT NULL AND HR_CID IS NOT NULL');
+  const userLinks = await linksFor(users.map(u => u.ID));
+  users.forEach(u => { const l = userLinks.get(String(u.ID)) || {}; u.line_user_id = l.line || null; u.telegram_chat_id = l.telegram || null; });
   
   if (users.length === 0) return [];
   

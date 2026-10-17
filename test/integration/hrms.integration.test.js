@@ -45,6 +45,8 @@ const bcrypt = require('bcryptjs');
 const fs = require('fs');
 
 const PASSWORD = 'Passw0rd!';
+// A LINE user id in the real format (U + 32 hex), so migration 011 imports it
+const LINE_1001 = 'U1001' + 'a'.repeat(28);
 const DAY = '2026-09-16'; // Wednesday in a fully elapsed month, so results don't depend on today's date
 const PDF = Buffer.from('%PDF-1.4\n% integration test\n').toString('base64');
 
@@ -104,7 +106,7 @@ async function setupDatabases() {
     INSERT INTO hr_status VALUES ('01', 'ข้าราชการ'), ('02', 'ลูกจ้างชั่วคราว');
     INSERT INTO hiling_time_template VALUES (1, NULL);`);
   const people = [
-    [1, '1001', '1100000000001', 'สมหญิง', 'ทดสอบ', 1, '01', 'USER', 'Utest1001'],
+    [1, '1001', '1100000000001', 'สมหญิง', 'ทดสอบ', 1, '01', 'USER', LINE_1001],
     [2, '1002', '1100000000002', 'สมชาย', 'ลูกจ้าง', 1, '02', 'USER', null],
     [3, '1003', '1100000000003', 'ผู้ดูแล', 'ระบบ', 2, '01', 'ADMIN', null],
     [4, '1004', '1100000000004', 'ซูเปอร์', 'แอดมิน', 2, '01', 'SUPER', null]
@@ -180,7 +182,7 @@ test.after(async () => {
 test('migrations created every table and sessions persist in MySQL', async () => {
   const [tables] = await admin.query('SELECT table_name AS t FROM information_schema.tables WHERE table_schema = ?', [HOSPITAL_DB]);
   const names = tables.map(r => r.t || r.TABLE_NAME);
-  for (const t of ['schema_migrations', 'leave_requests', 'app_settings', 'holidays', 'ot_requests', 'audit_log', 'incident_logs', 'scan_outages', 'face_enrollments', 'mobile_scans', 'department_heads', 'sessions']) {
+  for (const t of ['schema_migrations', 'leave_requests', 'app_settings', 'holidays', 'ot_requests', 'audit_log', 'incident_logs', 'scan_outages', 'face_enrollments', 'mobile_scans', 'department_heads', 'messaging_links', 'sessions']) {
     assert.ok(names.includes(t), `missing table ${t}`);
   }
   const [[{ n }]] = await admin.query(`SELECT COUNT(*) AS n FROM ${HOSPITAL_DB}.sessions`);
@@ -302,7 +304,9 @@ test('saving settings changes the late rule everywhere immediately', async () =>
 test('partial staff update keeps untouched columns', async () => {
   assert.equal((await call(users.staff, 'POST', '/api/staff/update', { id: '1001', nickname: 'หญิง' })).status, 200);
   const [[row]] = await admin.query(`SELECT NICKNAME, LINE_YOUR_USER_ID, WORK_SHIFT FROM ${HOSOFFICE_DB}.hr_person WHERE ID = 1`);
-  assert.deepEqual(row, { NICKNAME: 'หญิง', LINE_YOUR_USER_ID: 'Utest1001', WORK_SHIFT: 'เช้า' });
+  assert.deepEqual(row, { NICKNAME: 'หญิง', LINE_YOUR_USER_ID: LINE_1001, WORK_SHIFT: 'เช้า' });
+  const [[link]] = await admin.query(`SELECT external_id, linked_via FROM ${HOSPITAL_DB}.messaging_links WHERE hr_person_id = 1 AND channel = 'line'`);
+  assert.deepEqual(link, { external_id: LINE_1001, linked_via: 'import' }, 'migration 011 imported the HOSoffice link');
   assert.equal((await call(users.staff, 'POST', '/api/staff/update', { id: '1002', nickname: 'x' })).status, 403);
 });
 
@@ -420,15 +424,15 @@ test('chatbot shows scan history only to linked staff: own data, or everyone for
   assert.match(await chatbot.handleMessage('1', 'Ustranger'), /ยังไม่ได้ผูก/, 'unknown LINE user gets nothing');
   assert.match(await chatbot.handleMessage(thaiDay, 'Ustranger'), /ยังไม่ได้ผูก/);
 
-  const own = await chatbot.handleMessage(thaiDay, 'Utest1001');
+  const own = await chatbot.handleMessage(thaiDay, LINE_1001);
   assert.match(own, /สมหญิง/);
   assert.doesNotMatch(own, /สมชาย/, 'regular staff never see colleagues');
-  const asked = await chatbot.handleMessage('1 1002', 'Utest1001');
+  const asked = await chatbot.handleMessage('1 1002', LINE_1001);
   assert.match(asked, /เฉพาะข้อมูลของตนเอง/);
   assert.doesNotMatch(asked, /สมชาย/);
 
-  await admin.query(`UPDATE ${HOSOFFICE_DB}.hr_person SET TELEGRAM_CHAT_ID = '555' WHERE FINGLE_ID = '1003'`);
-  const all = await chatbot.handleMessage(thaiDay, '555');
+  await admin.query(`INSERT INTO ${HOSPITAL_DB}.messaging_links (hr_person_id, channel, external_id, linked_via) VALUES (3, 'telegram', '5550001', 'admin')`);
+  const all = await chatbot.handleMessage(thaiDay, '5550001');
   assert.match(all, /สมหญิง/);
   assert.match(all, /สมชาย/, 'admins can see the whole hospital');
 });
@@ -439,7 +443,7 @@ test('latest scan card is available as a free LINE reply', async () => {
   // Fixture scans are on DAY, outside the 7-day window relative to today unless DAY is recent
   await admin.query(`INSERT INTO ${HOSOFFICE_DB}.hikvision (EmployeeID, AccessDate, AccessTime, Direction, AuthenticationResult, DeviceName)
     VALUES ('1001', CURDATE(), '09:30:00', 'in', 'Success', 'KHHin2')`);
-  const card = await chatbot.handlePostback('action=latest_scan', 'Utest1001');
+  const card = await chatbot.handlePostback('action=latest_scan', LINE_1001);
   assert.equal(card.type, 'bubble');
   const text = JSON.stringify(card);
   assert.match(text, /สมหญิง/);
@@ -580,14 +584,14 @@ test('mobile scan: two-photo liveness, geofence, review queue, hikvision write',
 });
 
 test('LIFF sign-in refuses to work without a LINE Login channel and never trusts a raw user id', async () => {
-  const res = await fetch(`${base}/api/liff/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken: 'x', userId: 'Utest1001' }) });
+  const res = await fetch(`${base}/api/liff/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken: 'x', userId: LINE_1001 }) });
   assert.equal(res.status, 503);
 });
 
 test('LINE leave-balance reply shows own remaining days only to linked staff', async () => {
   const chatbot = require('../../src/services/chatbotService');
   assert.match(await chatbot.handlePostback('action=leave_balance', 'Ustranger'), /ยังไม่ได้ผูก/);
-  const text = await chatbot.handlePostback('action=leave_balance', 'Utest1001');
+  const text = await chatbot.handlePostback('action=leave_balance', LINE_1001);
   assert.match(text, /สิทธิ์ลาคงเหลือ ปีงบประมาณ 25\d\d/);
   assert.match(text, /สมหญิง/);
   assert.match(text, /ลาป่วย: เหลือ/);
@@ -782,7 +786,7 @@ test('department heads review only their own department', async () => {
 
 test('evening reminder finds office staff who scanned in but not out', async () => {
   const reminder = require('../../src/services/checkoutReminder');
-  await admin.query(`UPDATE ${HOSOFFICE_DB}.hr_person SET TELEGRAM_CHAT_ID = '777' WHERE FINGLE_ID = '1002'`);
+  await admin.query(`INSERT INTO ${HOSPITAL_DB}.messaging_links (hr_person_id, channel, external_id, linked_via) VALUES (2, 'telegram', '7770001', 'admin')`);
   const personal = [];
   const adminMsgs = [];
   // DAY: 1001 07:55 + 16:10 (scanned out, and on the roster) · 1002 08:45 only · 1003/1004 never scanned
@@ -793,13 +797,13 @@ test('evening reminder finds office staff who scanned in but not out', async () 
   });
   assert.deepEqual(r.missing, ['1002']);
   assert.equal(r.notified, 1);
-  assert.equal(personal[0][0], '777');
+  assert.equal(personal[0][0], '7770001');
   assert.match(personal[0][1], /08:45/);
   assert.match(adminMsgs[0], /ยังไม่สแกนออก 1 คน/);
   assert.match(adminMsgs[0], /สมชาย/);
   const weekend = await reminder.run({ now: new Date('2026-09-19T17:30:00+07:00'), sendPersonal: async () => true, sendAdmin: async () => true });
   assert.equal(weekend.skipped, 'not a working day');
-  await admin.query(`UPDATE ${HOSOFFICE_DB}.hr_person SET TELEGRAM_CHAT_ID = NULL WHERE FINGLE_ID = '1002'`);
+  await admin.query(`DELETE FROM ${HOSPITAL_DB}.messaging_links WHERE hr_person_id = 2 AND channel = 'telegram'`);
 });
 
 test('my month: own day-by-day status, and excuses are validated', async () => {
@@ -822,6 +826,29 @@ test('my month: own day-by-day status, and excuses are validated', async () => {
   assert.equal((await call(users.staff, 'POST', '/api/excuses', { date: '2026-09-29', issue_type: 'late', reason: '   ' })).status, 400, 'empty reason');
   // 1001's excuse for the 23rd was approved by the department head earlier: it cannot be reopened
   assert.equal((await call(users.staff, 'POST', '/api/excuses', { date: '2026-09-23', issue_type: 'late', reason: 'แก้ไข' })).status, 409);
+});
+
+test('LINE / Telegram links are saved in hospital_db only, one person per account', async () => {
+  const LINE_1002 = 'U1002' + 'b'.repeat(28);
+  // Admin links 1002's LINE from the personnel screen
+  const up = await call(users.admin, 'POST', '/api/staff/update', { id: '1002', line_user_id: LINE_1002 });
+  assert.equal(up.status, 200, JSON.stringify(up.body));
+  const [[hos]] = await admin.query(`SELECT LINE_YOUR_USER_ID FROM ${HOSOFFICE_DB}.hr_person WHERE ID = 2`);
+  assert.equal(hos.LINE_YOUR_USER_ID, null, 'HOSoffice is not written');
+  const [[l]] = await admin.query(`SELECT external_id, linked_via FROM ${HOSPITAL_DB}.messaging_links WHERE hr_person_id = 2 AND channel = 'line'`);
+  assert.deepEqual(l, { external_id: LINE_1002, linked_via: 'admin' });
+  // The same LINE account cannot be linked to someone else; bad formats are refused
+  assert.equal((await call(users.admin, 'POST', '/api/staff/update', { id: '1003', line_user_id: LINE_1002 })).status, 409);
+  assert.equal((await call(users.admin, 'POST', '/api/staff/update', { id: '1003', telegram_chat_id: 'abc' })).status, 400);
+  // Readers use the new table: personnel list and the chatbot both see the link
+  const list = (await call(users.admin, 'GET', '/api/personnel')).body.personnel;
+  assert.equal(list.find(p => p.FINGLE_ID === '1002').line_user_id, LINE_1002);
+  const chatbot = require('../../src/services/chatbotService');
+  assert.match(await chatbot.handleMessage('ขอรหัสemployeeid', LINE_1002), /1002/);
+  // Clearing the field unlinks
+  assert.equal((await call(users.admin, 'POST', '/api/staff/update', { id: '1002', line_user_id: '' })).status, 200);
+  const [gone] = await admin.query(`SELECT 1 FROM ${HOSPITAL_DB}.messaging_links WHERE hr_person_id = 2 AND channel = 'line'`);
+  assert.equal(gone.length, 0);
 });
 
 test('escalation finds approvals pending for more than two days', async () => {

@@ -5,6 +5,7 @@ const { isLateCheckIn, normalizeClock, toDateKey } = require('../utils/attendanc
 const { pool } = require('../config/db');
 const { fiscalYearOf, summarizeBalance } = require('../utils/leave');
 const { quotasForEmployee } = require('./leavePolicy');
+const { personByChatId } = require('./messagingLinks');
 
 class ChatbotService {
   /**
@@ -29,16 +30,7 @@ class ChatbotService {
       let empId = '';
       if (userId) {
         try {
-          const [person] = await hosofficePool.query(`
-            SELECT FINGLE_ID, CONCAT(TRIM(HR_FNAME), ' ', TRIM(HR_LNAME)) as fullname
-            FROM hr_person
-            WHERE LINE_TOKEN = ? 
-               OR LINE_TOKEN1 = ? 
-               OR LINE_TOKEN2 = ? 
-               OR LINE_YOUR_USER_ID = ?
-               OR TELEGRAM_CHAT_ID = ?
-            LIMIT 1
-          `, [userId, userId, userId, userId, userId]);
+          const [person] = await this.chatPersonQuery(userId, `FINGLE_ID, CONCAT(TRIM(HR_FNAME), ' ', TRIM(HR_LNAME)) as fullname`);
           if (person.length > 0) {
             empId = person[0].FINGLE_ID;
             fullname = person[0].fullname.trim();
@@ -153,16 +145,7 @@ class ChatbotService {
 
     if (userId) {
       try {
-        const [person] = await hosofficePool.query(`
-          SELECT FINGLE_ID, CONCAT(TRIM(HR_FNAME), ' ', TRIM(HR_LNAME)) as fullname
-          FROM hr_person
-          WHERE LINE_TOKEN = ? 
-             OR LINE_TOKEN1 = ? 
-             OR LINE_TOKEN2 = ? 
-             OR LINE_YOUR_USER_ID = ?
-             OR TELEGRAM_CHAT_ID = ?
-          LIMIT 1
-        `, [userId, userId, userId, userId, userId]);
+        const [person] = await this.chatPersonQuery(userId, `FINGLE_ID, CONCAT(TRIM(HR_FNAME), ' ', TRIM(HR_LNAME)) as fullname`);
 
         if (person.length > 0) {
           empId = person[0].FINGLE_ID;
@@ -196,6 +179,16 @@ class ChatbotService {
    * Main entry point to handle incoming text messages
    */
   /**
+   * hr_person row(s) for the staff member linked to this LINE user id / Telegram chat id, in the
+   * same [rows] shape as pool.query. Links come from hospital_db.messaging_links only.
+   */
+  async chatPersonQuery(userId, cols) {
+    const personId = await personByChatId(userId);
+    if (!personId) return [[]];
+    return hosofficePool.query(`SELECT ${cols} FROM hr_person WHERE ID = ? LIMIT 1`, [personId]);
+  }
+
+  /**
    * Who is asking: the staff record linked to this LINE userId / Telegram chat id.
    * Scan history is personal data (PDPA), so only linked staff may query it, regular staff
    * only their own, and only ADMIN / SUPER accounts may look up other people or the whole hospital.
@@ -203,12 +196,7 @@ class ChatbotService {
   async resolveRequester(userId) {
     if (!userId) return null;
     try {
-      const [rows] = await hosofficePool.query(`
-        SELECT FINGLE_ID, UPPER(COALESCE(USER_TYPE, '')) AS user_type
-        FROM hr_person
-        WHERE LINE_YOUR_USER_ID = ? OR TELEGRAM_CHAT_ID = ? OR LINE_TOKEN = ? OR LINE_TOKEN1 = ? OR LINE_TOKEN2 = ?
-        LIMIT 1
-      `, [userId, userId, userId, userId, userId]);
+      const [rows] = await this.chatPersonQuery(userId, `FINGLE_ID, UPPER(COALESCE(USER_TYPE, '')) AS user_type`);
       if (!rows.length || !rows[0].FINGLE_ID) return null;
       return { empId: String(rows[0].FINGLE_ID), isAdmin: ['ADMIN', 'SUPER'].includes(rows[0].user_type) };
     } catch (err) {
@@ -250,16 +238,7 @@ class ChatbotService {
     if (cleanText.toLowerCase() === 'ขอรหัสemployeeid') {
       console.log(`[Chatbot] Looking up EmployeeID for platform ID: ${userId}...`);
       try {
-        const [rows] = await hosofficePool.query(`
-          SELECT FINGLE_ID 
-          FROM hr_person 
-          WHERE LINE_TOKEN = ? 
-             OR LINE_TOKEN1 = ? 
-             OR LINE_TOKEN2 = ? 
-             OR LINE_YOUR_USER_ID = ?
-             OR TELEGRAM_CHAT_ID = ?
-          LIMIT 1
-        `, [userId, userId, userId, userId, userId]);
+        const [rows] = await this.chatPersonQuery(userId, `FINGLE_ID`);
 
         if (rows.length > 0 && rows[0].FINGLE_ID) {
           return `เลขรหัสของคุณคือ : ${rows[0].FINGLE_ID}`;
@@ -386,16 +365,7 @@ class ChatbotService {
     // Personal user lookup when clicking Flex button / requesting personal scans
     if (userId && !nameFilter) {
       try {
-        const [person] = await hosofficePool.query(`
-          SELECT FINGLE_ID, CONCAT(TRIM(HR_FNAME), ' ', TRIM(HR_LNAME)) as fullname
-          FROM hr_person
-          WHERE LINE_TOKEN = ? 
-             OR LINE_TOKEN1 = ? 
-             OR LINE_TOKEN2 = ? 
-             OR LINE_YOUR_USER_ID = ?
-             OR TELEGRAM_CHAT_ID = ?
-          LIMIT 1
-        `, [userId, userId, userId, userId, userId]);
+        const [person] = await this.chatPersonQuery(userId, `FINGLE_ID, CONCAT(TRIM(HR_FNAME), ' ', TRIM(HR_LNAME)) as fullname`);
 
         if (person.length > 0 && person[0].FINGLE_ID) {
           const empId = person[0].FINGLE_ID;

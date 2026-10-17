@@ -189,15 +189,13 @@ class NotificationService {
       let lineUserId = null;
       let telegramChatId = null;
 
-      // Query the database hr_person table directly
-      const [rows] = await hosofficePool.query(
-        'SELECT LINE_YOUR_USER_ID as line_user_id, TELEGRAM_CHAT_ID as telegram_chat_id FROM hr_person WHERE ID = ? OR HR_CID = ?',
-        [userId, userId]
-      );
+      // Resolve the person (id or national id), then their links from hospital_db.messaging_links
+      const [rows] = await hosofficePool.query('SELECT ID FROM hr_person WHERE ID = ? OR HR_CID = ? LIMIT 1', [userId, userId]);
       if (rows && rows.length > 0) {
-        lineUserId = rows[0].line_user_id;
-        if (rows[0].telegram_chat_id) {
-          telegramChatId = rows[0].telegram_chat_id;
+        const links = await require('./messagingLinks').linkOf(rows[0].ID);
+        lineUserId = links.line;
+        if (links.telegram) {
+          telegramChatId = links.telegram;
         }
       }
 

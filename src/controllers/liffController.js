@@ -1,5 +1,6 @@
 const { hosofficePool } = require('../config/db');
 const { logAudit } = require('../utils/audit');
+const { personByExternal } = require('../services/messagingLinks');
 
 /**
  * Ask LINE to verify a LIFF ID token. Never trust a userId sent by the page itself.
@@ -34,11 +35,12 @@ exports.login = async (req, res) => {
   if (!lineUserId) return res.status(401).json({ success: false, error: 'บัญชี LINE ไม่ถูกต้องหรือหมดอายุ กรุณาเปิดจาก LINE อีกครั้ง' });
 
   try {
-    const [rows] = await hosofficePool.query(
+    const personId = await personByExternal('line', lineUserId);
+    const [rows] = personId ? await hosofficePool.query(
       `SELECT ID AS id, HR_CID AS cid, FINGLE_ID AS fingle_id, CONCAT(HR_FNAME, ' ', HR_LNAME) AS fullname, USER_TYPE AS role
-       FROM hr_person WHERE LINE_YOUR_USER_ID = ? AND HR_STATUS_ID IN ('01', '02', '03', '04', '09') LIMIT 2`,
-      [lineUserId]
-    );
+       FROM hr_person WHERE ID = ? AND HR_STATUS_ID IN ('01', '02', '03', '04', '09') LIMIT 1`,
+      [personId]
+    ) : [[]];
     if (rows.length !== 1) {
       // Not linked (or linked to two people): show the id so HR can link it
       return res.status(404).json({ success: false, notLinked: true, lineUserId, error: 'บัญชี LINE นี้ยังไม่ได้ผูกกับข้อมูลบุคลากร กรุณาแจ้ง HR / IT พร้อมไอดีด้านล่าง' });

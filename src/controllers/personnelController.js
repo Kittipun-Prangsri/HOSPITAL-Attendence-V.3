@@ -2,6 +2,7 @@ const { hosofficePool } = require('../config/db');
 const { resolveWorkSettings } = require('../services/workSettings');
 const { isLateAt } = require('../utils/attendanceTime');
 const { logAudit } = require('../utils/audit');
+const { attachLinks, applyLinkInput } = require('../services/messagingLinks');
 
 exports.getPersonnel = async (req, res) => {
   try {
@@ -13,8 +14,7 @@ exports.getPersonnel = async (req, res) => {
         p.ID, p.FINGLE_ID, p.HR_PREFIX_ID, p.HR_FNAME, p.HR_LNAME, p.NICKNAME, 
         p.HR_PHONE, p.HR_EMAIL, p.HR_DEPARTMENT_ID, d.HR_DEPARTMENT_NAME,
         p.HR_POSITION_ID, p.HR_STATUS_ID, s.HR_STATUS_NAME,
-        p.HR_STARTWORK_DATE, p.HR_CID, p.LINE_YOUR_USER_ID as line_user_id,
-        p.TELEGRAM_CHAT_ID as telegram_chat_id,
+        p.HR_STARTWORK_DATE, p.HR_CID,
         p.WORK_SHIFT, p.TIME_IN, p.TIME_OUT
       FROM hr_person p
       LEFT JOIN hr_department d ON p.HR_DEPARTMENT_ID = d.HR_DEPARTMENT_ID
@@ -27,6 +27,7 @@ exports.getPersonnel = async (req, res) => {
     }
 
     const [personnel] = await hosofficePool.query(query, params);
+    await attachLinks(personnel, 'ID'); // LINE / Telegram from hospital_db.messaging_links
     res.json({ personnel });
   } catch (error) {
     console.error('Database query error (hosoffice):', error);
@@ -64,28 +65,39 @@ exports.updateStaff = async (req, res) => {
     }
     // Partial update: only columns present in the request body are written,
     // so callers that send a subset (e.g. the dashboard profile editor) don't wipe the rest.
+    const [[target]] = await hosofficePool.query('SELECT ID FROM hr_person WHERE FINGLE_ID = ? LIMIT 1', [id]);
+    if (!target) return res.status(404).json({ success: false, message: 'Personnel not found.' });
+    // LINE / Telegram are stored in hospital_db.messaging_links, never in HOSoffice
+    const linkChanges = [];
+    for (const [channel, value] of [['line', line_user_id], ['telegram', telegram_chat_id]]) {
+      try {
+        const r = await applyLinkInput({ personId: target.ID, channel, value, via: isPrivileged ? 'admin' : 'self', by: currentUser.fullname });
+        if (r.changed) linkChanges.push(channel);
+      } catch (err) {
+        if (err.code === 'TAKEN' || err.code === 'FORMAT') {
+          return res.status(err.code === 'TAKEN' ? 409 : 400).json({ success: false, message: `${channel === 'line' ? 'LINE' : 'Telegram'}: ${err.message}` });
+        }
+        throw err;
+      }
+    }
     const columns = [
       ['NICKNAME', nickname, 100],
       ['HR_PHONE', phone, 50],
       ['HR_EMAIL', email, 255],
-      ['LINE_YOUR_USER_ID', line_user_id, 255],
-      ['TELEGRAM_CHAT_ID', telegram_chat_id, 100],
       ['WORK_SHIFT', work_shift, 50],
       ['TIME_IN', time_in, 20],
       ['TIME_OUT', time_out, 20]
     ].filter(([, value]) => value !== undefined);
-    if (columns.length === 0) {
+    if (columns.length === 0 && linkChanges.length === 0 && line_user_id === undefined && telegram_chat_id === undefined) {
       return res.status(400).json({ success: false, message: 'No fields to update' });
     }
-    const [result] = await hosofficePool.query(
-      `UPDATE hr_person SET ${columns.map(([column]) => `${column} = ?`).join(', ')} WHERE FINGLE_ID = ?`,
-      [...columns.map(([, value, maxLength]) => normalizeText(value, maxLength)), id]
-    );
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ success: false, message: 'Personnel not found.' });
+    if (columns.length) {
+      await hosofficePool.query(
+        `UPDATE hr_person SET ${columns.map(([column]) => `${column} = ?`).join(', ')} WHERE FINGLE_ID = ?`,
+        [...columns.map(([, value, maxLength]) => normalizeText(value, maxLength)), id]
+      );
     }
-    logAudit(req, 'update', 'staff', id, { fields: columns.map(([column]) => column) });
+    logAudit(req, 'update', 'staff', id, { fields: columns.map(([column]) => column), links: linkChanges.length ? linkChanges : undefined });
     res.json({ success: true, message: 'อัปเดตข้อมูลบุคลากรเรียบร้อยแล้ว' });
   } catch (error) {
     console.error('Error updating personnel:', error);
@@ -168,9 +180,7 @@ exports.getPersonByFingleId = async (req, res) => {
         d.HR_DEPARTMENT_NAME,
         s.HR_STATUS_NAME,
         p.HR_STARTWORK_DATE,
-        p.HR_CID,
-        p.LINE_YOUR_USER_ID as line_user_id,
-        p.TELEGRAM_CHAT_ID as telegram_chat_id
+        p.HR_CID
       FROM hr_person p
       LEFT JOIN hr_department d ON p.HR_DEPARTMENT_ID = d.HR_DEPARTMENT_ID
       LEFT JOIN hr_status s     ON s.HR_STATUS_ID = p.HR_STATUS_ID
@@ -181,6 +191,7 @@ exports.getPersonByFingleId = async (req, res) => {
     if (rows.length === 0) return res.status(404).json({ person: null, message: 'Not found' });
 
     const person = rows[0];
+    await attachLinks([person], 'ID');
 
     // Security check moved to after query to allow owners to see their own data
     if (!isPrivileged && !isOwner) {

@@ -212,10 +212,8 @@ exports.reviewLeave = async (req, res) => {
 
     if (leave.hr_person_id) {
       try {
-        const [p] = await hosofficePool.query(
-          'SELECT LINE_YOUR_USER_ID AS line_user_id, TELEGRAM_CHAT_ID AS telegram_chat_id FROM hr_person WHERE ID = ? LIMIT 1',
-          [leave.hr_person_id]
-        );
+        const links = await require('../services/messagingLinks').linkOf(leave.hr_person_id);
+        const p = [{ line_user_id: links.line, telegram_chat_id: links.telegram }];
         if (p[0]) {
           const type = LEAVE_TYPES[leave.leave_type];
           await NotificationService.sendDirectNotification(p[0].line_user_id, p[0].telegram_chat_id,
