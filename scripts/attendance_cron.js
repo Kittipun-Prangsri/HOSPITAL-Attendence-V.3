@@ -228,6 +228,29 @@ cron.schedule('0 2 * * *', async () => {
   }
 }, { timezone: process.env.APP_TIMEZONE || 'Asia/Bangkok' });
 
+// Every 10 min: is the Hikvision feed still arriving? (alerts on silence / recovery)
+cron.schedule('*/10 * * * *', async () => {
+  try { await require('../src/services/scannerWatch').check(); }
+  catch (err) { console.error('[cron] scanner watch failed:', err.message); }
+}, { timezone: process.env.APP_TIMEZONE || 'Asia/Bangkok' });
+
+// Every 5 min: database reachability (alerts after two failures, and on recovery)
+cron.schedule('*/5 * * * *', async () => {
+  try { await require('../src/services/healthWatch').check(); }
+  catch (err) { console.error('[cron] health watch failed:', err.message); }
+}, { timezone: process.env.APP_TIMEZONE || 'Asia/Bangkok' });
+
+// Nightly 03:00: database backup to BACKUP_DIR (gzip SQL, kept BACKUP_KEEP_DAYS days)
+cron.schedule('0 3 * * *', async () => {
+  try {
+    const { files, removed } = await require('../src/services/dbBackup').runBackup();
+    console.log(`[cron] backup ok: ${files.map(f => `${f.file} (${Math.round(f.bytes / 1024)} KB)`).join(', ')}${removed ? `, pruned ${removed}` : ''}`);
+  } catch (err) {
+    console.error('[cron] backup failed:', err.message);
+    await NotificationService.sendToAdmin(`🚨 สำรองฐานข้อมูลประจำคืนไม่สำเร็จ\n${err.message}`).catch(() => {});
+  }
+}, { timezone: process.env.APP_TIMEZONE || 'Asia/Bangkok' });
+
 cron.schedule('0 17 * * 5', () => {
   runWeeklySummary();
 }, {
@@ -235,7 +258,7 @@ cron.schedule('0 17 * * 5', () => {
   timezone: "Asia/Bangkok"
 });
 
-console.log('Attendance cron initialized: incident sync 01:00, scan-photo purge 02:00, escalation 08:30 Mon–Fri, weekly summary Fri 17:00');
+console.log('Attendance cron initialized: incident sync 01:00, scan-photo purge 02:00, backup 03:00, escalation 08:30 Mon–Fri, weekly summary Fri 17:00, scanner watch /10min, DB watch /5min');
 
 module.exports = { runWeeklySummary };
 

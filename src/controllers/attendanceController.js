@@ -141,6 +141,9 @@ exports.getNotificationStatus = async (req, res) => {
     );
     status.today = { sent: Number(today.sent) || 0, failed: Number(today.failed) || 0, skipped: Number(today.skipped) || 0 };
     status.linePolicy = NotificationService.linePushPolicy();
+    // Scanner feed and last backup (each optional: a failure here must not hide the rest of the panel)
+    status.scanner = await require('../services/scannerWatch').status().catch(err => ({ error: err.message }));
+    status.backup = await require('../services/dbBackup').latestBackup().catch(() => null);
     status.realtime = { enabled: process.env.ENABLE_REALTIME_NOTIFICATIONS !== 'false', copyAdmin: process.env.REALTIME_COPY_ADMIN !== 'false' };
     res.json({ success: true, status });
   } catch (e) {

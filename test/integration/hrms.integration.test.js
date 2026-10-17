@@ -592,6 +592,78 @@ test('LINE leave-balance reply shows own remaining days only to linked staff', a
   assert.match(text, /ลาพักผ่อน/);
 });
 
+test('scanner watch alerts once on silence and once on recovery', async () => {
+  const watch = require('../../src/services/scannerWatch');
+  watch._reset();
+  const sent = [];
+  const notify = async m => { sent.push(m); };
+  // Fixture device scans on DAY (Wed): 07:55 and 08:45. At 10:00 that is 75 quiet minutes.
+  let r = await watch.check({ now: new Date(`${DAY}T10:00:00+07:00`), notify });
+  assert.equal(r.overallSilent, true);
+  assert.equal(sent.length, 1);
+  assert.match(sent[0], /ไม่มีข้อมูลสแกนจากเครื่อง/);
+  await watch.check({ now: new Date(`${DAY}T10:10:00+07:00`), notify });
+  assert.equal(sent.length, 1, 'no repeat while still silent');
+  await admin.query(`INSERT INTO ${HOSOFFICE_DB}.hikvision (EmployeeID, AccessDate, AccessTime, Direction, AuthenticationResult, DeviceName)
+    VALUES ('1002', ?, '10:15:00', 'in', 'Success', 'KHHin2')`, [DAY]);
+  r = await watch.check({ now: new Date(`${DAY}T10:20:00+07:00`), notify });
+  assert.equal(r.overallSilent, false);
+  assert.equal(sent.length, 2);
+  assert.match(sent[1], /กลับมาเข้าระบบแล้ว/);
+  await admin.query(`DELETE FROM ${HOSOFFICE_DB}.hikvision WHERE AccessDate = ? AND AccessTime = '10:15:00'`, [DAY]);
+});
+
+test('database health watch stays quiet while both databases answer', async () => {
+  const hw = require('../../src/services/healthWatch');
+  hw._reset();
+  const sent = [];
+  const s = await hw.check({ notify: async m => sent.push(m) });
+  assert.deepEqual(sent, []);
+  assert.equal(s.hospital.down, false);
+  assert.equal(s.hosoffice.down, false);
+});
+
+test('nightly backup produces a gzip SQL file that restores to the same data', async () => {
+  const os = require('os'); const path = require('path'); const zlib = require('zlib');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'khh-backup-'));
+  process.env.BACKUP_HOSOFFICE_TABLES = 'hikvision';
+  try {
+    const { runBackup, latestBackup, prune } = require('../../src/services/dbBackup');
+    const { files } = await runBackup({ dir, keepDays: 14 });
+    assert.equal(files.length, 2);
+    const sql = zlib.gunzipSync(fs.readFileSync(files[0].file)).toString('utf8');
+    assert.match(sql, /CREATE TABLE `leave_requests`/);
+    assert.match(sql, /INSERT INTO `leave_requests` VALUES/);
+    assert.match(sql, /วันหยุดทดสอบ/, 'Thai text survives');
+    assert.doesNotMatch(sql, /INSERT INTO `sessions`/, 'live sessions are not exported');
+    assert.ok((await latestBackup(dir)).bytes > 0);
+
+    // Restore into a scratch database and compare row counts table by table
+    const RESTORE = 'khh_test_restore';
+    await admin.query(`DROP DATABASE IF EXISTS ${RESTORE}; CREATE DATABASE ${RESTORE} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
+    await admin.query(`USE ${RESTORE}`);
+    await admin.query(sql);
+    const [tables] = await admin.query(`SELECT TABLE_NAME AS t FROM information_schema.TABLES WHERE TABLE_SCHEMA = ? AND TABLE_TYPE = 'BASE TABLE'`, [HOSPITAL_DB]);
+    for (const { t } of tables) {
+      if (t === 'sessions') continue;
+      const [[a]] = await admin.query(`SELECT COUNT(*) AS n FROM ${HOSPITAL_DB}.\`${t}\``);
+      const [[b]] = await admin.query(`SELECT COUNT(*) AS n FROM ${RESTORE}.\`${t}\``);
+      assert.equal(b.n, a.n, `row count of ${t}`);
+    }
+    const [[holiday]] = await admin.query(`SELECT name FROM ${RESTORE}.holidays WHERE holiday_date = '2026-09-18'`);
+    assert.equal(holiday.name, 'วันหยุดทดสอบ');
+    await admin.query(`DROP DATABASE ${RESTORE}; USE ${HOSPITAL_DB}`);
+
+    // Retention: files older than keepDays are removed
+    const old = new Date(Date.now() - 20 * 86400000);
+    fs.utimesSync(files[0].file, old, old);
+    assert.equal(await prune(dir, 14), 1);
+  } finally {
+    delete process.env.BACKUP_HOSOFFICE_TABLES;
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('escalation finds approvals pending for more than two days', async () => {
   const { collectStalePending, formatEscalation } = require('../../src/services/pendingEscalation');
   assert.equal((await collectStalePending(2)).leaves.length, 0);

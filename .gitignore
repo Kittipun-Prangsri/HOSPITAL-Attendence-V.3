@@ -24,3 +24,5 @@ data/monthly_schedules/
 
 # Uploaded leave documents (personal health data — never commit)
 uploads/
+# Database backups (contain personal data — keep off GitHub)
+backups/

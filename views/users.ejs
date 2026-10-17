@@ -101,7 +101,7 @@
 
         <!-- TAB 2: FAILED NOTIFICATIONS -->
         <div id="tab-failed" class="tab-content" style="display:none;">
-          <div id="notifStatus" class="grid grid-cols-1 gap-3 border-b border-slate-200 bg-slate-50/60 p-3 md:grid-cols-3" aria-live="polite">
+          <div id="notifStatus" class="grid grid-cols-1 gap-3 border-b border-slate-200 bg-slate-50/60 p-3 md:grid-cols-3 2xl:grid-cols-5" aria-live="polite">
             <div class="text-xs text-slate-400">กำลังตรวจสอบช่องทางแจ้งเตือน…</div>
           </div>
           <div class="flex items-center justify-between border-b border-slate-200 p-3">
@@ -277,7 +277,7 @@
         const res = await fetch('/api/notifications/status', { headers: { Accept: 'application/json' } });
         const data = await res.json();
         if (!res.ok || !data.success) throw new Error(data.error || `HTTP ${res.status}`);
-        const { line, telegram, today, realtime, adminTargets } = data.status;
+        const { line, telegram, today, realtime, adminTargets, scanner, backup } = data.status;
         const pill = (ok, label) => `<span class="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-2xs font-semibold ring-1 ring-inset ${ok ? 'bg-emerald-50 text-emerald-700 ring-emerald-200' : 'bg-red-50 text-red-700 ring-red-200'}"><i class="bi ${ok ? 'bi-check-circle' : 'bi-x-circle'}" aria-hidden="true"></i>${label}</span>`;
         const card = (title, icon, body) => `<div class="rounded-lg bg-white p-3 ring-1 ring-slate-200"><div class="mb-1.5 flex items-center gap-2 text-[13px] font-semibold text-slate-800"><i class="bi ${icon}" aria-hidden="true"></i>${title}</div>${body}</div>`;
 
@@ -301,7 +301,23 @@
 
         const todayBody = `<div class="flex gap-4 text-2xs text-slate-600"><div>ส่งสำเร็จ <b class="block font-mono text-base text-slate-900">${today.sent}</b></div><div>ล้มเหลว <b class="block font-mono text-base ${today.failed ? 'text-red-600' : 'text-slate-900'}">${today.failed}</b></div><div title="ไม่มีช่องทางที่ส่งได้ตามนโยบาย เช่น ผูกแค่ LINE">ไม่ได้ส่ง <b class="block font-mono text-base text-slate-500">${today.skipped || 0}</b></div></div>
           <div class="mt-1 text-2xs text-slate-500">แจ้งเตือนทันทีเมื่อสแกน: ${realtime.enabled ? 'เปิด' : 'ปิด'} · สำเนาถึงแอดมิน: ${realtime.copyAdmin && adminTargets.telegram ? 'เปิด' : 'ปิด'}</div>`;
-        box.innerHTML = card('LINE OA', 'bi-line', lineBody) + card('Telegram', 'bi-telegram', tgBody) + card('การสแกนวันนี้', 'bi-bell', todayBody);
+        let scanBody;
+        if (!scanner || scanner.error) scanBody = pill(false, 'ตรวจไม่ได้') + `<p class="mt-1 text-2xs text-red-600">${esc((scanner && scanner.error) || '')}</p>`;
+        else {
+          const quiet = scanner.overallSilent || (scanner.silentDevices || []).length;
+          scanBody = `${pill(!quiet, scanner.overallSilent ? 'ไม่มีข้อมูลเข้า' : quiet ? 'บางเครื่องเงียบ' : 'ปกติ')}
+            <div class="mt-2 text-2xs text-slate-600">สแกนล่าสุด: <b class="font-mono">${esc(scanner.lastScan ? scanner.lastScan.slice(5, 16) : '—')}</b>${scanner.minutesSince != null ? ` (${scanner.minutesSince} นาที)` : ''}</div>
+            ${(scanner.silentDevices || []).length ? `<div class="mt-1 text-2xs text-amber-700">เงียบ: ${scanner.silentDevices.map(esc).join(', ')}</div>` : ''}
+            <div class="mt-1 text-2xs text-slate-400">เฝ้าดู ${esc(scanner.window)} วันทำการ · เตือนเมื่อเงียบ ${scanner.silenceMin} นาที</div>`;
+        }
+        const bkAgeH = backup ? (Date.now() - new Date(backup.at).getTime()) / 3600000 : null;
+        const bkBody = backup
+          ? `${pill(bkAgeH < 30, bkAgeH < 30 ? 'ล่าสุด ' + Math.round(bkAgeH) + ' ชม.ก่อน' : 'เก่าเกิน 1 วัน')}
+             <div class="mt-2 truncate font-mono text-2xs text-slate-600" title="${esc(backup.name)}">${esc(backup.name)}</div>
+             <div class="mt-1 text-2xs text-slate-500">${(backup.bytes / 1024 / 1024).toFixed(2)} MB · เก็บไว้ ${backup.count} ไฟล์ · ทุกคืน 03:00</div>`
+          : pill(false, 'ยังไม่มีไฟล์สำรอง') + '<p class="mt-1 text-2xs text-slate-500">ระบบจะสำรองทุกคืน 03:00 หรือรัน npm run backup บน server</p>';
+        box.innerHTML = card('LINE OA', 'bi-line', lineBody) + card('Telegram', 'bi-telegram', tgBody) + card('การสแกนวันนี้', 'bi-bell', todayBody)
+          + card('เครื่องสแกน Hikvision', 'bi-fingerprint', scanBody) + card('สำรองฐานข้อมูล', 'bi-database-check', bkBody);
       } catch (err) {
         box.innerHTML = `<div class="text-xs text-red-600 md:col-span-3">ตรวจสอบสถานะไม่สำเร็จ: ${esc(err.message)}</div>`;
       }
