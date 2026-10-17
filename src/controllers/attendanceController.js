@@ -307,18 +307,11 @@ exports.logAttendance = async (req, res) => {
       isLate
     });
 
-    const telegramOptions = {
-      reply_markup: {
-        inline_keyboard: [
-          [
-            {
-              text: 'ดูประวัติการเข้างาน',
-              url: process.env.SYSTEM_URL ? `${process.env.SYSTEM_URL}/history` : 'https://your-hospital-system.com/history'
-            }
-          ]
-        ]
-      }
-    };
+    // /attendance is the history page; without SYSTEM_URL there is no public link, so no button
+    const systemUrl = (process.env.SYSTEM_URL || '').trim().replace(/\/+$/, '');
+    const telegramOptions = systemUrl.startsWith('http')
+      ? { reply_markup: { inline_keyboard: [[{ text: 'ดูประวัติการเข้างาน', url: `${systemUrl}/attendance` }]] } }
+      : {};
 
     const targetTelegramChatId = process.env.TELEGRAM_ADMIN_CHAT_ID || null;
 

@@ -750,8 +750,6 @@ function buildWeeklySummaryFlex({
   historyUrl = null
 }) {
   const theme = getWeeklySummaryTheme(lateCount, absentCount);
-  const systemUrl = process.env.SYSTEM_URL || 'https://your-hospital-system.com';
-  const defaultHistoryUrl = historyUrl || `${systemUrl}/attendance`;
 
   const statRow = (label, value, color) => ({
     type: "box",
