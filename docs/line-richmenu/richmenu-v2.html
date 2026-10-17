@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="th"><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=block" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; }
+  html, body { width: 2500px; height: 1686px; overflow: hidden; }
+  body {
+    font-family: "IBM Plex Sans Thai", sans-serif;
+    background:
+      radial-gradient(1100px 800px at 8% 0%, rgba(236,72,153,.45), transparent 60%),
+      radial-gradient(1000px 800px at 100% 100%, rgba(147,51,234,.45), transparent 60%),
+      linear-gradient(160deg, #4c1d95 0%, #2e1065 75%);
+    display: grid;
+    /* LINE large 3x2 template: every card stays inside its own tap area */
+    grid-template-columns: 833px 834px 833px;
+    grid-template-rows: 843px 843px;
+  }
+  .cell { padding: 26px; }
+  .card {
+    position: relative; height: 100%; border-radius: 64px; background: rgba(255,255,255,.97);
+    box-shadow: 0 26px 60px rgba(20, 0, 50, .40), inset 0 0 0 3px rgba(255,255,255,.7);
+    padding: 72px 72px 70px; display: flex; flex-direction: column; overflow: hidden;
+  }
+  .card::before { /* dotted texture in the corner, like the web cards' glow */
+    content: ""; position: absolute; right: -60px; top: -60px; width: 420px; height: 420px; border-radius: 50%;
+    background: radial-gradient(circle, var(--soft) 0 60%, transparent 61%);
+  }
+  .icon {
+    position: relative; width: 240px; height: 240px; border-radius: 64px; display: grid; place-items: center;
+    background: var(--grad); color: #fff; font-size: 130px; box-shadow: 0 18px 40px var(--shadow);
+  }
+  .label { margin-top: auto; font-size: 124px; font-weight: 700; color: #0f172a; line-height: 1.12; letter-spacing: -1px; white-space: nowrap; }
+  .sub { margin-top: 16px; font-size: 52px; font-weight: 500; color: #64748b; white-space: nowrap; }
+  .go { position: absolute; right: 64px; top: 84px; width: 112px; height: 112px; border-radius: 50%;
+        display: grid; place-items: center; font-size: 56px; color: var(--ink); background: var(--soft); }
+
+  .pink    { --grad: linear-gradient(135deg,#f472b6,#db2777); --shadow: rgba(219,39,119,.45); --soft:#fdf2f8; --ink:#db2777; }
+  .amber   { --grad: linear-gradient(135deg,#fbbf24,#d97706); --shadow: rgba(217,119,6,.40); --soft:#fffbeb; --ink:#d97706; }
+  .sky     { --grad: linear-gradient(135deg,#38bdf8,#0284c7); --shadow: rgba(2,132,199,.40); --soft:#f0f9ff; --ink:#0284c7; }
+  .emerald { --grad: linear-gradient(135deg,#34d399,#059669); --shadow: rgba(5,150,105,.40); --soft:#ecfdf5; --ink:#059669; }
+  .violet  { --grad: linear-gradient(135deg,#a78bfa,#7c3aed); --shadow: rgba(124,58,237,.40); --soft:#f5f3ff; --ink:#7c3aed; }
+
+  /* HERO: face scan — the main action */
+  .hero .card { background: linear-gradient(145deg,#ec4899 0%,#c026d3 50%,#7e22ce 100%);
+                box-shadow: 0 30px 70px rgba(20,0,50,.55), inset 0 0 0 3px rgba(255,255,255,.35); }
+  .hero .card::before { background: radial-gradient(circle, rgba(255,255,255,.14) 0 60%, transparent 61%); }
+  .hero .icon { background: #fff; color: #c026d3; box-shadow: 0 18px 40px rgba(0,0,0,.25); }
+  .hero .label { color: #fff; }
+  .hero .sub { color: rgba(255,255,255,.88); }
+  .hero .go { background: rgba(255,255,255,.22); color: #fff; }
+  .badge { position: absolute; left: 340px; top: 112px; padding: 14px 34px; border-radius: 999px;
+           background: #fff; color: #be185d; font-size: 46px; font-weight: 700; box-shadow: 0 10px 24px rgba(0,0,0,.18); }
+  /* scan frame corners around the face icon */
+  .hero .icon::after { content: ""; position: absolute; inset: -22px; border-radius: 80px;
+                       border: 6px dashed rgba(255,255,255,.55); }
+
+  .brand .icon { background: #fff; padding: 20px; box-shadow: 0 18px 40px rgba(124,58,237,.25); outline: 4px solid #ede9fe; }
+  .brand .icon img { width: 100%; height: 100%; object-fit: contain; border-radius: 40px; }
+</style></head>
+<body>
+  <div class="cell hero"><div class="card">
+    <div class="icon"><i class="bi bi-person-bounding-box"></i></div><div class="badge">ใหม่</div><div class="go"><i class="bi bi-camera-fill"></i></div>
+    <div class="label">สแกนใบหน้า</div><div class="sub">ลงเวลาผ่านมือถือ</div>
+  </div></div>
+  <div class="cell pink"><div class="card">
+    <div class="icon"><i class="bi bi-clock-history"></i></div><div class="go"><i class="bi bi-arrow-up-right"></i></div>
+    <div class="label">สแกนล่าสุด</div><div class="sub">การ์ดเวลาเข้า–ออก</div>
+  </div></div>
+  <div class="cell amber"><div class="card">
+    <div class="icon"><i class="bi bi-file-earmark-text"></i></div><div class="go"><i class="bi bi-arrow-up-right"></i></div>
+    <div class="label">ยื่นใบลา</div><div class="sub">สาย · ขาด · ลืมสแกน</div>
+  </div></div>
+  <div class="cell sky"><div class="card">
+    <div class="icon"><i class="bi bi-calendar-week"></i></div><div class="go"><i class="bi bi-arrow-up-right"></i></div>
+    <div class="label">ตารางเวร</div><div class="sub">เวรของฉันเดือนนี้</div>
+  </div></div>
+  <div class="cell emerald"><div class="card">
+    <div class="icon"><i class="bi bi-umbrella"></i></div><div class="go"><i class="bi bi-arrow-up-right"></i></div>
+    <div class="label">การลา</div><div class="sub">สิทธิ์คงเหลือ · ยื่นลา</div>
+  </div></div>
+  <div class="cell violet brand"><div class="card">
+    <div class="icon"><img src="logo.jpg" alt=""></div><div class="go"><i class="bi bi-box-arrow-up-right"></i></div>
+    <div class="label">KHH HRM</div><div class="sub">เปิดระบบเต็มรูปแบบ</div>
+  </div></div>
+</body></html>
