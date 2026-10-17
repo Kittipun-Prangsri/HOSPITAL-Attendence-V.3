@@ -73,3 +73,16 @@ test('scanner push endpoint is disabled without ATTENDANCE_PUSH_TOKEN', async ()
   const res = await fetch(`${base}/api/attendance`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ employeeId: '1001', status: 'in' }) });
   assert.equal(res.status, 404);
 });
+
+test('camera and location are allowed only on the mobile face page', async () => {
+  const page = await fetch(`${base}/m/face`, { redirect: 'manual' });
+  assert.match(page.headers.get('permissions-policy'), /camera=\(self\)/);
+  const other = await fetch(`${base}/login`);
+  assert.match(other.headers.get('permissions-policy'), /camera=\(\)/);
+  const lib = await fetch(`${base}/vendor/human/human.esm.js`, { method: 'HEAD' });
+  assert.equal(lib.status, 200);
+  const model = await fetch(`${base}/vendor/human/models/blazeface.json`, { method: 'HEAD' });
+  assert.equal(model.status, 200);
+  const outside = await fetch(`${base}/vendor/human/models/../../package.json`);
+  assert.notEqual(outside.status, 200);
+});
