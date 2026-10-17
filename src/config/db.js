@@ -26,8 +26,21 @@ const hosofficePool = mysql.createPool({
   database: process.env.DB_NAME_HOSOFFICE
 });
 
+// Hospital MySQL servers are often set up with character-set-server=tis620 plus
+// skip-character-set-client-handshake or init_connect='SET NAMES tis620'. Then the server ignores the
+// utf8mb4 we ask for at handshake and reads our UTF-8 bytes as TIS-620, so every Thai string we write
+// turns into "เน�เธ�…". An explicit SET NAMES on each new connection is always honoured.
+const SET_NAMES = 'SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci';
+function forceUtf8mb4(p) {
+  p.on('connection', conn => conn.query(SET_NAMES)); // core connection: queued ahead of the first real query
+  return p;
+}
+forceUtf8mb4(pool);
+forceUtf8mb4(hosofficePool);
+
 module.exports = {
   pool,
   hosofficePool,
+  forceUtf8mb4,
   dbConfig // useful for tools that need to create connection without specific DB first
 };

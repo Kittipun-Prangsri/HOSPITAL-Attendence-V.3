@@ -4,6 +4,7 @@ const path = require('path');
 const session = require('express-session');
 const helmet = require('helmet');
 const MySQLStore = require('express-mysql-session')(session);
+const { forceUtf8mb4 } = require('./config/db');
 const { csrfProtection } = require('./middleware/csrf');
 const healthController = require('./controllers/healthController');
 const authRoutes = require('./routes/authRoutes');
@@ -91,6 +92,9 @@ if (sessionStore && sessionStore.onReady) {
 
 // Exposed so tests (and graceful shutdown) can close the store's connection pool
 app.locals.sessionStore = sessionStore;
+// The store builds its own mysql2 pool; it needs the same SET NAMES fix or the Thai fullname inside
+// each session gets re-encoded on every save and grows into garbage.
+if (sessionStore && sessionStore.connection) forceUtf8mb4(sessionStore.connection);
 
 app.use(session({
   secret: sessionSecret,
