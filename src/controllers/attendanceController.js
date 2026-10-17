@@ -136,10 +136,10 @@ exports.getNotificationStatus = async (req, res) => {
   try {
     const status = await NotificationService.getStatus();
     const [[today]] = await pool.query(
-      `SELECT SUM(status = 'sent') AS sent, SUM(status = 'failed') AS failed
+      `SELECT SUM(status = 'sent') AS sent, SUM(status = 'failed') AS failed, SUM(status = 'skipped') AS skipped
        FROM notification_deliveries WHERE access_date = CURDATE()`
     );
-    status.today = { sent: Number(today.sent) || 0, failed: Number(today.failed) || 0 };
+    status.today = { sent: Number(today.sent) || 0, failed: Number(today.failed) || 0, skipped: Number(today.skipped) || 0 };
     status.linePolicy = NotificationService.linePushPolicy();
     status.realtime = { enabled: process.env.ENABLE_REALTIME_NOTIFICATIONS !== 'false', copyAdmin: process.env.REALTIME_COPY_ADMIN !== 'false' };
     res.json({ success: true, status });

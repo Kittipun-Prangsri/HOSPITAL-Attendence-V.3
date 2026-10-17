@@ -25,3 +25,12 @@ test('LINE webhook signature check', () => {
   assert.equal(validSignature(body, undefined, 's3cret'), false);
   assert.equal(validSignature(undefined, sig, 's3cret'), false);
 });
+
+test('routine LINE pushes follow LINE_PUSH_POLICY', () => {
+  const svc = require('../src/services/notificationService');
+  delete process.env.LINE_PUSH_POLICY;
+  assert.equal(svc.routineLineId('U123'), null, 'default keeps LINE quota for important messages');
+  process.env.LINE_PUSH_POLICY = 'all';
+  assert.equal(svc.routineLineId('U123'), 'U123');
+  delete process.env.LINE_PUSH_POLICY;
+});

@@ -299,7 +299,7 @@
         else if (!telegram.ok) tgBody = pill(false, 'เชื่อมต่อไม่ได้') + `<p class="mt-1 text-2xs text-red-600">${esc(telegram.error)}</p>`;
         else tgBody = `${pill(true, '@' + esc(telegram.username || ''))}<div class="mt-2 text-2xs text-slate-600">รับคำสั่งแชต: ${telegram.polling ? 'เปิด' : 'ปิด (ส่งอย่างเดียว)'}</div>`;
 
-        const todayBody = `<div class="flex gap-4 text-2xs text-slate-600"><div>ส่งสำเร็จ <b class="block font-mono text-base text-slate-900">${today.sent}</b></div><div>ล้มเหลว <b class="block font-mono text-base ${today.failed ? 'text-red-600' : 'text-slate-900'}">${today.failed}</b></div></div>
+        const todayBody = `<div class="flex gap-4 text-2xs text-slate-600"><div>ส่งสำเร็จ <b class="block font-mono text-base text-slate-900">${today.sent}</b></div><div>ล้มเหลว <b class="block font-mono text-base ${today.failed ? 'text-red-600' : 'text-slate-900'}">${today.failed}</b></div><div title="ไม่มีช่องทางที่ส่งได้ตามนโยบาย เช่น ผูกแค่ LINE">ไม่ได้ส่ง <b class="block font-mono text-base text-slate-500">${today.skipped || 0}</b></div></div>
           <div class="mt-1 text-2xs text-slate-500">แจ้งเตือนทันทีเมื่อสแกน: ${realtime.enabled ? 'เปิด' : 'ปิด'} · สำเนาถึงแอดมิน: ${realtime.copyAdmin && adminTargets.telegram ? 'เปิด' : 'ปิด'}</div>`;
         box.innerHTML = card('LINE OA', 'bi-line', lineBody) + card('Telegram', 'bi-telegram', tgBody) + card('การสแกนวันนี้', 'bi-bell', todayBody);
       } catch (err) {
