@@ -19,7 +19,8 @@
         init = Object.assign({}, init, { headers });
       }
       return nativeFetch(input, init).then(res => {
-        if (res.status === 401 && sameOrigin && url.startsWith('/api/')) {
+        // /api/liff/* answers 401 for a bad LINE token; the LIFF page handles that itself
+        if (res.status === 401 && sameOrigin && url.startsWith('/api/') && !url.startsWith('/api/liff/')) {
           window.location.href = '/login';
         }
         return res;

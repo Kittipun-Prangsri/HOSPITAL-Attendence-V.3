@@ -35,11 +35,14 @@ app.use(helmet({
     useDefaults: false,
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", 'https://cdnjs.cloudflare.com'],
+      // LIFF SDK (mobile face scan) is served from LINE's CDN; tfjs may compile WASM in the browser
+      scriptSrc: ["'self'", "'unsafe-inline'", "'wasm-unsafe-eval'", 'https://cdnjs.cloudflare.com', 'https://static.line-scdn.net'],
       styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com', 'https://cdn.jsdelivr.net'],
       fontSrc: ["'self'", 'data:', 'https://fonts.gstatic.com', 'https://cdn.jsdelivr.net'],
       imgSrc: ["'self'", 'data:', 'blob:'],
-      connectSrc: ["'self'"],
+      connectSrc: ["'self'", 'https://*.line.me', 'https://*.line-scdn.net'],
+      mediaSrc: ["'self'", 'blob:'],
+      workerSrc: ["'self'", 'blob:'],
       frameSrc: ["'self'"],
       objectSrc: ["'none'"],
       baseUri: ["'self'"],
@@ -53,7 +56,10 @@ app.use(helmet({
   hsts: process.env.NODE_ENV === 'production' ? { maxAge: 180 * 24 * 60 * 60 } : false
 }));
 app.use((req, res, next) => {
-  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  // Camera and location only on the mobile face-scan pages (/m/*); every other page keeps them off
+  res.setHeader('Permissions-Policy', req.path.startsWith('/m/')
+    ? 'camera=(self), microphone=(), geolocation=(self)'
+    : 'camera=(), microphone=(), geolocation=()');
   next();
 });
 app.use(cors({
@@ -64,10 +70,19 @@ app.use(cors({
   credentials: true
 }));
 app.use(express.static(path.join(__dirname, '..', 'public')));
+// Face library + models for the browser, from the same pinned npm package the server uses
+{
+  const humanDir = path.resolve(path.dirname(require.resolve('@vladmandic/human')), '..');
+  app.get('/vendor/human/human.esm.js', (req, res) => res.sendFile(path.join(humanDir, 'dist', 'human.esm.js'), { maxAge: '7d' }));
+  app.use('/vendor/human/models', express.static(path.join(humanDir, 'models'), { maxAge: '7d', fallthrough: false }));
+  app.use('/vendor/tfjs-wasm', express.static(path.join(path.dirname(require.resolve('@tensorflow/tfjs-backend-wasm/package.json')), 'dist'), { maxAge: '7d', fallthrough: false }));
+}
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, '..', 'views'));
 // Leave requests may carry a base64 medical certificate (≤4 MB file → ~5.4 MB JSON)
 app.post('/api/leaves', express.json({ limit: '6mb' }));
+// Face photos (≤ 2 MB JPEG as base64)
+app.post('/api/face/enroll', express.json({ limit: '3mb' }));
 app.use(express.json({ limit: '100kb', verify: captureRawBody }));
 app.use(express.urlencoded({ extended: true, limit: '100kb' }));
 

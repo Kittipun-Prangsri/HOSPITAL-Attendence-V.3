@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+  <%- include("components/erp-head", { title: "ใบหน้า / สแกนมือถือ" }) %>
+</head>
+
+<% const isSuper = locals.user && user.role === 'super'; %>
+
+<body class="erp-page">
+  <%- include("components/sidebar") %>
+  <div class="main" role="main">
+    <%- include("components/topbar") %>
+
+    <div class="erp px-4 py-5 lg:px-6">
+      <section class="mb-5" aria-labelledby="face-heading">
+        <h2 id="face-heading" class="text-xl font-semibold text-slate-900">ใบหน้า / สแกนผ่านมือถือ</h2>
+        <p class="mt-1 text-[13px] text-slate-500">อนุมัติการลงทะเบียนใบหน้า (เทียบกับรูปบัตร/ตัวจริง) · กำหนดพื้นที่และเกณฑ์การสแกนผ่านมือถือ · ข้อมูลใบหน้าเป็นข้อมูลอ่อนไหวตาม PDPA</p>
+      </section>
+
+      <section class="erp-panel overflow-hidden">
+        <div class="flex gap-1 border-b border-slate-200 px-3" role="tablist" id="tabBar">
+          <button type="button" role="tab" class="erp-tab active" data-tab="pending" aria-selected="true"><i class="bi bi-hourglass-split" aria-hidden="true"></i> รออนุมัติ <span id="pendingCount" class="hidden rounded bg-amber-100 px-1.5 font-mono text-2xs text-amber-700"></span></button>
+          <button type="button" role="tab" class="erp-tab" data-tab="approved" aria-selected="false"><i class="bi bi-patch-check" aria-hidden="true"></i> ลงทะเบียนแล้ว <span id="approvedCount" class="rounded bg-slate-100 px-1.5 font-mono text-2xs text-slate-600"></span></button>
+          <button type="button" role="tab" class="erp-tab" data-tab="settings" aria-selected="false"><i class="bi bi-sliders" aria-hidden="true"></i> ตั้งค่าสแกนมือถือ</button>
+        </div>
+
+        <div id="tab-pending" class="p-4">
+          <div id="pendingGrid" class="grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-3"></div>
+        </div>
+
+        <div id="tab-approved" style="display:none;">
+          <div class="max-h-[65vh] overflow-auto">
+            <table class="w-full border-collapse text-left text-[13px]">
+              <thead class="sticky top-0 bg-slate-50 text-2xs uppercase tracking-wide text-slate-500">
+                <tr class="border-b border-slate-200"><th class="px-4 py-2.5 font-semibold">บุคลากร</th><th class="px-3 py-2.5 font-semibold">อนุมัติโดย</th><th class="px-3 py-2.5 font-semibold">เมื่อ</th><th class="px-3 py-2.5"></th></tr>
+              </thead>
+              <tbody id="approvedBody" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div id="tab-settings" style="display:none;" class="space-y-5 p-4">
+          <div id="envBox" class="grid grid-cols-1 gap-3 md:grid-cols-3"></div>
+
+          <div class="rounded-xl ring-1 ring-slate-200">
+            <div class="flex flex-wrap items-center gap-3 border-b border-slate-200 p-3">
+              <label class="flex items-center gap-2 text-[13px] font-medium text-slate-800">
+                <input type="checkbox" id="s-enabled" class="h-5 w-5 accent-pink-600" <%= isSuper ? '' : 'disabled' %>> เปิดให้สแกนลงเวลาผ่านมือถือ
+              </label>
+              <% if (isSuper) { %>
+                <button type="button" class="erp-btn erp-btn-primary ml-auto" onclick="saveSettings()"><i class="bi bi-check2" aria-hidden="true"></i> บันทึกการตั้งค่า</button>
+              <% } else { %>
+                <span class="ml-auto text-2xs text-slate-400"><i class="bi bi-lock" aria-hidden="true"></i> แก้ไขได้เฉพาะ Super Admin</span>
+              <% } %>
+            </div>
+            <div class="p-3">
+              <div class="mb-2 flex items-center justify-between">
+                <h3 class="text-[13px] font-semibold text-slate-800">จุดที่อนุญาตให้สแกน (รัศมีรอบโรงพยาบาล / หน่วยบริการ)</h3>
+                <% if (isSuper) { %><button type="button" class="erp-btn erp-btn-secondary h-8" onclick="addSite()"><i class="bi bi-plus-lg" aria-hidden="true"></i> เพิ่มจุด</button><% } %>
+              </div>
+              <div class="overflow-auto">
+                <table class="w-full border-collapse text-left text-[13px]">
+                  <thead class="bg-slate-50 text-2xs uppercase tracking-wide text-slate-500">
+                    <tr><th class="px-2 py-2 font-semibold">ชื่อจุด</th><th class="px-2 py-2 font-semibold">ละติจูด</th><th class="px-2 py-2 font-semibold">ลองจิจูด</th><th class="px-2 py-2 font-semibold">รัศมี (ม.)</th><th class="px-2 py-2"></th></tr>
+                  </thead>
+                  <tbody id="sitesBody"></tbody>
+                </table>
+              </div>
+              <p class="mt-2 text-2xs text-slate-500">หาพิกัดได้จาก Google Maps: กดค้างที่ตำแหน่งอาคาร แล้วคัดลอกตัวเลข (เช่น 13.958, 102.293) · นอกรัศมีจะเข้าคิวให้หัวหน้าอนุมัติ</p>
+            </div>
+            <div class="grid grid-cols-1 gap-3 border-t border-slate-200 p-3 sm:grid-cols-2 xl:grid-cols-4">
+              <label class="text-[13px] text-slate-700">ความแม่นยำ GPS ที่ยอมรับ (ม.)<input type="number" id="s-accuracy" min="10" max="1000" class="erp-input mt-1 font-mono" <%= isSuper ? '' : 'disabled' %>></label>
+              <label class="text-[13px] text-slate-700">เกณฑ์ใบหน้าตรงกัน (ผ่าน)<input type="number" id="s-match" min="0.2" max="0.95" step="0.01" class="erp-input mt-1 font-mono" <%= isSuper ? '' : 'disabled' %>></label>
+              <label class="text-[13px] text-slate-700">เกณฑ์ส่งให้คนตรวจ<input type="number" id="s-review" min="0.1" max="0.95" step="0.01" class="erp-input mt-1 font-mono" <%= isSuper ? '' : 'disabled' %>></label>
+              <label class="text-[13px] text-slate-700">เก็บภาพตอนสแกน (วัน)<input type="number" id="s-retention" min="7" max="3650" class="erp-input mt-1 font-mono" <%= isSuper ? '' : 'disabled' %>></label>
+            </div>
+            <p class="border-t border-slate-200 bg-slate-50/70 px-3 py-2 text-2xs text-slate-500">คะแนนความเหมือน 0–1: คนเดียวกันมักได้มากกว่า 0.5 · ต่ำกว่าเกณฑ์ส่งตรวจ = ปฏิเสธ · ช่วงระหว่างสองเกณฑ์ = รอคนตรวจ · ควรปรับหลังทดลองใช้จริง</p>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const IS_SUPER = <%- JSON.stringify(!!isSuper) %>;
+    const $ = id => document.getElementById(id);
+    const esc = ERP.escapeHtml;
+    let settingsLoaded = false;
+
+    async function getJson(url, opts) {
+      const res = await fetch(url, Object.assign({ headers: { Accept: 'application/json' } }, opts));
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.success === false) throw new Error(data.error || `HTTP ${res.status}`);
+      return data;
+    }
+    const send = (url, method, body) => getJson(url, { method, headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(body || {}) });
+    const fmt = d => d ? new Date(d).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' }) : '—';
+    const pct = v => (v == null ? '—' : Math.round(v * 100) + '%');
+
+    function setCounts(c) {
+      $('pendingCount').textContent = c.pending;
+      $('pendingCount').classList.toggle('hidden', !c.pending);
+      $('approvedCount').textContent = c.approved;
+    }
+
+    async function loadPending() {
+      $('pendingGrid').innerHTML = '<p class="col-span-full py-12 text-center text-sm text-slate-400">กำลังโหลด…</p>';
+      try {
+        const data = await getJson('/api/face/enrollments?status=pending');
+        setCounts(data.counts);
+        $('pendingGrid').innerHTML = data.enrollments.length ? data.enrollments.map(e => `
+          <article class="overflow-hidden rounded-xl bg-white ring-1 ring-slate-200">
+            <div class="flex gap-3 p-3">
+              <img src="/api/face/enrollments/${e.id}/photo" alt="ใบหน้าของ ${esc(e.fullname || e.employee_id)}" class="h-40 w-32 flex-none rounded-lg bg-slate-100 object-cover" loading="lazy">
+              <div class="min-w-0 flex-1">
+                <div class="truncate text-sm font-semibold text-slate-900">${esc(e.fullname || '—')}</div>
+                <div class="font-mono text-2xs text-slate-500">${esc(e.employee_id)}</div>
+                <div class="mt-1 text-2xs text-slate-500">ส่งเมื่อ ${fmt(e.created_at)}</div>
+                <dl class="mt-2 grid grid-cols-3 gap-1 text-center text-2xs">
+                  <div class="rounded bg-slate-50 p-1"><dt class="text-slate-400">ชัดเจน</dt><dd class="font-mono text-slate-800">${pct(e.quality && e.quality.score)}</dd></div>
+                  <div class="rounded bg-slate-50 p-1"><dt class="text-slate-400">ภาพจริง</dt><dd class="font-mono text-slate-800">${pct(e.quality && e.quality.real)}</dd></div>
+                  <div class="rounded bg-slate-50 p-1"><dt class="text-slate-400">คนจริง</dt><dd class="font-mono text-slate-800">${pct(e.quality && e.quality.live)}</dd></div>
+                </dl>
+                <p class="mt-2 text-2xs leading-snug text-slate-500">ตรวจว่าเป็นบุคคลเดียวกับเจ้าของรหัส (เทียบรูปบัตร/รู้จักตัวจริง) และเป็นภาพถ่ายสด ไม่ใช่ถ่ายจากจอหรือรูปพิมพ์</p>
+              </div>
+            </div>
+            <div class="grid grid-cols-2 border-t border-slate-100">
+              <button type="button" class="py-2.5 text-[13px] font-medium text-red-600 hover:bg-red-50" data-reject="${e.id}"><i class="bi bi-x-lg" aria-hidden="true"></i> ไม่อนุมัติ</button>
+              <button type="button" class="border-l border-slate-100 py-2.5 text-[13px] font-semibold text-emerald-700 hover:bg-emerald-50" data-approve="${e.id}"><i class="bi bi-check-lg" aria-hidden="true"></i> อนุมัติ</button>
+            </div>
+          </article>`).join('')
+          : '<div class="col-span-full py-12 text-center text-sm text-slate-400"><i class="bi bi-check2-circle text-2xl" aria-hidden="true"></i><p class="mt-1">ไม่มีรายการรออนุมัติ</p></div>';
+      } catch (err) {
+        $('pendingGrid').innerHTML = `<p class="col-span-full py-12 text-center text-sm text-red-600">${esc(err.message)}</p>`;
+      }
+    }
+
+    $('pendingGrid').addEventListener('click', async e => {
+      const a = e.target.closest('[data-approve]');
+      const r = e.target.closest('[data-reject]');
+      if (!a && !r) return;
+      const id = (a || r).dataset.approve || (a || r).dataset.reject;
+      let body = { decision: a ? 'approve' : 'reject' };
+      if (r) {
+        const note = prompt('เหตุผลที่ไม่อนุมัติ (จะแจ้งให้เจ้าของทราบ) เช่น ภาพไม่ชัด, ไม่ใช่ภาพถ่ายสด, ไม่ตรงกับเจ้าของรหัส');
+        if (!note) return;
+        body.note = note;
+      } else if (!confirm('ยืนยันว่าใบหน้านี้เป็นของเจ้าของรหัสจริง?')) return;
+      try { ERP.toast((await send(`/api/face/enrollments/${id}/review`, 'POST', body)).message, 'success'); loadPending(); }
+      catch (err) { ERP.toast(err.message, 'error'); }
+    });
+
+    async function loadApproved() {
+      $('approvedBody').innerHTML = '<tr><td colspan="4" class="px-4 py-12 text-center text-slate-400">กำลังโหลด…</td></tr>';
+      try {
+        const data = await getJson('/api/face/enrollments?status=approved');
+        setCounts(data.counts);
+        $('approvedBody').innerHTML = data.enrollments.length ? data.enrollments.map(e => `
+          <tr class="hover:bg-slate-50">
+            <td class="px-4 py-2.5"><div class="flex items-center gap-3">
+              <img src="/api/face/enrollments/${e.id}/photo" alt="" class="h-10 w-10 rounded-full bg-slate-100 object-cover" loading="lazy">
+              <div><div class="font-medium text-slate-900">${esc(e.fullname || '—')}</div><div class="font-mono text-2xs text-slate-500">${esc(e.employee_id)}</div></div></div></td>
+            <td class="px-3 py-2.5 text-xs text-slate-600">${esc(e.reviewed_by || '—')}</td>
+            <td class="whitespace-nowrap px-3 py-2.5 text-xs text-slate-500">${fmt(e.reviewed_at)}</td>
+            <td class="px-3 py-2.5 text-right"><button type="button" class="erp-btn erp-btn-secondary h-8 text-red-600" data-revoke="${e.id}"><i class="bi bi-trash3" aria-hidden="true"></i> ยกเลิก</button></td>
+          </tr>`).join('') : ERP.emptyRow(4, 'ยังไม่มีผู้ลงทะเบียนใบหน้า', 'bi-person-bounding-box');
+      } catch (err) {
+        $('approvedBody').innerHTML = ERP.emptyRow(4, err.message, 'bi-exclamation-triangle');
+      }
+    }
+
+    $('approvedBody').addEventListener('click', async e => {
+      const b = e.target.closest('[data-revoke]');
+      if (!b) return;
+      const note = prompt('เหตุผลที่ยกเลิก (ระบบจะลบข้อมูลใบหน้า) เช่น ลาออก, ลงทะเบียนผิดคน');
+      if (!note) return;
+      try { ERP.toast((await send(`/api/face/enrollments/${b.dataset.revoke}/revoke`, 'POST', { note })).message, 'success'); loadApproved(); }
+      catch (err) { ERP.toast(err.message, 'error'); }
+    });
+
+    /* ---------- Settings ---------- */
+    function siteRow(s = {}) {
+      const dis = IS_SUPER ? '' : 'disabled';
+      return `<tr data-site>
+        <td class="px-2 py-1.5"><input class="erp-input h-9" data-k="name" maxlength="100" value="${esc(s.name || '')}" placeholder="โรงพยาบาลคลองหาด" ${dis}></td>
+        <td class="px-2 py-1.5"><input class="erp-input h-9 font-mono" data-k="lat" type="number" step="0.000001" value="${s.lat ?? ''}" ${dis}></td>
+        <td class="px-2 py-1.5"><input class="erp-input h-9 font-mono" data-k="lng" type="number" step="0.000001" value="${s.lng ?? ''}" ${dis}></td>
+        <td class="px-2 py-1.5"><input class="erp-input h-9 w-24 font-mono" data-k="radiusM" type="number" min="20" max="5000" value="${s.radiusM ?? 200}" ${dis}></td>
+        <td class="px-2 py-1.5 text-right">${IS_SUPER ? '<button type="button" class="erp-icon-btn h-8 w-8 hover:bg-red-50 hover:text-red-600" onclick="this.closest(\'tr\').remove()" aria-label="ลบ"><i class="bi bi-trash3"></i></button>' : ''}</td>
+      </tr>`;
+    }
+    function addSite() { $('sitesBody').insertAdjacentHTML('beforeend', siteRow()); }
+
+    async function loadSettings() {
+      settingsLoaded = true;
+      try {
+        const { settings, env } = await getJson('/api/mobile-scan/settings');
+        const card = (ok, title, body) => `<div class="rounded-xl p-3 ring-1 ring-inset ${ok ? 'bg-emerald-50 ring-emerald-200' : 'bg-amber-50 ring-amber-200'}">
+          <div class="flex items-center gap-2 text-[13px] font-semibold ${ok ? 'text-emerald-800' : 'text-amber-800'}"><i class="bi ${ok ? 'bi-check-circle-fill' : 'bi-exclamation-circle-fill'}" aria-hidden="true"></i>${title}</div>
+          <div class="mt-1 text-2xs leading-relaxed text-slate-600">${body}</div></div>`;
+        $('envBox').innerHTML =
+          card(env.templateKey, 'กุญแจเข้ารหัสใบหน้า', env.templateKey ? 'ตั้งค่า FACE_TEMPLATE_KEY แล้ว' : 'ยังไม่ได้ตั้ง FACE_TEMPLATE_KEY ใน .env — ลงทะเบียนใบหน้าไม่ได้') +
+          card(env.lineLogin, 'LINE Login channel', env.lineLogin ? 'ตั้งค่า LINE_LOGIN_CHANNEL_ID แล้ว' : 'ยังไม่ได้ตั้ง LINE_LOGIN_CHANNEL_ID — เปิดจาก LINE ไม่ได้') +
+          card(Boolean(env.liffUrl), 'ลิงก์ LIFF (ใส่ใน Rich Menu)', env.liffUrl ? `<code class="select-all font-mono">${esc(env.liffUrl)}</code>` : 'ยังไม่ได้ตั้ง LIFF_ID ใน .env');
+        $('s-enabled').checked = settings.enabled;
+        $('sitesBody').innerHTML = settings.sites.length ? settings.sites.map(siteRow).join('') : siteRow();
+        $('s-accuracy').value = settings.maxAccuracyM;
+        $('s-match').value = settings.matchThreshold;
+        $('s-review').value = settings.reviewThreshold;
+        $('s-retention').value = settings.photoRetentionDays;
+      } catch (err) {
+        $('envBox').innerHTML = `<p class="text-sm text-red-600">${esc(err.message)}</p>`;
+      }
+    }
+
+    async function saveSettings() {
+      const sites = [...document.querySelectorAll('#sitesBody tr[data-site]')].map(tr => {
+        const v = k => tr.querySelector(`[data-k="${k}"]`).value.trim();
+        return { name: v('name'), lat: Number(v('lat')), lng: Number(v('lng')), radiusM: Number(v('radiusM')) };
+      }).filter(s => s.name || s.lat || s.lng);
+      try {
+        await send('/api/mobile-scan/settings', 'PUT', {
+          enabled: $('s-enabled').checked, sites,
+          maxAccuracyM: Number($('s-accuracy').value), matchThreshold: Number($('s-match').value),
+          reviewThreshold: Number($('s-review').value), photoRetentionDays: Number($('s-retention').value)
+        });
+        ERP.toast('บันทึกการตั้งค่าแล้ว', 'success');
+        loadSettings();
+      } catch (err) { ERP.toast(err.message, 'error'); }
+    }
+
+    /* ---------- Tabs ---------- */
+    $('tabBar').addEventListener('click', e => {
+      const b = e.target.closest('[data-tab]');
+      if (!b) return;
+      document.querySelectorAll('#tabBar [data-tab]').forEach(t => { t.classList.toggle('active', t === b); t.setAttribute('aria-selected', String(t === b)); });
+      ['pending', 'approved', 'settings'].forEach(t => { $('tab-' + t).style.display = t === b.dataset.tab ? '' : 'none'; });
+      if (b.dataset.tab === 'pending') loadPending();
+      if (b.dataset.tab === 'approved') loadApproved();
+      if (b.dataset.tab === 'settings' && !settingsLoaded) loadSettings();
+    });
+    const loadData = loadPending;
+    loadPending();
+  </script>
+</body>
+
+</html>

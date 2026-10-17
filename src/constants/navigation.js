@@ -41,6 +41,7 @@ const NAV_SECTIONS = [
     title: 'ตั้งค่าระบบ',
     items: [
       { href: '/admin/calendar', label: 'วันหยุดและนโยบายการลา', icon: 'bi-calendar-heart', access: 'admin' },
+      { href: '/admin/face', label: 'ใบหน้า / สแกนมือถือ', icon: 'bi-person-bounding-box', access: 'admin' },
       { href: '/admin/users', label: 'จัดการผู้เข้าใช้', icon: 'bi-person-gear', access: 'super' },
       { href: '/admin/permissions', label: 'สิทธิ์ตามบทบาท', icon: 'bi-shield-lock', access: 'super' },
       { href: '/admin/audit', label: 'บันทึกการใช้งาน', icon: 'bi-journal-text', access: 'super' },

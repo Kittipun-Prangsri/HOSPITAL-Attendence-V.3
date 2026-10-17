@@ -241,6 +241,64 @@ const migrations = [
     up: async () => {
       await pool.query("ALTER TABLE notification_deliveries MODIFY status ENUM('pending', 'sent', 'failed', 'skipped') NOT NULL DEFAULT 'pending'");
     }
+  },
+  {
+    // Mobile face scan: enrolled face templates (encrypted) and the evidence for every mobile scan
+    id: '009_mobile_face_scan',
+    up: async () => {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS face_enrollments (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          employee_id VARCHAR(50) NOT NULL,
+          hr_person_id INT NULL,
+          fullname VARCHAR(150) NULL,
+          status ENUM('pending', 'approved', 'rejected', 'revoked') NOT NULL DEFAULT 'pending',
+          template TEXT NULL,
+          model_version VARCHAR(50) NOT NULL,
+          photo_file VARCHAR(100) NULL,
+          quality JSON NULL,
+          consent_version VARCHAR(20) NOT NULL,
+          consent_at DATETIME NOT NULL,
+          line_user_id VARCHAR(64) NULL,
+          reviewed_by VARCHAR(150) NULL,
+          reviewed_at DATETIME NULL,
+          review_note VARCHAR(255) NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          KEY idx_face_emp_status (employee_id, status),
+          KEY idx_face_status (status)
+        ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+      `);
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS mobile_scans (
+          id BIGINT AUTO_INCREMENT PRIMARY KEY,
+          employee_id VARCHAR(50) NOT NULL,
+          enrollment_id INT NULL,
+          scanned_at DATETIME NOT NULL,
+          direction ENUM('in', 'out') NOT NULL,
+          latitude DECIMAL(10, 7) NULL,
+          longitude DECIMAL(10, 7) NULL,
+          accuracy_m DECIMAL(8, 1) NULL,
+          site_name VARCHAR(100) NULL,
+          distance_m DECIMAL(10, 1) NULL,
+          inside_area TINYINT(1) NOT NULL DEFAULT 0,
+          match_score DECIMAL(5, 3) NULL,
+          real_score DECIMAL(5, 3) NULL,
+          live_score DECIMAL(5, 3) NULL,
+          challenge VARCHAR(30) NULL,
+          photo_file VARCHAR(100) NULL,
+          status ENUM('accepted', 'pending', 'rejected') NOT NULL,
+          reject_reason VARCHAR(255) NULL,
+          reviewed_by VARCHAR(150) NULL,
+          reviewed_at DATETIME NULL,
+          line_user_id VARCHAR(64) NULL,
+          user_agent VARCHAR(255) NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          KEY idx_mscan_emp_time (employee_id, scanned_at),
+          KEY idx_mscan_status (status)
+        ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+      `);
+    }
   }
 ];
 

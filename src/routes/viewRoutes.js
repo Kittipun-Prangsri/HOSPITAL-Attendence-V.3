@@ -23,7 +23,8 @@ const pages = [
   { path: '/admin/calendar', view: 'calendar' },
   { path: '/admin/audit', view: 'audit' },
   { path: '/departments', view: 'departments', departments: DEPARTMENTS },
-  { path: '/flex-preview', view: 'flex-preview' }
+  { path: '/flex-preview', view: 'flex-preview' },
+  { path: '/admin/face', view: 'face-admin' }
 ];
 
 const viewLocals = p => ({
@@ -39,7 +40,7 @@ const viewLocals = p => ({
 pages.forEach(p => {
   const adminPaths = [
     '/attendance', '/personnel', '/scheduling', '/reports', 
-    '/report/daily', '/report/monthly', '/report/hours', '/departments', '/admin/calendar'
+    '/report/daily', '/report/monthly', '/report/hours', '/departments', '/admin/calendar', '/admin/face'
   ];
   const superPaths = [
     '/admin/users', '/admin/permissions', '/permissions', '/admin/audit'
@@ -59,6 +60,13 @@ pages.forEach(p => {
       res.render(p.view, viewLocals(p));
     });
   }
+});
+
+// Mobile face-scan page, opened from LINE (LIFF). No checkAuth: inside LINE it signs in with the
+// LIFF ID token itself; in a normal browser without a session it sends the user to /login.
+router.get('/m/face', (req, res) => {
+  if (req.session.user) res.locals.user = req.session.user;
+  res.render('mobile-face', { liffId: process.env.LIFF_ID || '' });
 });
 
 module.exports = router;

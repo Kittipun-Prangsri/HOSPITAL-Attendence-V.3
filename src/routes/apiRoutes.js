@@ -10,6 +10,8 @@ const excuseController = require('../controllers/excuseController');
 const leaveController = require('../controllers/leaveController');
 const settingsController = require('../controllers/settingsController');
 const inboxController = require('../controllers/inboxController');
+const liffController = require('../controllers/liffController');
+const faceController = require('../controllers/faceController');
 const calendarController = require('../controllers/calendarController');
 const otController = require('../controllers/otController');
 const auditController = require('../controllers/auditController');
@@ -98,5 +100,17 @@ router.get('/audit', checkAuth, auditController.listAudit);
 
 // Topbar notification inbox
 router.get('/notifications/inbox', checkAuth, inboxController.getInbox);
+
+// Mobile face scan (Phase 1: LIFF sign-in, consent + enrolment, admin approval, settings)
+router.post('/liff/login', liffController.login);
+router.get('/face/me', checkAuth, faceController.me);
+router.post('/face/enroll', checkAuth, faceController.enroll);
+router.post('/face/revoke', checkAuth, faceController.revokeOwn);
+router.get('/face/enrollments', checkAuth, checkAdmin, faceController.list);
+router.get('/face/enrollments/:id/photo', checkAuth, faceController.photo);
+router.post('/face/enrollments/:id/review', checkAuth, checkAdmin, faceController.review);
+router.post('/face/enrollments/:id/revoke', checkAuth, checkAdmin, faceController.revoke);
+router.get('/mobile-scan/settings', checkAuth, checkAdmin, faceController.getSettings);
+router.put('/mobile-scan/settings', checkAuth, checkSuper, faceController.saveSettings);
 
 module.exports = router;
