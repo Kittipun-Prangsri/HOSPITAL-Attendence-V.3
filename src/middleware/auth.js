@@ -17,7 +17,11 @@ const checkAuth = (req, res, next) => {
   } else {
     // Deep links (LINE rich menu → /schedule, /leave) land on the page after signing in, not the dashboard
     const back = req.method === 'GET' ? safeReturnTo(req.originalUrl) : null;
-    if (back && back !== '/') req.session.returnTo = back;
+    if (back && back !== '/') {
+      req.session.returnTo = back;
+      // Persist before redirecting, or a fast POST /login can read the session before it is stored
+      return req.session.save(() => res.redirect('/login'));
+    }
     res.redirect('/login');
   }
 };

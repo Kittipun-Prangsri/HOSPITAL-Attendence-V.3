@@ -33,7 +33,9 @@ Object.assign(process.env, {
   LINE_CHANNEL_ACCESS_TOKEN: '',
   LINE_ADMIN_USER_ID: '',
   GOOGLE_SHEET_URL: '',
-  ENABLE_TELEGRAM_POLLING: 'false'
+  ENABLE_TELEGRAM_POLLING: 'false',
+  FACE_TEMPLATE_KEY: 'c'.repeat(64),
+  LINE_LOGIN_CHANNEL_ID: ''
 });
 
 const test = require('node:test');
@@ -178,7 +180,7 @@ test.after(async () => {
 test('migrations created every table and sessions persist in MySQL', async () => {
   const [tables] = await admin.query('SELECT table_name AS t FROM information_schema.tables WHERE table_schema = ?', [HOSPITAL_DB]);
   const names = tables.map(r => r.t || r.TABLE_NAME);
-  for (const t of ['schema_migrations', 'leave_requests', 'app_settings', 'holidays', 'ot_requests', 'audit_log', 'incident_logs', 'scan_outages', 'sessions']) {
+  for (const t of ['schema_migrations', 'leave_requests', 'app_settings', 'holidays', 'ot_requests', 'audit_log', 'incident_logs', 'scan_outages', 'face_enrollments', 'mobile_scans', 'sessions']) {
     assert.ok(names.includes(t), `missing table ${t}`);
   }
   const [[{ n }]] = await admin.query(`SELECT COUNT(*) AS n FROM ${HOSPITAL_DB}.sessions`);
@@ -458,6 +460,60 @@ test('a deep link from the LINE rich menu returns to that page after login', asy
   // An off-site target is never honoured
   const evil = await fetch(`${base}//evil.example/x`, { redirect: 'manual' });
   assert.notEqual(evil.headers.get('location'), '//evil.example/x');
+});
+
+test('face enrolment: consent, server-side face check, approval rules, withdrawal wipes data', async () => {
+  const photo = name => 'data:image/jpeg;base64,' + fs.readFileSync(require('path').join(__dirname, '..', 'fixtures', name)).toString('base64');
+  const consentVersion = require('../../src/constants/faceConsent').VERSION;
+
+  const me = await call(users.staff, 'GET', '/api/face/me');
+  assert.equal(me.status, 200);
+  assert.equal(me.body.ready, true);
+  assert.equal(me.body.latest, null);
+
+  assert.equal((await call(users.staff, 'POST', '/api/face/enroll', { photo: photo('face-a.jpg'), consent: false, consentVersion })).status, 400, 'consent required');
+  const noFace = 'data:image/jpeg;base64,' + fs.readFileSync(require('path').join(__dirname, '..', '..', 'public', 'images', 'LOGO KHH.jpg')).toString('base64');
+  const rejected = await call(users.staff, 'POST', '/api/face/enroll', { photo: noFace, consent: true, consentVersion });
+  assert.equal(rejected.status, 422, 'server finds no face in the logo');
+
+  const enrolled = await call(users.staff, 'POST', '/api/face/enroll', { photo: photo('face-a.jpg'), consent: true, consentVersion });
+  assert.equal(enrolled.status, 200, JSON.stringify(enrolled.body));
+  const id = enrolled.body.id;
+  const [[row]] = await admin.query(`SELECT status, template, model_version FROM ${HOSPITAL_DB}.face_enrollments WHERE id = ?`, [id]);
+  assert.equal(row.status, 'pending');
+  assert.match(row.template, /^v1:/, 'template stored encrypted');
+
+  // Photo: owner and admins only
+  assert.equal((await fetch(`${base}/api/face/enrollments/${id}/photo`, { headers: { Cookie: users.staff.cookie } })).status, 200);
+  assert.equal((await fetch(`${base}/api/face/enrollments/${id}/photo`, { headers: { Cookie: users.temp.cookie } })).status, 403);
+  assert.equal((await fetch(`${base}/api/face/enrollments/${id}/photo`, { headers: { Cookie: users.admin.cookie } })).status, 200);
+
+  assert.equal((await call(users.staff, 'POST', `/api/face/enrollments/${id}/review`, { decision: 'approve' })).status, 403, 'staff cannot approve');
+  assert.equal((await call(users.admin, 'POST', `/api/face/enrollments/${id}/review`, { decision: 'reject' })).status, 400, 'reject needs a reason');
+  const pending = await call(users.admin, 'GET', '/api/face/enrollments?status=pending');
+  assert.equal(pending.body.enrollments.length, 1);
+  assert.equal((await call(users.admin, 'POST', `/api/face/enrollments/${id}/review`, { decision: 'approve' })).status, 200);
+  assert.equal((await call(users.admin, 'POST', `/api/face/enrollments/${id}/review`, { decision: 'approve' })).status, 409, 'only once');
+  assert.equal((await call(users.staff, 'GET', '/api/face/me')).body.approved.status, 'approved');
+
+  // Settings: admins read, only super writes, and enabling needs a site
+  assert.equal((await call(users.admin, 'PUT', '/api/mobile-scan/settings', { enabled: false, sites: [] })).status, 403);
+  const bad = await call(users.super, 'PUT', '/api/mobile-scan/settings', { enabled: true, sites: [], maxAccuracyM: 100, matchThreshold: 0.45, reviewThreshold: 0.35, photoRetentionDays: 90 });
+  assert.equal(bad.status, 400);
+  const good = await call(users.super, 'PUT', '/api/mobile-scan/settings', { enabled: true, sites: [{ name: 'รพ.คลองหาด', lat: 13.43, lng: 102.31, radiusM: 250 }], maxAccuracyM: 100, matchThreshold: 0.45, reviewThreshold: 0.35, photoRetentionDays: 90 });
+  assert.equal(good.status, 200);
+  assert.equal((await call(users.admin, 'GET', '/api/mobile-scan/settings')).body.settings.sites[0].radiusM, 250);
+
+  // Withdrawing consent deletes template and photo
+  assert.equal((await call(users.staff, 'POST', '/api/face/revoke', {})).status, 200);
+  const [[after]] = await admin.query(`SELECT status, template, photo_file FROM ${HOSPITAL_DB}.face_enrollments WHERE id = ?`, [id]);
+  assert.deepEqual(after, { status: 'revoked', template: null, photo_file: null });
+  assert.equal((await call(users.staff, 'GET', '/api/face/me')).body.approved, null);
+});
+
+test('LIFF sign-in refuses to work without a LINE Login channel and never trusts a raw user id', async () => {
+  const res = await fetch(`${base}/api/liff/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken: 'x', userId: 'Utest1001' }) });
+  assert.equal(res.status, 503);
 });
 
 test('escalation finds approvals pending for more than two days', async () => {

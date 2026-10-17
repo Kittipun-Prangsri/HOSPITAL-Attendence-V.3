@@ -39,10 +39,10 @@ async function wipe(rows, status, by, note) {
   }
 }
 
-const publicRow = r => r && ({
+const publicRow = r => (r ? {
   id: r.id, status: r.status, createdAt: r.created_at, reviewedAt: r.reviewed_at, reviewNote: r.review_note,
   consentVersion: r.consent_version
-});
+} : null);
 
 /* ---------------- Staff (own enrolment) ---------------- */
 
