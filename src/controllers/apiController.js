@@ -4,6 +4,7 @@ const { approvedLeaveMap, leaveFor } = require('../services/leaveCalendar');
 const { getHolidaySet, getOutageSet } = require('../services/holidays');
 const { getWorkSettings, resolveWorkSettings } = require('../services/workSettings');
 const { lateThresholdFor, isLateAt, toDateKey } = require('../utils/attendanceTime');
+const { shiftStartFor, dayPlan, judgeRosteredDay } = require('../utils/shiftAttendance');
 
 exports.getData = async (req, res) => {
   try {
@@ -270,6 +271,23 @@ async function syncIncidentsForMonth(year, month) {
   const holidays = await getHolidaySet(`${targetMonth}-01`, monthEnd);
   const outages = await getOutageSet(`${targetMonth}-01`, monthEnd);
 
+  // Duty roster for the month (schedule_entries.employee_id = FINGLE_ID) and every scan from the day
+  // before to the day after, so a night shift starting 00:00 can be matched with a 23:50 check-in.
+  const [rosterRows] = await pool.query(
+    "SELECT employee_id, DATE_FORMAT(schedule_date, '%Y-%m-%d') AS d, shift FROM schedule_entries WHERE schedule_date BETWEEN ? AND ?",
+    [`${targetMonth}-01`, monthEnd]);
+  const roster = {};
+  for (const r of rosterRows) (roster[r.employee_id] = roster[r.employee_id] || {})[r.d] = r.shift;
+  const scanTimes = {};
+  if (rosterRows.length) {
+    const [rows] = await hosofficePool.query(
+      `SELECT EmployeeID, DATE_FORMAT(TIMESTAMP(AccessDate, AccessTime), '%Y-%m-%dT%H:%i:%s') AS ts FROM hikvision
+       WHERE AccessDate BETWEEN DATE_SUB(?, INTERVAL 1 DAY) AND DATE_ADD(?, INTERVAL 1 DAY) AND EmployeeID IN (?)`,
+      [`${targetMonth}-01`, monthEnd, Object.keys(roster)]);
+    for (const r of rows) (scanTimes[r.EmployeeID] = scanTimes[r.EmployeeID] || []).push(new Date(`${r.ts}+07:00`).getTime());
+    Object.values(scanTimes).forEach(list => list.sort((a, b) => a - b));
+  }
+
   // 4. Get excuses from local DB (using pool)
   const [excuses] = await pool.query(`
     SELECT username, date, status, issue_type
@@ -331,53 +349,36 @@ async function syncIncidentsForMonth(year, month) {
         continue;
       }
 
-      const checkInTime = scansMap[fingleId]?.[dateStr];
-      const hasCheckedIn = !!checkInTime;
+      const rosterShift = roster[fingleId] && roster[fingleId][dateStr];
+      const plan = dayPlan({ templateId, rosterShift, isWorkday: !isWeekend && !holidays.has(dateStr) });
+      if (plan === 'off') continue;
 
-      if (hasCheckedIn) {
-        // Same late rule as the dashboard (check-in later than work start + grace minutes)
-        const isLate = isLateAt(checkInTime, workSettings);
-
-        if (isLate) {
-          const excuseStatus = excusesMap[fingleId]?.[dateStr] || excusesMap[cid]?.[dateStr];
-          const currentStatus = incidentsMap[fingleId]?.[dateStr]?.['LATE'];
-
-          let status = 'PENDING';
-          if (excuseStatus === 'approved') {
-            status = 'SUBMITTED';
-          } else if (currentStatus) {
-            status = currentStatus;
-          }
-
-          insertValues.push([fingleId, dateStr, 'LATE', status]);
-        }
+      // outcome: 'ok' | 'late' | 'absent'
+      let outcome;
+      const shiftStart = plan === 'roster' ? shiftStartFor(rosterShift, workSettings.shifts) : null;
+      if (shiftStart) {
+        outcome = judgeRosteredDay({ date: dateStr, start: shiftStart, lateMin: workSettings.lateMin, scanMs: scanTimes[fingleId] || [] }).result;
       } else {
-        // No check-in
-        // Normal-template staff are off on weekends and public holidays; shift (template 2) staff are not
-        // No scan data at all during a recorded scanner outage, so a missing check-in proves nothing
-        if (outages.has(dateStr)) continue;
-        if (templateId === 2 || (!isWeekend && !holidays.has(dateStr))) {
-          const excuseStatus = excusesMap[fingleId]?.[dateStr] || excusesMap[cid]?.[dateStr];
-          const currentStatus = incidentsMap[fingleId]?.[dateStr]?.['ABSENT'];
-
-          let status = 'PENDING';
-          if (excuseStatus === 'approved') {
-            status = 'SUBMITTED';
-          } else {
-            // Overdue if older than 3 days
-            const incidentDateObj = new Date(dateStr);
-            const diffTime = Math.abs(now - incidentDateObj);
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-            if (diffDays > 3) {
-              status = 'OVERDUE';
-            } else if (currentStatus) {
-              status = currentStatus;
-            }
-          }
-
-          insertValues.push([fingleId, dateStr, 'ABSENT', status]);
-        }
+        // Office day (or a custom shift with no known start): first scan of the date vs work start + grace
+        const checkInTime = scansMap[fingleId]?.[dateStr];
+        outcome = !checkInTime ? 'absent' : isLateAt(checkInTime, workSettings) ? 'late' : 'ok';
       }
+      if (outcome === 'ok') continue;
+      // No scan data at all during a recorded scanner outage, so a missing check-in proves nothing
+      if (outcome === 'absent' && outages.has(dateStr)) continue;
+
+      const type = outcome === 'late' ? 'LATE' : 'ABSENT';
+      const excuseStatus = excusesMap[fingleId]?.[dateStr] || excusesMap[cid]?.[dateStr];
+      const currentStatus = incidentsMap[fingleId]?.[dateStr]?.[type];
+      let status = 'PENDING';
+      if (excuseStatus === 'approved') {
+        status = 'SUBMITTED';
+      } else if (type === 'ABSENT' && Math.ceil(Math.abs(now - new Date(dateStr)) / 86400000) > 3) {
+        status = 'OVERDUE'; // absences older than 3 days without an approved excuse
+      } else if (currentStatus) {
+        status = currentStatus;
+      }
+      insertValues.push([fingleId, dateStr, type, status]);
     }
   }
 

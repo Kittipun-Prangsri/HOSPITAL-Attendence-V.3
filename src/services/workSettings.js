@@ -17,7 +17,13 @@ async function getWorkSettings() {
     const [rows] = await pool.query("SELECT setting_value FROM app_settings WHERE setting_key = 'work_settings'");
     if (rows.length) {
       const raw = typeof rows[0].setting_value === 'string' ? JSON.parse(rows[0].setting_value) : rows[0].setting_value;
-      value = { workStart: raw.workStart || DEFAULTS.workStart, lateMin: Number.isFinite(Number(raw.lateMin)) ? Number(raw.lateMin) : DEFAULTS.lateMin, stored: true };
+      value = {
+        workStart: raw.workStart || DEFAULTS.workStart,
+        lateMin: Number.isFinite(Number(raw.lateMin)) ? Number(raw.lateMin) : DEFAULTS.lateMin,
+        // Settings → ประเภทเวร: [{ name, start, end }] — start times for shift-aware incidents
+        shifts: Array.isArray(raw.shifts) ? raw.shifts : [],
+        stored: true
+      };
     }
   } catch (err) {
     console.warn('[workSettings] using defaults:', err.message);

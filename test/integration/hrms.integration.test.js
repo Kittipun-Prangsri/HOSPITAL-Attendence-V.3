@@ -367,6 +367,8 @@ test('shift names are stored as one canonical code and shown in Thai', async () 
 test('incident rebuild removes stale rows left by the old date bug', async () => {
   // A wrong ABSENT for someone who scanned in, as the pre-fix sync produced
   await admin.query(`INSERT INTO ${HOSPITAL_DB}.incident_logs (employee_id, incident_date, incident_type, status) VALUES ('1001', ?, 'ABSENT', 'OVERDUE')`, [DAY]);
+  // The roster test left 1002 on an afternoon shift that day; this test is about the office late rule
+  await admin.query(`DELETE FROM ${HOSPITAL_DB}.schedule_entries WHERE employee_id = '1002' AND schedule_date = ?`, [DAY]);
   const { rebuildIncidents } = require('../../src/services/incidentRebuild');
   const { syncIncidentsForMonth } = require('../../src/controllers/apiController');
   const dry = await rebuildIncidents({ from: '2026-09', to: '2026-09', dryRun: true, syncFn: syncIncidentsForMonth });
@@ -662,6 +664,32 @@ test('nightly backup produces a gzip SQL file that restores to the same data', a
     delete process.env.BACKUP_HOSOFFICE_TABLES;
     fs.rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test('shift workers are judged by their roster: days off are not absences, night shifts match late-evening scans', async () => {
+  const { syncIncidentsForMonth } = require('../../src/controllers/apiController');
+  // 1002 becomes a shift worker (template 2) with a few rostered shifts in late September
+  await admin.query(`UPDATE ${HOSOFFICE_DB}.hr_person_hiling_time SET TEMPLATE_ID = 2 WHERE HR_PERSON_ID = 2`);
+  await admin.query(`INSERT INTO ${HOSPITAL_DB}.schedule_entries (employee_id, schedule_date, shift) VALUES
+    ('1002', '2026-09-22', 'AFTERNOON'), ('1002', '2026-09-24', 'NIGHT'), ('1002', '2026-09-26', 'MORNING'), ('1002', '2026-09-28', 'AFTERNOON')`);
+  await admin.query(`INSERT INTO ${HOSOFFICE_DB}.hikvision (EmployeeID, AccessDate, AccessTime, Direction, AuthenticationResult, DeviceName) VALUES
+    ('1002', '2026-09-22', '15:50:00', 'in', 'Success', 'KHHin2'),
+    ('1002', '2026-09-23', '23:52:00', 'in', 'Success', 'KHHin2'),
+    ('1002', '2026-09-26', '09:40:00', 'in', 'Success', 'KHHin2')`);
+  await syncIncidentsForMonth(2026, 9);
+  const types = async d => (await incidents('1002', d)).map(r => r.incident_type);
+  assert.deepEqual(await types('2026-09-22'), [], 'บ่าย 16:00, arrived 15:50');
+  assert.deepEqual(await types('2026-09-23'), [], 'weekday off-duty is not an absence for a shift worker');
+  assert.deepEqual(await types('2026-09-24'), [], 'ดึก of the 24th, scanned 23:52 the evening before');
+  assert.deepEqual(await types('2026-09-25'), [], 'another day off');
+  assert.deepEqual(await types('2026-09-26'), ['LATE'], 'Saturday morning duty, 09:40 is past 08:00 + 60 min');
+  assert.deepEqual(await types('2026-09-28'), ['ABSENT'], 'rostered afternoon, never came');
+  // Office staff still follow the weekday rule (1003 has no scans on the 23rd)
+  assert.deepEqual((await incidents('1003', '2026-09-23')).map(r => r.incident_type), ['ABSENT']);
+
+  await admin.query(`UPDATE ${HOSOFFICE_DB}.hr_person_hiling_time SET TEMPLATE_ID = 1 WHERE HR_PERSON_ID = 2`);
+  await admin.query(`DELETE FROM ${HOSPITAL_DB}.schedule_entries WHERE employee_id = '1002' AND schedule_date BETWEEN '2026-09-22' AND '2026-09-28'`);
+  await admin.query(`DELETE FROM ${HOSOFFICE_DB}.hikvision WHERE EmployeeID = '1002' AND AccessDate BETWEEN '2026-09-22' AND '2026-09-26'`);
 });
 
 test('escalation finds approvals pending for more than two days', async () => {
