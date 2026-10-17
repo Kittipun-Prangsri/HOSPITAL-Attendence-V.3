@@ -12,6 +12,7 @@ const settingsController = require('../controllers/settingsController');
 const inboxController = require('../controllers/inboxController');
 const liffController = require('../controllers/liffController');
 const faceController = require('../controllers/faceController');
+const reportController = require('../controllers/reportController');
 const calendarController = require('../controllers/calendarController');
 const otController = require('../controllers/otController');
 const auditController = require('../controllers/auditController');
@@ -112,6 +113,8 @@ router.post('/face/enrollments/:id/review', checkAuth, checkAdmin, faceControlle
 router.post('/face/enrollments/:id/revoke', checkAuth, checkAdmin, faceController.revoke);
 router.get('/mobile-scan/settings', checkAuth, checkAdmin, faceController.getSettings);
 router.put('/mobile-scan/settings', checkAuth, checkSuper, faceController.saveSettings);
+// Monthly HR pack (.xlsx: summary, day grid, OT, leave)
+router.get('/report/monthly/hr-export', checkAuth, checkAdmin, reportController.hrExport);
 // Phase 2: scanning
 router.post('/face/scan/challenge', checkAuth, faceController.scanChallenge);
 router.post('/face/scan', checkAuth, faceController.scan);

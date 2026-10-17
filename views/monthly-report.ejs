@@ -29,7 +29,8 @@
         </div>
         <div class="flex gap-2">
           <button type="button" class="erp-btn erp-btn-secondary" onclick="exportToPDF()"><i class="bi bi-printer" aria-hidden="true"></i> พิมพ์ / PDF</button>
-          <button type="button" class="erp-btn erp-btn-primary" onclick="exportData()"><i class="bi bi-file-earmark-excel" aria-hidden="true"></i> ส่งออก Excel</button>
+          <button type="button" class="erp-btn erp-btn-secondary" onclick="exportData()" title="ตารางที่แสดงอยู่บนหน้าจอ"><i class="bi bi-file-earmark-excel" aria-hidden="true"></i> ส่งออกตารางนี้</button>
+          <button type="button" class="erp-btn erp-btn-primary" onclick="exportHrPack()" title="สรุปรายเดือน · ปฏิทินรายวัน · OT · ใบลา ในไฟล์เดียว"><i class="bi bi-file-earmark-spreadsheet" aria-hidden="true"></i> ชุดรายงาน HR (Excel)</button>
         </div>
       </section>
 
@@ -355,6 +356,14 @@
     }
 
     function exportToPDF() { window.print(); }
+
+    /* Server-built workbook: summary with leave types + OT, colour-coded day grid, OT and leave sheets */
+    function exportHrPack() {
+      const q = new URLSearchParams({ month: $('monthSelector').value, year: $('yearSelector').value });
+      if ($('deptFilter').value) q.set('department', $('deptFilter').value);
+      ERP.toast('กำลังสร้างไฟล์รายงาน…');
+      window.location.href = '/api/report/monthly/hr-export?' + q;
+    }
 
     function exportData() {
       if (typeof XLSX === 'undefined') return ERP.toast('โหลดไลบรารี Excel ไม่สำเร็จ', 'error');

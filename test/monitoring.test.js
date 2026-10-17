@@ -39,3 +39,13 @@ test('one busy device going quiet is reported while the others work', () => {
   const all = evaluate({ now, watching: true, cfg, overallLast: `${WED} 09:00:00`, devices });
   assert.deepEqual(all.silentDevices, [], 'when everything is down only the overall alert is used');
 });
+
+test('HOSoffice leave codes and app leave labels map to leave buckets', () => {
+  const { leaveBucket } = require('../src/services/hrExport');
+  assert.equal(leaveBucket('ลาป่วย'), 'sick');
+  assert.equal(leaveBucket('ป่วย'), 'sick');
+  assert.equal(leaveBucket('ลากิจส่วนตัว'), 'personal');
+  assert.equal(leaveBucket('ลาพักผ่อน'), 'vacation');
+  assert.equal(leaveBucket('ลาคลอดบุตร'), 'other');
+  assert.equal(leaveBucket(''), 'other');
+});

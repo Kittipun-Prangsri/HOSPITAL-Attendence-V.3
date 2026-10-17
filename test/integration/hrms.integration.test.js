@@ -692,6 +692,46 @@ test('shift workers are judged by their roster: days off are not absences, night
   await admin.query(`DELETE FROM ${HOSOFFICE_DB}.hikvision WHERE EmployeeID = '1002' AND AccessDate BETWEEN '2026-09-22' AND '2026-09-26'`);
 });
 
+test('monthly HR pack: one workbook with summary, day grid, OT and leave sheets', async () => {
+  const ExcelJS = require('exceljs');
+  assert.equal((await fetch(`${base}/api/report/monthly/hr-export?month=9&year=2026`, { headers: { Cookie: users.staff.cookie, Accept: 'application/json' } })).status, 403);
+  assert.equal((await fetch(`${base}/api/report/monthly/hr-export?month=13&year=2026`, { headers: { Cookie: users.admin.cookie } })).status, 400);
+  const res = await fetch(`${base}/api/report/monthly/hr-export?month=9&year=2026`, { headers: { Cookie: users.admin.cookie } });
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get('content-type'), /spreadsheetml/);
+  assert.match(res.headers.get('content-disposition'), /filename\*=UTF-8''/);
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(Buffer.from(await res.arrayBuffer()));
+  assert.deepEqual(wb.worksheets.map(w => w.name), ['สรุปรายเดือน', 'ปฏิทินรายวัน', 'OT', 'ใบลา']);
+  assert.match(String(wb.getWorksheet('สรุปรายเดือน').getCell('A1').value), /กันยายน 2569/);
+
+  const summary = wb.getWorksheet('สรุปรายเดือน');
+  const rowOf = id => { let found; summary.eachRow(r => { if (r.getCell(2).value === id) found = r; }); return found; };
+  const r1003 = rowOf('1003');
+  assert.ok(r1003, '1003 listed');
+  assert.ok(Number(r1003.getCell(8).value) >= 1, '1003 has absences in September');
+  const r1001 = rowOf('1001');
+  assert.ok(Number(r1001.getCell(9).value) + Number(r1001.getCell(13).value) >= 2, '1001 approved sick leave counted');
+  assert.ok(Number(r1001.getCell(14).value) > 0, '1001 approved OT hours');
+
+  const grid = wb.getWorksheet('ปฏิทินรายวัน');
+  let gridRow;
+  grid.eachRow(r => { if (r.getCell(1).value === '1001') gridRow = r; });
+  const sept = d => gridRow.getCell(3 + d).value;
+  assert.equal(sept(16), '✓', 'present on the 16th');
+  assert.equal(sept(17), 'ล', 'leave on the 17th');
+  assert.ok(wb.getWorksheet('OT').rowCount >= 5);
+  assert.ok(wb.getWorksheet('ใบลา').rowCount >= 5);
+
+  // Department filter keeps only that department
+  const dept = await fetch(`${base}/api/report/monthly/hr-export?month=9&year=2026&department=${encodeURIComponent('กลุ่มงานสุขภาพดิจิทัล')}`, { headers: { Cookie: users.admin.cookie } });
+  const wb2 = new ExcelJS.Workbook();
+  await wb2.xlsx.load(Buffer.from(await dept.arrayBuffer()));
+  const ids = [];
+  wb2.getWorksheet('สรุปรายเดือน').eachRow((r, n) => { if (n > 4 && /^\d{4}$/.test(String(r.getCell(2).value))) ids.push(r.getCell(2).value); });
+  assert.deepEqual(ids.sort(), ['1003', '1004']);
+});
+
 test('escalation finds approvals pending for more than two days', async () => {
   const { collectStalePending, formatEscalation } = require('../../src/services/pendingEscalation');
   assert.equal((await collectStalePending(2)).leaves.length, 0);
