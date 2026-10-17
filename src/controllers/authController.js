@@ -1,5 +1,6 @@
 const bcrypt = require('bcryptjs');
 const { logAudit } = require('../utils/audit');
+const { safeReturnTo } = require('../middleware/auth');
 const { hosofficePool } = require('../config/db');
 
 exports.getLogin = (req, res) => {
@@ -28,6 +29,7 @@ exports.postLogin = async (req, res) => {
       if (isMatch) {
         console.log(`[Auth] Login successful for ${username} (${user.fullname})`);
         // New session id on login (prevents session fixation); CSRF token is re-issued with it
+        const returnTo = safeReturnTo(req.session.returnTo) || '/';
         return req.session.regenerate((regenErr) => {
           if (regenErr) {
             console.error('[Auth] Session regenerate error:', regenErr);
@@ -45,7 +47,7 @@ exports.postLogin = async (req, res) => {
               console.error('[Auth] Session save error:', err);
               return res.render('login', { error: 'เกิดข้อผิดพลาดในการบันทึกเซสชัน' });
             }
-            res.redirect('/');
+            res.redirect(returnTo);
           });
         });
       } else {

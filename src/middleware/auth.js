@@ -3,6 +3,10 @@ const RBAC_ENABLED = true;
 const isApiRequest = req => (req.originalUrl || '').startsWith('/api/') || req.xhr ||
   Boolean(req.headers.accept && req.headers.accept.includes('json'));
 
+/** Only same-site paths: "/schedule" yes; "//evil.com", "/\\evil.com", absolute URLs and /api no. */
+const safeReturnTo = url => (typeof url === 'string' && url.length <= 300 && /^\/(?![\/\\])/.test(url) &&
+  !url.startsWith('/api/') && !url.startsWith('/login') ? url : null);
+
 const checkAuth = (req, res, next) => {
   if (req.session.user) {
     res.locals.user = req.session.user; // Make user data available in EJS
@@ -11,6 +15,9 @@ const checkAuth = (req, res, next) => {
   } else if (isApiRequest(req)) {
     res.status(401).json({ success: false, error: 'กรุณาเข้าสู่ระบบใหม่', loginRequired: true });
   } else {
+    // Deep links (LINE rich menu → /schedule, /leave) land on the page after signing in, not the dashboard
+    const back = req.method === 'GET' ? safeReturnTo(req.originalUrl) : null;
+    if (back && back !== '/') req.session.returnTo = back;
     res.redirect('/login');
   }
 };
@@ -43,6 +50,7 @@ const checkSuper = (req, res, next) => {
 };
 
 module.exports = {
+  safeReturnTo,
   checkAuth,
   checkAdmin,
   checkSuper,

@@ -443,6 +443,23 @@ test('latest scan card is available as a free LINE reply', async () => {
   assert.match(text, /KHHin2/);
 });
 
+test('a deep link from the LINE rich menu returns to that page after login', async () => {
+  const first = await fetch(`${base}/schedule`, { redirect: 'manual' });
+  assert.equal(first.status, 302);
+  assert.match(first.headers.get('location'), /\/login$/);
+  const cookie = first.headers.getSetCookie().map(c => c.split(';')[0]).join('; ');
+  const res = await fetch(`${base}/login`, {
+    method: 'POST', redirect: 'manual',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded', Cookie: cookie },
+    body: new URLSearchParams({ username: '1001', password: PASSWORD })
+  });
+  assert.equal(res.status, 302);
+  assert.equal(res.headers.get('location'), '/schedule');
+  // An off-site target is never honoured
+  const evil = await fetch(`${base}//evil.example/x`, { redirect: 'manual' });
+  assert.notEqual(evil.headers.get('location'), '//evil.example/x');
+});
+
 test('escalation finds approvals pending for more than two days', async () => {
   const { collectStalePending, formatEscalation } = require('../../src/services/pendingEscalation');
   assert.equal((await collectStalePending(2)).leaves.length, 0);
