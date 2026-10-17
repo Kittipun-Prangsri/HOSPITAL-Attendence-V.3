@@ -86,3 +86,11 @@ test('camera and location are allowed only on the mobile face page', async () =>
   const outside = await fetch(`${base}/vendor/human/models/../../package.json`);
   assert.notEqual(outside.status, 200);
 });
+
+test('own CSS/JS links carry a content hash so phones never keep stale styles', async () => {
+  const html = await (await fetch(`${base}/login`)).text();
+  const m = html.match(/href="\/css\/erp\.css\?v=([0-9a-f]{10})"/);
+  assert.ok(m, 'erp.css link is versioned');
+  const css = await fetch(`${base}/css/erp.css?v=${m[1]}`);
+  assert.equal(css.status, 200);
+});

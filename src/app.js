@@ -69,6 +69,23 @@ app.use(cors({
   },
   credentials: true
 }));
+// Cache-busting for our own CSS/JS: the proxy in front of the site tells phones to keep static files for
+// hours, so a deploy would otherwise show new pages with old styles. asset('/css/erp.css') →
+// '/css/erp.css?v=<content hash>' changes only when the file does.
+{
+  const crypto = require('crypto');
+  const fs = require('fs');
+  const versions = new Map();
+  app.locals.asset = urlPath => {
+    if (!versions.has(urlPath)) {
+      let v = '';
+      try { v = crypto.createHash('sha1').update(fs.readFileSync(path.join(__dirname, '..', 'public', urlPath))).digest('hex').slice(0, 10); } catch (e) { /* missing file: plain url */ }
+      versions.set(urlPath, v);
+    }
+    const v = versions.get(urlPath);
+    return v ? `${urlPath}?v=${v}` : urlPath;
+  };
+}
 app.use(express.static(path.join(__dirname, '..', 'public')));
 // Face library + models for the browser, from the same pinned npm package the server uses
 {

@@ -10,7 +10,7 @@
   }[navRole] || { label: 'เจ้าหน้าที่', cls: 'bg-white/10 text-slate-300' };
 %>
 <%# ERP shell stylesheet is linked here so every page picks it up after its own CSS %>
-<link rel="stylesheet" href="/css/erp.css" />
+<link rel="stylesheet" href="<%= asset('/css/erp.css') %>" />
 
 <nav class="erp erp-sidebar" id="sidebar" aria-label="เมนูหลัก">
   <a href="/" class="flex h-14 shrink-0 items-center gap-3 border-b border-white/10 px-4" aria-label="โรงพยาบาลคลองหาด หน้าหลัก">

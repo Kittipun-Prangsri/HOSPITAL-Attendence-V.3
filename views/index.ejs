@@ -3,7 +3,7 @@
 
 <head>
   <%- include("components/erp-head", { title: "แดชบอร์ด" }) %>
-  <link rel="stylesheet" href="/css/staff-schedule-modal.css" />
+  <link rel="stylesheet" href="<%= asset('/css/staff-schedule-modal.css') %>" />
 </head>
 
 <body class="erp-page">
@@ -772,7 +772,7 @@
   </script>
 
   <%- include("components/staff-schedule-modal") %>
-  <script src="/js/staff-schedule-modal.js"></script>
+  <script src="<%= asset('/js/staff-schedule-modal.js') %>"></script>
 </body>
 
 </html>
