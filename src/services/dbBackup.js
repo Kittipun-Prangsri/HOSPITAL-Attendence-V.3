@@ -53,7 +53,12 @@ async function* dumpLines(pool, dbName, tables) {
 
 /** Write one gzip file atomically (tmp → rename). Resolves to { file, bytes }. */
 async function backupOne(pool, dbName, { dir, label, tables, now }) {
-  await fs.promises.mkdir(dir, { recursive: true });
+  try {
+    await fs.promises.mkdir(dir, { recursive: true });
+  } catch (err) {
+    // e.g. BACKUP_DIR on a drive letter that does not exist on this server
+    throw new Error(`สร้างโฟลเดอร์สำรองไม่ได้: "${dir}" (${err.code || err.message}) — ตรวจ BACKUP_DIR ใน .env ว่าไดรฟ์/โฟลเดอร์มีอยู่จริง`);
+  }
   const file = path.join(dir, `${label}-${stamp(now)}.sql.gz`);
   const tmp = `${file}.part`;
   try {
@@ -82,7 +87,13 @@ async function prune(dir, keepDays, now = new Date()) {
  * Back up the app DB, plus HOSoffice tables listed in BACKUP_HOSOFFICE_TABLES (comma separated),
  * then prune. Resolves to { files: [{ file, bytes }], removed }.
  */
-async function runBackup({ now = new Date(), dir = process.env.BACKUP_DIR || DEFAULT_DIR, keepDays = Number(process.env.BACKUP_KEEP_DAYS) || 14 } = {}) {
+// Accept BACKUP_DIR written with quotes or doubled backslashes (both common when copying from docs)
+const envDir = () => {
+  const raw = String(process.env.BACKUP_DIR || '').trim().replace(/^["']|["']$/g, '').replace(/(?!^)\\\\/g, '\\'); // keeps a leading double backslash (UNC share)
+  return raw ? path.resolve(raw) : DEFAULT_DIR;
+};
+
+async function runBackup({ now = new Date(), dir = envDir(), keepDays = Number(process.env.BACKUP_KEEP_DAYS) || 14 } = {}) {
   const { pool, hosofficePool } = require('../config/db');
   const files = [];
   const hospitalDb = process.env.DB_NAME_HOSPITAL;
@@ -96,7 +107,7 @@ async function runBackup({ now = new Date(), dir = process.env.BACKUP_DIR || DEF
 }
 
 /** Newest backup file for the status panel. */
-async function latestBackup(dir = process.env.BACKUP_DIR || DEFAULT_DIR) {
+async function latestBackup(dir = envDir()) {
   const names = (await fs.promises.readdir(dir).catch(() => [])).filter(n => NAME_RE.test(n));
   if (!names.length) return null;
   const stats = await Promise.all(names.map(async n => ({ name: n, ...(await fs.promises.stat(path.join(dir, n))) })));
