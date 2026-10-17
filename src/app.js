@@ -21,6 +21,10 @@ if (!sessionSecret) {
 
 // Basic Middleware
 app.disable('x-powered-by');
+// Behind ngrok / nginx the app sees plain HTTP; trusting one proxy hop lets Express read
+// X-Forwarded-Proto/For so secure cookies, req.ip (rate limit, audit) and HTTPS detection work.
+// TRUST_PROXY=0 disables this when the app is exposed directly with no proxy in front.
+app.set('trust proxy', process.env.TRUST_PROXY === undefined ? 1 : (Number(process.env.TRUST_PROXY) || false));
 // Security headers. Pages still use inline <script> and onclick handlers, so script-src keeps
 // 'unsafe-inline'; external sources are limited to the CDNs actually used.
 // upgrade-insecure-requests is off because the intranet may be served over plain HTTP.
@@ -96,7 +100,9 @@ app.use(session({
   cookie: {
     httpOnly: true,
     sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
+    // 'auto' = Secure flag only on HTTPS requests. A hard `true` broke login over LAN HTTP and
+    // behind ngrok (which forwards plain HTTP), because express-session then never sets the cookie.
+    secure: 'auto',
     maxAge: SESSION_TTL_MS
   }
 }));

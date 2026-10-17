@@ -51,3 +51,8 @@ test('leave upload route accepts bodies above the global 100kb limit', async () 
   const other = await fetch(`${base}/api/ot`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: big });
   assert.equal(other.status, 413);
 });
+
+test('trusts one proxy hop so cookies/req.ip work behind ngrok', () => {
+  const app = require('../src/app');
+  assert.equal(app.get('trust proxy'), 1);
+});
