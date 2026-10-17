@@ -116,6 +116,16 @@ app.use(csrfProtection);
 const chatbotService = require('./services/chatbotService');
 const notificationService = require('./services/notificationService');
 
+// Buttons under every bot reply. Each one is a postback answered with a reply message, which LINE does
+// not count against the monthly push quota, so the scan card stays available on the free plan.
+const LINE_QUICK_REPLY = {
+  items: [
+    { type: 'action', action: { type: 'postback', label: '📇 สแกนล่าสุด', data: 'action=latest_scan', displayText: 'สแกนล่าสุด' } },
+    { type: 'action', action: { type: 'postback', label: '📋 ประวัติวันนี้', data: 'action=today_history', displayText: 'ดูประวัติการเข้างาน' } },
+    { type: 'action', action: { type: 'postback', label: '📝 ยื่นใบลา', data: 'action=excuse', displayText: 'ยื่นใบลา' } }
+  ]
+};
+
 // LINE Webhook Route (Highest Priority)
 app.post(['/', '/webhook'], verifyLineSignature, async (req, res) => {
   try {
@@ -134,17 +144,20 @@ app.post(['/', '/webhook'], verifyLineSignature, async (req, res) => {
 
             // Typing the same label shown on a Flex button should behave like tapping it
             const historyTextMatch = /^(?:ดูประวัติการเข้างาน|ดูประวัติการสแกน|ดูประวัติ|ขอดูการสแกนวันนี้|ขอดูแสกนวันนี้)$/i.test(cleanText);
+            const latestTextMatch = /^(?:สแกนล่าสุด|แสกนล่าสุด|ล่าสุด|การ์ด|การ์ดสแกน|latest)$/i.test(cleanText);
             const excuseTextMatch = /^(?:ยื่นใบลา\s*\/\s*แจ้งเหตุสาย|ยื่นใบลา|แจ้งเหตุสาย|แจ้งเหตุ|ขอใบลา|ใบลา|แก้ต่าง)$/i.test(cleanText);
 
             let flexReply = null;
-            if (historyTextMatch) {
+            if (latestTextMatch) {
+              flexReply = await chatbotService.handlePostback('action=latest_scan', lineUserId);
+            } else if (historyTextMatch) {
               flexReply = await chatbotService.handlePostback('action=today_history', lineUserId);
             } else if (excuseTextMatch) {
               flexReply = await chatbotService.handlePostback('action=excuse', lineUserId);
             }
 
             if (flexReply) {
-              await notificationService.replyLineMessage(event.replyToken, flexReply);
+              await notificationService.replyLineMessage(event.replyToken, flexReply, LINE_QUICK_REPLY);
             } else {
               // Check if message matches chatbot commands
               let replyText = await chatbotService.handleMessage(incomingText, lineUserId);
@@ -155,21 +168,21 @@ app.post(['/', '/webhook'], verifyLineSignature, async (req, res) => {
                             `คัดลอกไอดีด้านบนเพื่อนำไปวางในช่อง 'LINE ID' ในฟอร์มลงทะเบียนพนักงานเพื่อรับข้อความแจ้งเตือนครับ`;
               }
 
-              await notificationService.replyLineMessage(event.replyToken, replyText);
+              await notificationService.replyLineMessage(event.replyToken, replyText, LINE_QUICK_REPLY);
             }
           } else if (event.type === 'postback' && event.postback && event.postback.data) {
             const lineUserId = event.source.userId;
             const replyText = await chatbotService.handlePostback(event.postback.data, lineUserId);
 
             if (replyText) {
-              await notificationService.replyLineMessage(event.replyToken, replyText);
+              await notificationService.replyLineMessage(event.replyToken, replyText, LINE_QUICK_REPLY);
             }
           } else if (event.type === 'follow') {
             const replyText = `สวัสดีครับ ยินดีต้อนรับสู่ระบบบันทึกเวลาปฏิบัติงาน KHH Attendance\n\n` +
                               `LINE User ID ของคุณคือ:\n${event.source.userId}\n\n` +
                               `คัดลอกไอดีด้านบนเพื่อนำไปวางในช่อง 'LINE ID' ในฟอร์มลงทะเบียนพนักงานเพื่อรับข้อความแจ้งเตือนครับ`;
             
-            await notificationService.replyLineMessage(event.replyToken, replyText);
+            await notificationService.replyLineMessage(event.replyToken, replyText, LINE_QUICK_REPLY);
           }
         } catch (eventErr) {
           console.error(`[Webhook Event Processing Error]:`, eventErr);

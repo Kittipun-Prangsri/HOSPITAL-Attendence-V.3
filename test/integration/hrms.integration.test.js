@@ -429,6 +429,20 @@ test('chatbot shows scan history only to linked staff: own data, or everyone for
   assert.match(all, /สมชาย/, 'admins can see the whole hospital');
 });
 
+test('latest scan card is available as a free LINE reply', async () => {
+  const chatbot = require('../../src/services/chatbotService');
+  assert.match(await chatbot.handlePostback('action=latest_scan', 'Ustranger'), /ยังไม่ได้ผูก/);
+  // Fixture scans are on DAY, outside the 7-day window relative to today unless DAY is recent
+  await admin.query(`INSERT INTO ${HOSOFFICE_DB}.hikvision (EmployeeID, AccessDate, AccessTime, Direction, AuthenticationResult, DeviceName)
+    VALUES ('1001', CURDATE(), '09:30:00', 'in', 'Success', 'KHHin2')`);
+  const card = await chatbot.handlePostback('action=latest_scan', 'Utest1001');
+  assert.equal(card.type, 'bubble');
+  const text = JSON.stringify(card);
+  assert.match(text, /สมหญิง/);
+  assert.match(text, /09:30/);
+  assert.match(text, /KHHin2/);
+});
+
 test('escalation finds approvals pending for more than two days', async () => {
   const { collectStalePending, formatEscalation } = require('../../src/services/pendingEscalation');
   assert.equal((await collectStalePending(2)).leaves.length, 0);

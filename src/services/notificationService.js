@@ -357,7 +357,7 @@ class NotificationService {
   /**
    * Reply message to LINE user using reply token
    */
-  async replyLineMessage(replyToken, message) {
+  async replyLineMessage(replyToken, message, quickReply = null) {
     try {
       if (replyToken && process.env.LINE_CHANNEL_ACCESS_TOKEN) {
         let messages = [];
@@ -398,6 +398,11 @@ class NotificationService {
               messages[4].text += '\n\n... (ข้อมูลถูกจำกัดการแสดงผลเนื่องจากจำนวนรายการเกินขีดจำกัด)';
             }
           }
+        }
+
+        // Quick Reply buttons ride on the last message; tapping one sends a postback, answered by reply (free)
+        if (quickReply && messages.length > 0) {
+          messages[messages.length - 1] = { ...messages[messages.length - 1], quickReply };
         }
 
         if (messages.length > 0) {

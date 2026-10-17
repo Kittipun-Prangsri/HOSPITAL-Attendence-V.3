@@ -159,7 +159,7 @@ async function checkNewScans() {
         if (!targetLine && !targetTelegram) {
           await pool.query(
             `UPDATE notification_deliveries SET status = 'skipped', sent_at = NOW(), last_error = ? WHERE employee_id = ? AND access_date = ? AND access_time = ?`,
-            [hr.line_user_id ? 'ไม่มี Telegram · LINE ใช้เฉพาะเรื่องสำคัญ (พิมพ์ 1 ใน LINE เพื่อดูการสแกน)' : 'ยังไม่ได้ผูก LINE/Telegram', scan.EmployeeID, dateStr, scan.AccessTime]
+            [hr.line_user_id ? 'ไม่มี Telegram · LINE ใช้เฉพาะเรื่องสำคัญ (กด "สแกนล่าสุด" ใน LINE เพื่อดูการ์ด)' : 'ยังไม่ได้ผูก LINE/Telegram', scan.EmployeeID, dateStr, scan.AccessTime]
           );
           continue;
         }

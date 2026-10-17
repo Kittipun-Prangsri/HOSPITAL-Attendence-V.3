@@ -1,5 +1,7 @@
 const { hosofficePool } = require('../config/db');
 const flexBuilder = require('./flexBuilder');
+const { getLateThreshold } = require('./workSettings');
+const { isLateCheckIn, normalizeClock, toDateKey } = require('../utils/attendanceTime');
 
 class ChatbotService {
   /**
@@ -12,6 +14,9 @@ class ChatbotService {
 
     if (action === 'today_history' || action === 'history') {
       return await this.handleTodayScansFlex(userId);
+    }
+    if (action === 'latest_scan') {
+      return await this.handleLatestScanFlex(userId);
     }
     if (action === 'excuse' || action === 'leave') {
       let fullname = 'บุคลากร';
@@ -44,6 +49,54 @@ class ChatbotService {
   /**
    * Helper to return today scans as a polished LINE Flex Message Bubble
    */
+  /**
+   * The realtime scan card, on demand. Sent as a reply (free, no LINE push quota), so staff who don't
+   * get pushed cards can still see their latest scan by tapping a button or typing "สแกนล่าสุด".
+   */
+  async handleLatestScanFlex(userId) {
+    const me = await this.resolveRequester(userId);
+    if (!me) {
+      return 'บัญชีนี้ยังไม่ได้ผูกกับรหัสพนักงาน\nพิมพ์ "ขอไอดี" เพื่อรับไอดี แล้วแจ้งฝ่าย IT / HR ให้ผูกกับข้อมูลบุคลากรครับ';
+    }
+    try {
+      const [[person]] = await hosofficePool.query(
+        "SELECT CONCAT(TRIM(HR_FNAME), ' ', TRIM(HR_LNAME)) AS fullname FROM hr_person WHERE FINGLE_ID = ? LIMIT 1", [me.empId]);
+      // Most recent scan in the last 7 days (a card from last week is still useful after a holiday)
+      const [[scan]] = await hosofficePool.query(`
+        SELECT AccessDate, AccessTime, Direction, AttendanceStatus, AuthenticationResult, DeviceName, SkinSurfaceTemperature
+        FROM hikvision
+        WHERE EmployeeID = ? AND AccessDate >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+        ORDER BY AccessDate DESC, AccessTime DESC
+        LIMIT 1
+      `, [me.empId]);
+      const fullname = (person && person.fullname || me.empId).trim();
+      if (!scan) return `📇 คุณ${fullname}\nยังไม่พบการสแกนใน 7 วันที่ผ่านมาครับ`;
+
+      const dir = String(scan.Direction || '').toLowerCase();
+      const st = String(scan.AttendanceStatus || '').toLowerCase();
+      const isCheckIn = ['in', 'i', 'check-in'].includes(dir) || ['in', 'i', 'check-in'].includes(st);
+      const isLate = isCheckIn && isLateCheckIn(normalizeClock(scan.AccessTime) || '', await getLateThreshold());
+      const dateThai = new Date(`${toDateKey(scan.AccessDate)}T00:00:00+07:00`)
+        .toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok', year: 'numeric', month: 'long', day: 'numeric' });
+
+      return flexBuilder.buildAttendanceFlex({
+        fullname,
+        employeeId: me.empId,
+        direction: scan.Direction,
+        attendanceStatus: scan.AttendanceStatus,
+        authResult: scan.AuthenticationResult,
+        dateThai,
+        timeStr: scan.AccessTime,
+        deviceName: scan.DeviceName || 'ไม่ระบุจุดสแกน',
+        temperature: scan.SkinSurfaceTemperature,
+        isLate
+      });
+    } catch (err) {
+      console.error('[Chatbot] latest scan card failed:', err.message);
+      return 'ขออภัยครับ ดึงข้อมูลการสแกนล่าสุดไม่สำเร็จ ลองใหม่อีกครั้ง';
+    }
+  }
+
   async handleTodayScansFlex(userId) {
     const todayStr = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Bangkok' });
     const todayThai = new Date().toLocaleDateString('th-TH', {
