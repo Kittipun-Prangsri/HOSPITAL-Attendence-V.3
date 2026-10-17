@@ -75,6 +75,7 @@ async function setupDatabases() {
       HR_PHONE VARCHAR(50) NULL, HR_EMAIL VARCHAR(255) NULL, HR_DEPARTMENT_ID INT NULL, HR_POSITION_ID INT NULL,
       HR_STATUS_ID VARCHAR(10) NULL, HR_STARTWORK_DATE DATE NULL,
       LINE_YOUR_USER_ID VARCHAR(255) NULL, TELEGRAM_CHAT_ID VARCHAR(100) NULL,
+      LINE_TOKEN VARCHAR(255) NULL, LINE_TOKEN1 VARCHAR(255) NULL, LINE_TOKEN2 VARCHAR(255) NULL, PERMIS_ID VARCHAR(50) NULL,
       WORK_SHIFT VARCHAR(50) NULL, TIME_IN VARCHAR(20) NULL, TIME_OUT VARCHAR(20) NULL,
       USER_TYPE VARCHAR(20) NULL, HR_PASSWORD_HASH VARCHAR(255) NULL
     );
@@ -407,6 +408,25 @@ test('scanner outage clears absences in its range and they return when it is rem
   assert.equal((await call(users.admin, 'DELETE', `/api/scan-outages/${list[0].id}`)).status, 200);
   await syncIncidentsForMonth(2026, 9);
   assert.deepEqual((await incidents('1003', DAY)).map(r => r.incident_type), ['ABSENT'], 'absence is back after the outage is removed');
+});
+
+test('chatbot shows scan history only to linked staff: own data, or everyone for admins', async () => {
+  const chatbot = require('../../src/services/chatbotService');
+  const thaiDay = `สแกน วันที่ ${DAY.slice(8, 10)}/${DAY.slice(5, 7)}/${DAY.slice(0, 4)}`;
+  assert.match(await chatbot.handleMessage('1', 'Ustranger'), /ยังไม่ได้ผูก/, 'unknown LINE user gets nothing');
+  assert.match(await chatbot.handleMessage(thaiDay, 'Ustranger'), /ยังไม่ได้ผูก/);
+
+  const own = await chatbot.handleMessage(thaiDay, 'Utest1001');
+  assert.match(own, /สมหญิง/);
+  assert.doesNotMatch(own, /สมชาย/, 'regular staff never see colleagues');
+  const asked = await chatbot.handleMessage('1 1002', 'Utest1001');
+  assert.match(asked, /เฉพาะข้อมูลของตนเอง/);
+  assert.doesNotMatch(asked, /สมชาย/);
+
+  await admin.query(`UPDATE ${HOSOFFICE_DB}.hr_person SET TELEGRAM_CHAT_ID = '555' WHERE FINGLE_ID = '1003'`);
+  const all = await chatbot.handleMessage(thaiDay, '555');
+  assert.match(all, /สมหญิง/);
+  assert.match(all, /สมชาย/, 'admins can see the whole hospital');
 });
 
 test('escalation finds approvals pending for more than two days', async () => {

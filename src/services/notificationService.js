@@ -99,6 +99,40 @@ if (isTelegramConfigured) {
   }
 }
 
+const lineConfigured = () => {
+  const t = process.env.LINE_CHANNEL_ACCESS_TOKEN;
+  return Boolean(t && !t.startsWith('your_'));
+};
+
+/** Human-readable reason for a failed LINE push; the monthly free quota is the usual culprit. */
+function describeLineError(err) {
+  const status = err.status || err.statusCode || err.originalError?.response?.status || err.response?.status;
+  const body = err.body || err.originalError?.response?.data || err.response?.data;
+  const text = typeof body === 'string' ? body : JSON.stringify(body || {});
+  if (status === 429 && /monthly limit/i.test(text)) return 'LINE: ใช้โควตาข้อความรายเดือนหมดแล้ว (429 monthly limit)';
+  if (status === 429) return 'LINE: ส่งถี่เกินไป (429)';
+  if (status === 401) return 'LINE: Channel access token ไม่ถูกต้องหรือหมดอายุ (401)';
+  if (status === 400 && /invalid.*to|not found/i.test(text)) return 'LINE: User ID ไม่ถูกต้อง หรือผู้ใช้ยังไม่ได้เพิ่มเพื่อน OA (400)';
+  if (status === 403) return 'LINE: ไม่มีสิทธิ์ส่ง หรือผู้ใช้บล็อก OA (403)';
+  return `LINE: ${status || ''} ${text !== '{}' ? text : err.message}`.trim();
+}
+
+/**
+ * Telegram send that survives Markdown in names/device labels ("_", "*", "[").
+ * Telegram rejects the whole message on a parse error, so retry once as plain text.
+ */
+async function telegramSend(chatId, text, options = {}) {
+  try {
+    return await telegramBot.sendMessage(chatId, text, options);
+  } catch (err) {
+    if (options.parse_mode && /can't parse entities/i.test(err.message || '')) {
+      const { parse_mode, ...plain } = options;
+      return telegramBot.sendMessage(chatId, text, plain);
+    }
+    throw err;
+  }
+}
+
 // Mapping path
 const MAPPING_PATH = path.join(__dirname, '../../data/notification_mappings.json');
 
@@ -107,27 +141,27 @@ class NotificationService {
    * Send message to Admin on both platforms
    */
   async sendToAdmin(message) {
-    try {
-      // Send to Telegram Admin
-      if (process.env.TELEGRAM_ADMIN_CHAT_ID) {
-        await telegramBot.sendMessage(process.env.TELEGRAM_ADMIN_CHAT_ID, message);
+    // Each channel independently: a Telegram outage must not stop the LINE copy (and vice versa)
+    const result = { telegram: null, line: null };
+    if (process.env.TELEGRAM_ADMIN_CHAT_ID && isTelegramConfigured) {
+      try {
+        await telegramSend(process.env.TELEGRAM_ADMIN_CHAT_ID, message);
+        result.telegram = true;
+      } catch (error) {
+        result.telegram = false;
+        console.error('[NotificationService] admin Telegram failed:', error.message);
       }
-
-      // Send to LINE Admin
-      if (process.env.LINE_ADMIN_USER_ID && process.env.LINE_CHANNEL_ACCESS_TOKEN) {
-        await lineClient.pushMessage({
-          to: process.env.LINE_ADMIN_USER_ID,
-          messages: [{
-            type: 'text',
-            text: message,
-          }]
-        });
-      }
-      
-      console.log('Notification sent to admin successfully.');
-    } catch (error) {
-      console.error('Error sending notification to admin:', error.message);
     }
+    if (process.env.LINE_ADMIN_USER_ID && lineConfigured()) {
+      try {
+        await lineClient.pushMessage({ to: process.env.LINE_ADMIN_USER_ID, messages: [{ type: 'text', text: message }] });
+        result.line = true;
+      } catch (error) {
+        result.line = false;
+        console.error('[NotificationService] admin LINE failed:', describeLineError(error));
+      }
+    }
+    return result;
   }
 
   /**
@@ -200,7 +234,7 @@ class NotificationService {
   async sendDirectTelegram(telegramChatId, message, options = {}) {
     try {
       if (telegramChatId && process.env.TELEGRAM_BOT_TOKEN) {
-        await telegramBot.sendMessage(telegramChatId, message, options);
+        await telegramSend(telegramChatId, message, options);
         return true;
       }
       return false;
@@ -216,6 +250,8 @@ class NotificationService {
   async sendDirectNotification(lineUserId, telegramChatId, message, telegramOptions = {}, lineFlexContents = null) {
     let lineSuccess = false;
     let telegramSuccess = false;
+    let lineError = null;
+    let telegramError = null;
 
     // Validate IDs to prevent sending to dummy values like '-' or invalid formats
     const cleanLineId = lineUserId && typeof lineUserId === 'string' && /^U[0-9a-fA-F]{32}$/.test(lineUserId.trim()) ? lineUserId.trim() : null;
@@ -227,9 +263,10 @@ class NotificationService {
           parse_mode: 'Markdown',
           ...telegramOptions
         };
-        await telegramBot.sendMessage(cleanTelegramId, message, options);
+        await telegramSend(cleanTelegramId, message, options);
         telegramSuccess = true;
       } catch (err) {
+        telegramError = `Telegram: ${err.message}`;
         console.error(`[NotificationService] Failed to send Telegram notification: ${err.message}`);
       }
     }
@@ -253,16 +290,50 @@ class NotificationService {
         });
         lineSuccess = true;
       } catch (err) {
-        const errDetails = err.originalError?.response?.data || err.response?.data || err.message;
-        console.error(`[NotificationService] Failed to send LINE notification:`, errDetails);
+        lineError = describeLineError(err);
+        console.error(`[NotificationService] Failed to send LINE notification: ${lineError}`);
       }
     }
 
     return {
       line: lineUserId ? lineSuccess : null,
       telegram: telegramChatId ? telegramSuccess : null,
-      success: lineSuccess || telegramSuccess
+      success: lineSuccess || telegramSuccess,
+      error: [lineError, telegramError].filter(Boolean).join(' · ') || null
     };
+  }
+
+  /**
+   * Channel health for the admin page: is each bot configured and reachable, and how much of the
+   * LINE monthly push quota is left (realtime scan cards use push, so the free plan runs out fast).
+   */
+  async getStatus() {
+    const status = { line: { configured: lineConfigured() }, telegram: { configured: Boolean(isTelegramConfigured), polling: Boolean(isPollingEnabled) } };
+    if (status.line.configured) {
+      try {
+        const [bot, quota, used] = await Promise.all([lineClient.getBotInfo(), lineClient.getMessageQuota(), lineClient.getMessageQuotaConsumption()]);
+        Object.assign(status.line, {
+          ok: true,
+          name: bot.displayName,
+          basicId: bot.basicId,
+          quotaType: quota.type,
+          quota: quota.type === 'limited' ? quota.value : null,
+          used: used.totalUsage
+        });
+      } catch (err) {
+        Object.assign(status.line, { ok: false, error: describeLineError(err) });
+      }
+    }
+    if (status.telegram.configured) {
+      try {
+        const me = await telegramBot.getMe();
+        Object.assign(status.telegram, { ok: true, name: me.first_name, username: me.username });
+      } catch (err) {
+        Object.assign(status.telegram, { ok: false, error: err.message });
+      }
+    }
+    status.adminTargets = { telegram: Boolean(process.env.TELEGRAM_ADMIN_CHAT_ID), line: Boolean(process.env.LINE_ADMIN_USER_ID) };
+    return status;
   }
 
   /**
@@ -336,3 +407,4 @@ class NotificationService {
 }
 
 module.exports = new NotificationService();
+module.exports.describeLineError = describeLineError;

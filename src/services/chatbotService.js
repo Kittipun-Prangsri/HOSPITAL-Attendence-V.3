@@ -101,6 +101,40 @@ class ChatbotService {
   /**
    * Main entry point to handle incoming text messages
    */
+  /**
+   * Who is asking: the staff record linked to this LINE userId / Telegram chat id.
+   * Scan history is personal data (PDPA), so only linked staff may query it, regular staff
+   * only their own, and only ADMIN / SUPER accounts may look up other people or the whole hospital.
+   */
+  async resolveRequester(userId) {
+    if (!userId) return null;
+    try {
+      const [rows] = await hosofficePool.query(`
+        SELECT FINGLE_ID, UPPER(COALESCE(USER_TYPE, '')) AS user_type
+        FROM hr_person
+        WHERE LINE_YOUR_USER_ID = ? OR TELEGRAM_CHAT_ID = ? OR LINE_TOKEN = ? OR LINE_TOKEN1 = ? OR LINE_TOKEN2 = ?
+        LIMIT 1
+      `, [userId, userId, userId, userId, userId]);
+      if (!rows.length || !rows[0].FINGLE_ID) return null;
+      return { empId: String(rows[0].FINGLE_ID), isAdmin: ['ADMIN', 'SUPER'].includes(rows[0].user_type) };
+    } catch (err) {
+      console.error('[Chatbot] requester lookup failed:', err.message);
+      return null;
+    }
+  }
+
+  /** Returns { filter } to use for a scan query, or { deny } with the reply to send instead. */
+  async scanScope(userId, nameFilter) {
+    const me = await this.resolveRequester(userId);
+    if (!me) {
+      return { deny: 'บัญชีนี้ยังไม่ได้ผูกกับรหัสพนักงาน จึงดูประวัติการสแกนไม่ได้\n\n' +
+        'พิมพ์ "ขอไอดี" เพื่อรับไอดี แล้วแจ้งฝ่าย IT / HR ให้ผูกกับข้อมูลบุคลากรครับ' };
+    }
+    if (me.isAdmin) return { filter: nameFilter, empId: null };
+    const note = nameFilter && nameFilter !== me.empId ? 'ℹ️ ดูได้เฉพาะข้อมูลของตนเอง\n\n' : '';
+    return { filter: me.empId, empId: me.empId, note };
+  }
+
   async handleMessage(text, userId) {
     if (!text) return null;
     const cleanText = text.trim();
@@ -160,7 +194,9 @@ class ChatbotService {
     const todayMatch = cleanText.match(todayRegex);
     if (todayMatch) {
       const nameFilter = todayMatch[1] ? todayMatch[1].trim() : null;
-      return await this.handleTodayScans(nameFilter);
+      const scope = await this.scanScope(userId, nameFilter);
+      if (scope.deny) return scope.deny;
+      return (scope.note || '') + await this.handleTodayScans(scope.filter);
     }
 
     // 1b. Command: "ขอดูการสแกนเมื่อวาน [EmployeeID/Name]" (supports ขอดูการสแกนเมื่อวาน, ขอดูย้อนหลังเมื่อวาน, เลข 2, หรือ scan_yesterday)
@@ -168,7 +204,9 @@ class ChatbotService {
     const yesterdayMatch = cleanText.match(yesterdayRegex);
     if (yesterdayMatch) {
       const nameFilter = yesterdayMatch[1] ? yesterdayMatch[1].trim() : null;
-      return await this.handleYesterdayScans(nameFilter);
+      const scope = await this.scanScope(userId, nameFilter);
+      if (scope.deny) return scope.deny;
+      return (scope.note || '') + await this.handleYesterdayScans(scope.filter);
     }
 
     // 1c. Command: "ขอดูย้อนหลัง 3 วัน [EmployeeID/Name]" (supports เลข 3 หรือ scan_3days)
@@ -176,7 +214,9 @@ class ChatbotService {
     const threeDaysMatch = cleanText.match(threeDaysRegex);
     if (threeDaysMatch) {
       const nameFilter = threeDaysMatch[1] ? threeDaysMatch[1].trim() : null;
-      return await this.handleRangeScans(3, nameFilter);
+      const scope = await this.scanScope(userId, nameFilter);
+      if (scope.deny) return scope.deny;
+      return (scope.note || '') + await this.handleRangeScans(3, scope.filter);
     }
 
     // 1d. Command: "ขอดูย้อนหลัง 7 วัน [EmployeeID/Name]" (supports เลข 7 หรือ scan_7days)
@@ -184,7 +224,9 @@ class ChatbotService {
     const sevenDaysMatch = cleanText.match(sevenDaysRegex);
     if (sevenDaysMatch) {
       const nameFilter = sevenDaysMatch[1] ? sevenDaysMatch[1].trim() : null;
-      return await this.handleRangeScans(7, nameFilter);
+      const scope = await this.scanScope(userId, nameFilter);
+      if (scope.deny) return scope.deny;
+      return (scope.note || '') + await this.handleRangeScans(7, scope.filter);
     }
 
     // 2. Command: "สแกน วันที่ [วันที่]" (e.g. สแกน วันที่ 01/06/2026 or แสกนวันที่ 01.06.2569)
@@ -208,7 +250,9 @@ class ChatbotService {
         dateObj.getMonth() === month &&
         dateObj.getDate() === day
       ) {
-        return await this.handleHistoricalScans(day, month + 1, adYear);
+        const scope = await this.scanScope(userId, null);
+        if (scope.deny) return scope.deny;
+        return await this.handleHistoricalScans(day, month + 1, adYear, scope.empId);
       }
     }
 
@@ -384,7 +428,7 @@ class ChatbotService {
    * Handle "สแกน วันที่ [วันที่]" command
    * Queries SQL database for the requested date
    */
-  async handleHistoricalScans(day, month, year) {
+  async handleHistoricalScans(day, month, year, empId = null) {
     const formattedDate = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     const dateThai = `${day}/${month}/${year}`;
 
@@ -398,8 +442,9 @@ class ChatbotService {
         LEFT JOIN hr_person p ON h.EmployeeID = p.FINGLE_ID
         WHERE h.AccessDate = ?
           AND h.AuthenticationResult = 'Success'
+          ${empId ? 'AND h.EmployeeID = ?' : ''}
         ORDER BY h.AccessTime ASC
-      `, [formattedDate]);
+      `, empId ? [formattedDate, empId] : [formattedDate]);
 
       if (scans.length > 0) {
         let reply = `📊 *รายการสแกนสำเร็จ*\n📅 วันที่: ${dateThai}\nพบทั้งหมด ${scans.length} รายการ\n\n`;

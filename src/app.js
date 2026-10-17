@@ -5,6 +5,7 @@ const session = require('express-session');
 const helmet = require('helmet');
 const MySQLStore = require('express-mysql-session')(session);
 const { forceUtf8mb4 } = require('./config/db');
+const { captureRawBody, verifyLineSignature } = require('./middleware/lineSignature');
 const { csrfProtection } = require('./middleware/csrf');
 const healthController = require('./controllers/healthController');
 const authRoutes = require('./routes/authRoutes');
@@ -67,7 +68,7 @@ app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, '..', 'views'));
 // Leave requests may carry a base64 medical certificate (≤4 MB file → ~5.4 MB JSON)
 app.post('/api/leaves', express.json({ limit: '6mb' }));
-app.use(express.json({ limit: '100kb' }));
+app.use(express.json({ limit: '100kb', verify: captureRawBody }));
 app.use(express.urlencoded({ extended: true, limit: '100kb' }));
 
 // Session Configuration — persisted in MySQL so restarts/deploys don't sign everyone out.
@@ -116,13 +117,11 @@ const chatbotService = require('./services/chatbotService');
 const notificationService = require('./services/notificationService');
 
 // LINE Webhook Route (Highest Priority)
-app.post(['/', '/webhook'], async (req, res) => {
+app.post(['/', '/webhook'], verifyLineSignature, async (req, res) => {
   try {
-    console.log('📌 LINE Webhook เข้ามาแล้ว!');
     const events = req.body.events;
-    
-    // Log incoming LINE event data
-    console.log('Data from LINE:', JSON.stringify(events, null, 2));
+    // Event types only: message text and user ids are personal data and don't belong in PM2 logs
+    if (Array.isArray(events) && events.length) console.log(`[LINE] webhook: ${events.map(e => e.type).join(', ')}`);
 
     if (events && Array.isArray(events)) {
       for (const event of events) {

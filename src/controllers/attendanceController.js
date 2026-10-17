@@ -131,8 +131,25 @@ exports.updateMapping = (req, res) => {
   }
 };
 
+/** LINE / Telegram channel health, LINE push quota and today's delivery counts (Admin only) */
+exports.getNotificationStatus = async (req, res) => {
+  try {
+    const status = await NotificationService.getStatus();
+    const [[today]] = await pool.query(
+      `SELECT SUM(status = 'sent') AS sent, SUM(status = 'failed') AS failed
+       FROM notification_deliveries WHERE access_date = CURDATE()`
+    );
+    status.today = { sent: Number(today.sent) || 0, failed: Number(today.failed) || 0 };
+    status.realtime = { enabled: process.env.ENABLE_REALTIME_NOTIFICATIONS !== 'false', copyAdmin: process.env.REALTIME_COPY_ADMIN !== 'false' };
+    res.json({ success: true, status });
+  } catch (e) {
+    console.error('Error in /api/notifications/status:', e);
+    res.status(500).json({ success: false, error: 'ตรวจสอบสถานะการแจ้งเตือนไม่สำเร็จ' });
+  }
+};
+
 /**
- * List LINE/Telegram delivery attempts that exhausted their retries (Admin only)
+ * List LINE/Telegram delivery attempts that failed (Admin only)
  */
 exports.getFailedNotifications = async (req, res) => {
   try {
@@ -170,6 +187,16 @@ exports.getFailedNotifications = async (req, res) => {
 };
 
 exports.logAttendance = async (req, res) => {
+  // Machine endpoint that writes scans into HOSoffice: it has no session, so it needs a shared secret.
+  // Without ATTENDANCE_PUSH_TOKEN it is disabled — otherwise anyone reaching the server (e.g. via ngrok)
+  // could fake a check-in for any employee.
+  const pushToken = process.env.ATTENDANCE_PUSH_TOKEN;
+  if (!pushToken) return res.status(404).json({ success: false, error: 'Not found' });
+  const given = Buffer.from(String(req.get('x-attendance-token') || ''));
+  const expected = Buffer.from(pushToken);
+  if (given.length !== expected.length || !require('crypto').timingSafeEqual(given, expected)) {
+    return res.status(401).json({ success: false, error: 'Invalid token' });
+  }
   const { employeeId, status, deviceName, attendanceStatus, authResult, authenticationResult } = req.body;
   const now = new Date();
   
@@ -293,7 +320,7 @@ exports.logAttendance = async (req, res) => {
       }
     };
 
-    const targetTelegramChatId = process.env.TELEGRAM_ADMIN_CHAT_ID || '7857036135';
+    const targetTelegramChatId = process.env.TELEGRAM_ADMIN_CHAT_ID || null;
 
     await NotificationService.sendDirectNotification(
       line_user_id,

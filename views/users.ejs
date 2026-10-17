@@ -101,8 +101,11 @@
 
         <!-- TAB 2: FAILED NOTIFICATIONS -->
         <div id="tab-failed" class="tab-content" style="display:none;">
+          <div id="notifStatus" class="grid grid-cols-1 gap-3 border-b border-slate-200 bg-slate-50/60 p-3 md:grid-cols-3" aria-live="polite">
+            <div class="text-xs text-slate-400">กำลังตรวจสอบช่องทางแจ้งเตือน…</div>
+          </div>
           <div class="flex items-center justify-between border-b border-slate-200 p-3">
-            <p class="text-xs text-slate-500">รายการแจ้งเตือนการสแกนที่ส่งไม่สำเร็จ ระบบจะลองส่งซ้ำอัตโนมัติ</p>
+            <p class="text-xs text-slate-500">รายการแจ้งเตือนการสแกนที่ส่งไม่สำเร็จ (ไม่มีการส่งซ้ำ — ดูสาเหตุในคอลัมน์ข้อผิดพลาด)</p>
             <button type="button" class="erp-btn erp-btn-secondary h-8" onclick="fetchFailedNotifications()"><i class="bi bi-arrow-clockwise" aria-hidden="true"></i> โหลดใหม่</button>
           </div>
           <div class="max-h-[calc(100vh-360px)] min-h-[320px] overflow-auto">
@@ -268,7 +271,43 @@
       if (tabId === 'failed' && !failedNotifLoaded) fetchFailedNotifications();
     }
 
+    async function fetchNotifStatus() {
+      const box = $('notifStatus');
+      try {
+        const res = await fetch('/api/notifications/status', { headers: { Accept: 'application/json' } });
+        const data = await res.json();
+        if (!res.ok || !data.success) throw new Error(data.error || `HTTP ${res.status}`);
+        const { line, telegram, today, realtime, adminTargets } = data.status;
+        const pill = (ok, label) => `<span class="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-2xs font-semibold ring-1 ring-inset ${ok ? 'bg-emerald-50 text-emerald-700 ring-emerald-200' : 'bg-red-50 text-red-700 ring-red-200'}"><i class="bi ${ok ? 'bi-check-circle' : 'bi-x-circle'}" aria-hidden="true"></i>${label}</span>`;
+        const card = (title, icon, body) => `<div class="rounded-lg bg-white p-3 ring-1 ring-slate-200"><div class="mb-1.5 flex items-center gap-2 text-[13px] font-semibold text-slate-800"><i class="bi ${icon}" aria-hidden="true"></i>${title}</div>${body}</div>`;
+
+        let lineBody;
+        if (!line.configured) lineBody = pill(false, 'ยังไม่ได้ตั้งค่า') + '<p class="mt-1 text-2xs text-slate-500">ใส่ LINE_CHANNEL_ACCESS_TOKEN ใน .env</p>';
+        else if (!line.ok) lineBody = pill(false, 'เชื่อมต่อไม่ได้') + `<p class="mt-1 text-2xs text-red-600">${esc(line.error)}</p>`;
+        else {
+          const limited = line.quota != null;
+          const pct = limited ? Math.min(100, Math.round(line.used / Math.max(line.quota, 1) * 100)) : 0;
+          const bar = pct >= 90 ? 'bg-red-500' : pct >= 70 ? 'bg-amber-500' : 'bg-emerald-500';
+          lineBody = `${pill(true, esc(line.name || 'OA'))} <span class="text-2xs text-slate-400">${esc(line.basicId || '')}</span>
+            <div class="mt-2 text-2xs text-slate-600">ข้อความ push เดือนนี้: <b class="font-mono">${line.used.toLocaleString()}</b>${limited ? ` / <span class="font-mono">${line.quota.toLocaleString()}</span>` : ' (ไม่จำกัด)'}</div>
+            ${limited ? `<div class="mt-1 h-1.5 overflow-hidden rounded bg-slate-100" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><div class="h-full ${bar}" style="width:${pct}%"></div></div>
+            ${pct >= 90 ? '<p class="mt-1 text-2xs font-medium text-red-600">โควตาใกล้หมด — ข้อความ push จะส่งไม่ได้จนถึงต้นเดือน</p>' : ''}` : ''}`;
+        }
+        let tgBody;
+        if (!telegram.configured) tgBody = pill(false, 'ยังไม่ได้ตั้งค่า') + '<p class="mt-1 text-2xs text-slate-500">ใส่ TELEGRAM_BOT_TOKEN ใน .env</p>';
+        else if (!telegram.ok) tgBody = pill(false, 'เชื่อมต่อไม่ได้') + `<p class="mt-1 text-2xs text-red-600">${esc(telegram.error)}</p>`;
+        else tgBody = `${pill(true, '@' + esc(telegram.username || ''))}<div class="mt-2 text-2xs text-slate-600">รับคำสั่งแชต: ${telegram.polling ? 'เปิด' : 'ปิด (ส่งอย่างเดียว)'}</div>`;
+
+        const todayBody = `<div class="flex gap-4 text-2xs text-slate-600"><div>ส่งสำเร็จ <b class="block font-mono text-base text-slate-900">${today.sent}</b></div><div>ล้มเหลว <b class="block font-mono text-base ${today.failed ? 'text-red-600' : 'text-slate-900'}">${today.failed}</b></div></div>
+          <div class="mt-1 text-2xs text-slate-500">แจ้งเตือนทันทีเมื่อสแกน: ${realtime.enabled ? 'เปิด' : 'ปิด'} · สำเนาถึงแอดมิน: ${realtime.copyAdmin && adminTargets.telegram ? 'เปิด' : 'ปิด'}</div>`;
+        box.innerHTML = card('LINE OA', 'bi-line', lineBody) + card('Telegram', 'bi-telegram', tgBody) + card('การสแกนวันนี้', 'bi-bell', todayBody);
+      } catch (err) {
+        box.innerHTML = `<div class="text-xs text-red-600 md:col-span-3">ตรวจสอบสถานะไม่สำเร็จ: ${esc(err.message)}</div>`;
+      }
+    }
+
     async function fetchFailedNotifications() {
+      fetchNotifStatus();
       const tbody = $('failedNotifBody');
       tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-12 text-center text-slate-400">กำลังโหลด…</td></tr>';
       try {

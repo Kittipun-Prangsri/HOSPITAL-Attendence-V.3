@@ -149,18 +149,21 @@ async function checkNewScans() {
         });
 
         const validEmpTelegram = hr.telegram_chat_id && /^-?\d+$/.test(String(hr.telegram_chat_id).trim()) ? String(hr.telegram_chat_id).trim() : null;
-        const targetTelegram = validEmpTelegram || process.env.TELEGRAM_ADMIN_CHAT_ID;
+        // REALTIME_COPY_ADMIN=false stops copying every scan of every person to the admin Telegram chat
+        // (~300 messages a day for this hospital); staff still get their own card.
+        const copyAdmin = process.env.REALTIME_COPY_ADMIN !== 'false';
+        const targetTelegram = validEmpTelegram || (copyAdmin ? process.env.TELEGRAM_ADMIN_CHAT_ID : null);
 
         const result = await NotificationService.sendDirectNotification(hr.line_user_id, targetTelegram, telegramCardMessage, undefined, lineFlexContents);
 
-        if (validEmpTelegram && process.env.TELEGRAM_ADMIN_CHAT_ID && validEmpTelegram !== process.env.TELEGRAM_ADMIN_CHAT_ID) {
+        if (copyAdmin && validEmpTelegram && process.env.TELEGRAM_ADMIN_CHAT_ID && validEmpTelegram !== process.env.TELEGRAM_ADMIN_CHAT_ID) {
           await NotificationService.sendDirectTelegram(process.env.TELEGRAM_ADMIN_CHAT_ID, telegramCardMessage, { parse_mode: 'Markdown' });
         }
 
         const deliveryStatus = result.success ? 'sent' : 'failed';
         await pool.query(
           `UPDATE notification_deliveries SET status = ?, sent_at = NOW(), last_error = ? WHERE employee_id = ? AND access_date = ? AND access_time = ?`,
-          [deliveryStatus, result.success ? null : 'Delivery failed', scan.EmployeeID, dateStr, scan.AccessTime]
+          [deliveryStatus, result.success ? null : (result.error || 'ไม่มีช่องทางที่ผูกไว้ (LINE/Telegram)').slice(0, 500), scan.EmployeeID, dateStr, scan.AccessTime]
         );
 
         console.log(`[RealtimeNotifier] Real-time notification sent for ${displayName} (${scan.EmployeeID}): ${deliveryStatus}. LINE: ${result.line}, Telegram: ${result.telegram}`);
