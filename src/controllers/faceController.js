@@ -6,6 +6,7 @@ const { encryptTemplate, isConfigured } = require('../utils/faceCrypto');
 const { decodeJpeg, savePhoto, photoPath, deletePhoto } = require('../utils/faceFiles');
 const { getMobileScanSettings, saveMobileScanSettings, validate } = require('../services/mobileScanSettings');
 const consent = require('../constants/faceConsent');
+const mobileScan = require('../services/mobileScan');
 
 const isAdmin = u => u && (u.role === 'admin' || u.role === 'super');
 
@@ -55,8 +56,13 @@ exports.me = async (req, res) => {
       [person ? person.fingle_id : '']
     );
     const settings = await getMobileScanSettings();
+    const [today] = await pool.query(
+      `SELECT DATE_FORMAT(scanned_at, '%H:%i') AS time, direction, status, reject_reason AS reason
+       FROM mobile_scans WHERE employee_id = ? AND scanned_at >= CURDATE() ORDER BY scanned_at DESC LIMIT 10`,
+      [person ? person.fingle_id : '']);
     res.json({
       success: true,
+      todayScans: today,
       person: person && { fullname: person.fullname, employeeId: person.fingle_id, hasLine: Boolean(person.line_user_id) },
       approved: publicRow(rows.find(r => r.status === 'approved')),
       latest: publicRow(rows[0]),
@@ -125,6 +131,127 @@ exports.revokeOwn = async (req, res) => {
   } catch (err) {
     console.error('[face] revoke failed:', err);
     res.status(500).json({ success: false, error: 'ถอนความยินยอมไม่สำเร็จ' });
+  }
+};
+
+/* ---------------- Mobile scan (Phase 2) ---------------- */
+
+exports.scanChallenge = async (req, res) => {
+  const direction = (req.body || {}).direction;
+  if (!['in', 'out'].includes(direction)) return res.status(400).json({ success: false, error: 'เลือกเข้างานหรือออกงาน' });
+  try {
+    const settings = await getMobileScanSettings();
+    if (!settings.enabled) return res.status(403).json({ success: false, error: 'ยังไม่เปิดให้สแกนลงเวลาผ่านมือถือ' });
+    res.json({ success: true, ...mobileScan.createChallenge(req.session.user.id, direction) });
+  } catch (err) {
+    console.error('[scan] challenge failed:', err);
+    res.status(500).json({ success: false, error: 'เริ่มการสแกนไม่สำเร็จ' });
+  }
+};
+
+exports.scan = async (req, res) => {
+  const user = req.session.user;
+  const body = req.body || {};
+  const challenge = mobileScan.takeChallenge(body.token, user.id);
+  if (!challenge) return res.status(400).json({ success: false, error: 'คำสั่งหมดอายุหรือใช้ไปแล้ว กรุณาเริ่มสแกนใหม่' });
+  const front = decodeJpeg(body.front);
+  const turn = decodeJpeg(body.turn);
+  if (front.error || turn.error) return res.status(400).json({ success: false, error: front.error || turn.error });
+  try {
+    const person = await personOf(user);
+    if (!person || !person.fingle_id) return res.status(400).json({ success: false, error: 'ไม่พบรหัสเครื่องสแกน (FINGLE_ID) ของท่าน' });
+    const r = await mobileScan.verifyScan({
+      person, challenge, front: front.value, turn: turn.value,
+      lat: body.lat, lng: body.lng, accuracy: body.accuracy,
+      lineUserId: person.line_user_id, userAgent: req.get('user-agent')
+    });
+    logAudit(req, `scan_${r.status}`, 'mobile_scan', r.id, { direction: challenge.direction, match: r.match, site: r.place.site, distanceM: r.place.distanceM, reason: r.reason || undefined });
+    const time = r.scannedAt.toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit' });
+    const label = challenge.direction === 'in' ? 'เข้างาน' : 'ออกงาน';
+    const message = r.status === 'accepted' ? `บันทึก${label}แล้ว เวลา ${time} น.`
+      : r.status === 'pending' ? `ส่งให้หัวหน้าตรวจสอบ (${r.reason})`
+        : `ไม่ผ่าน: ${r.reason}`;
+    res.json({ success: true, status: r.status, reason: r.reason, message, time, direction: challenge.direction, site: r.place.site, distanceM: r.place.distanceM });
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ success: false, error: err.message });
+    console.error('[scan] failed:', err);
+    res.status(500).json({ success: false, error: 'บันทึกการสแกนไม่สำเร็จ ลองใหม่อีกครั้ง' });
+  }
+};
+
+exports.listScans = async (req, res) => {
+  if (!isAdmin(req.session.user)) return res.status(403).json({ success: false, error: 'สิทธิ์ไม่เพียงพอ' });
+  const status = ['pending', 'accepted', 'rejected', 'all'].includes(req.query.status) ? req.query.status : 'pending';
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(req.query.date || '') ? req.query.date : null;
+  const where = [];
+  const params = [];
+  if (status !== 'all') { where.push('status = ?'); params.push(status); }
+  if (date) { where.push('scanned_at >= ? AND scanned_at < DATE_ADD(?, INTERVAL 1 DAY)'); params.push(date, date); }
+  try {
+    const [rows] = await pool.query(
+      `SELECT id, employee_id, DATE_FORMAT(scanned_at, '%Y-%m-%d %H:%i:%s') AS scanned_at, direction, latitude, longitude,
+              accuracy_m, site_name, distance_m, inside_area, match_score, status, reject_reason, reviewed_by,
+              photo_file IS NOT NULL AS has_photo
+       FROM mobile_scans ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY scanned_at DESC LIMIT 300`, params);
+    const ids = [...new Set(rows.map(r => r.employee_id))];
+    let names = {};
+    if (ids.length) {
+      const [people] = await hosofficePool.query(
+        "SELECT FINGLE_ID, CONCAT(HR_FNAME, ' ', HR_LNAME) AS name FROM hr_person WHERE FINGLE_ID IN (?)", [ids]);
+      names = Object.fromEntries(people.map(p => [p.FINGLE_ID, p.name]));
+    }
+    const [[counts]] = await pool.query("SELECT SUM(status = 'pending') AS pending FROM mobile_scans");
+    res.json({
+      success: true,
+      scans: rows.map(r => ({ ...r, fullname: names[r.employee_id] || r.employee_id, has_photo: Boolean(r.has_photo), inside_area: Boolean(r.inside_area) })),
+      counts: { pending: Number(counts.pending) || 0 }
+    });
+  } catch (err) {
+    console.error('[scan] list failed:', err);
+    res.status(500).json({ success: false, error: 'โหลดรายการสแกนไม่สำเร็จ' });
+  }
+};
+
+exports.scanPhoto = async (req, res) => {
+  const user = req.session.user;
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).end();
+  try {
+    const [[row]] = await pool.query('SELECT employee_id, photo_file FROM mobile_scans WHERE id = ?', [id]);
+    if (!row || !row.photo_file) return res.status(404).end();
+    if (!isAdmin(user)) {
+      const person = await personOf(user);
+      if (!person || person.fingle_id !== row.employee_id) return res.status(403).end();
+    }
+    const file = photoPath(row.photo_file);
+    if (!file || !fs.existsSync(file)) return res.status(404).end();
+    res.set({ 'Cache-Control': 'private, no-store', 'Content-Type': 'image/jpeg', 'X-Content-Type-Options': 'nosniff' });
+    res.sendFile(file);
+  } catch (err) {
+    console.error('[scan] photo failed:', err);
+    res.status(500).end();
+  }
+};
+
+exports.reviewScan = async (req, res) => {
+  const user = req.session.user;
+  if (!isAdmin(user)) return res.status(403).json({ success: false, error: 'สิทธิ์ไม่เพียงพอ' });
+  const id = Number(req.params.id);
+  const { decision } = req.body || {};
+  const note = typeof (req.body || {}).note === 'string' ? req.body.note.trim().slice(0, 255) : '';
+  if (!Number.isInteger(id) || !['approve', 'reject'].includes(decision)) return res.status(400).json({ success: false, error: 'คำขอไม่ถูกต้อง' });
+  if (decision === 'reject' && !note) return res.status(400).json({ success: false, error: 'กรุณาระบุเหตุผลที่ไม่อนุมัติ' });
+  try {
+    const me = await personOf(user);
+    const [[row]] = await pool.query('SELECT employee_id FROM mobile_scans WHERE id = ?', [id]);
+    if (row && me && me.fingle_id === row.employee_id) return res.status(403).json({ success: false, error: 'ไม่สามารถอนุมัติการสแกนของตนเองได้' });
+    const r = await mobileScan.reviewScan(id, decision, user.fullname, note);
+    if (r.error) return res.status(r.code).json({ success: false, error: r.error });
+    logAudit(req, decision, 'mobile_scan', id, { employeeId: r.row.employee_id, note: note || undefined });
+    res.json({ success: true, message: decision === 'approve' ? 'อนุมัติและบันทึกเวลาแล้ว' : 'ไม่อนุมัติแล้ว' });
+  } catch (err) {
+    console.error('[scan] review failed:', err);
+    res.status(500).json({ success: false, error: 'บันทึกผลไม่สำเร็จ' });
   }
 };
 

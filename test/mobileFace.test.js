@@ -57,3 +57,36 @@ test('post-login return path only allows same-site pages', () => {
   assert.equal(safeReturnTo('//evil.example'), null);
   assert.equal(safeReturnTo('https://evil.example'), null);
 });
+
+test('scan decision: liveness turn, face match, area', () => {
+  const { decide } = require('../src/services/mobileScan');
+  const settings = { matchThreshold: 0.45, reviewThreshold: 0.35 };
+  const inside = { site: 'A', distanceM: 50, radiusM: 200, inside: true };
+  const base = { settings, match: 0.8, sameFace: 0.6, frontYaw: 0.02, turnYaw: -0.4, action: 'left', place: inside };
+  assert.deepEqual(decide(base), { status: 'accepted', reason: null });
+  assert.equal(decide({ ...base, frontYaw: 0.4 }).status, 'rejected', 'first photo must look straight');
+  assert.match(decide({ ...base, action: 'right' }).reason, /ขวา/, 'turned the wrong way');
+  assert.equal(decide({ ...base, turnYaw: -0.1 }).status, 'rejected', 'barely turned');
+  assert.equal(decide({ ...base, sameFace: 0.1 }).status, 'rejected', 'two different people');
+  assert.equal(decide({ ...base, match: 0.2 }).status, 'rejected', 'not the enrolled face');
+  assert.equal(decide({ ...base, match: 0.4 }).status, 'pending', 'borderline face goes to a person');
+  const far = decide({ ...base, place: { site: 'A', distanceM: 900, radiusM: 200, inside: false } });
+  assert.equal(far.status, 'pending');
+  assert.match(far.reason, /นอกพื้นที่/);
+  assert.match(decide({ ...base, place: { site: 'A', distanceM: 50, radiusM: 200, inside: false } }).reason, /GPS/);
+  assert.equal(decide({ ...base, turnYaw: 0.4, action: 'right' }).status, 'accepted');
+});
+
+test('scan challenges are random, owned, single-use and expire', () => {
+  const ms = require('../src/services/mobileScan');
+  ms._resetChallenges();
+  const seen = new Set();
+  for (let i = 0; i < 40; i++) seen.add(ms.createChallenge(1, 'in').action);
+  assert.deepEqual([...seen].sort(), ['left', 'right']);
+  const c = ms.createChallenge(7, 'out');
+  assert.equal(ms.takeChallenge(c.token, 8), null, 'someone else cannot use it');
+  const d = ms.createChallenge(7, 'out');
+  assert.equal(ms.takeChallenge(d.token, 7).direction, 'out');
+  assert.equal(ms.takeChallenge(d.token, 7), null, 'second use refused');
+  assert.equal(ms.takeChallenge('nope', 7), null);
+});

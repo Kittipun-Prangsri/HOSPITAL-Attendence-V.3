@@ -22,6 +22,7 @@
         <div class="flex gap-1 border-b border-slate-200 px-3" role="tablist" id="tabBar">
           <button type="button" role="tab" class="erp-tab active" data-tab="pending" aria-selected="true"><i class="bi bi-hourglass-split" aria-hidden="true"></i> รออนุมัติ <span id="pendingCount" class="hidden rounded bg-amber-100 px-1.5 font-mono text-2xs text-amber-700"></span></button>
           <button type="button" role="tab" class="erp-tab" data-tab="approved" aria-selected="false"><i class="bi bi-patch-check" aria-hidden="true"></i> ลงทะเบียนแล้ว <span id="approvedCount" class="rounded bg-slate-100 px-1.5 font-mono text-2xs text-slate-600"></span></button>
+          <button type="button" role="tab" class="erp-tab" data-tab="scans" aria-selected="false"><i class="bi bi-phone" aria-hidden="true"></i> สแกนผ่านมือถือ <span id="scanPendingCount" class="hidden rounded bg-amber-100 px-1.5 font-mono text-2xs text-amber-700"></span></button>
           <button type="button" role="tab" class="erp-tab" data-tab="settings" aria-selected="false"><i class="bi bi-sliders" aria-hidden="true"></i> ตั้งค่าสแกนมือถือ</button>
         </div>
 
@@ -36,6 +37,25 @@
                 <tr class="border-b border-slate-200"><th class="px-4 py-2.5 font-semibold">บุคลากร</th><th class="px-3 py-2.5 font-semibold">อนุมัติโดย</th><th class="px-3 py-2.5 font-semibold">เมื่อ</th><th class="px-3 py-2.5"></th></tr>
               </thead>
               <tbody id="approvedBody" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div id="tab-scans" style="display:none;">
+          <div class="flex flex-wrap items-center gap-2 border-b border-slate-200 p-3">
+            <select id="scanStatus" class="erp-input w-auto" aria-label="สถานะ">
+              <option value="pending">รอตรวจ</option><option value="accepted">บันทึกแล้ว</option><option value="rejected">ไม่ผ่าน</option><option value="all">ทั้งหมด</option>
+            </select>
+            <input type="date" id="scanDate" class="erp-input w-auto" aria-label="วันที่">
+            <button type="button" class="erp-btn erp-btn-secondary" onclick="loadScans()"><i class="bi bi-arrow-clockwise" aria-hidden="true"></i> โหลด</button>
+            <span class="ml-auto text-2xs text-slate-500">รอตรวจ = นอกพื้นที่ / GPS ไม่แม่น / ใบหน้าก้ำกึ่ง · อนุมัติแล้วเวลาจะถูกบันทึกตามเวลาที่สแกนจริง</span>
+          </div>
+          <div class="max-h-[65vh] overflow-auto">
+            <table class="w-full border-collapse text-left text-[13px]">
+              <thead class="sticky top-0 bg-slate-50 text-2xs uppercase tracking-wide text-slate-500">
+                <tr class="border-b border-slate-200"><th class="px-4 py-2.5 font-semibold">บุคลากร</th><th class="px-3 py-2.5 font-semibold">เวลา</th><th class="px-3 py-2.5 font-semibold">ตำแหน่ง</th><th class="px-3 py-2.5 text-center font-semibold">ใบหน้า</th><th class="px-3 py-2.5 font-semibold">ผล</th><th class="px-3 py-2.5"></th></tr>
+              </thead>
+              <tbody id="scanBody" class="divide-y divide-slate-100"></tbody>
             </table>
           </div>
         </div>
@@ -179,6 +199,52 @@
       catch (err) { ERP.toast(err.message, 'error'); }
     });
 
+    /* ---------- Mobile scans ---------- */
+    const SCAN_LOOK = { accepted: 'bg-emerald-50 text-emerald-700 ring-emerald-200', pending: 'bg-amber-50 text-amber-700 ring-amber-200', rejected: 'bg-red-50 text-red-700 ring-red-200' };
+    const SCAN_TEXT = { accepted: 'บันทึกแล้ว', pending: 'รอตรวจ', rejected: 'ไม่ผ่าน' };
+    async function loadScans() {
+      $('scanBody').innerHTML = '<tr><td colspan="6" class="px-4 py-12 text-center text-slate-400">กำลังโหลด…</td></tr>';
+      const q = new URLSearchParams({ status: $('scanStatus').value });
+      if ($('scanDate').value) q.set('date', $('scanDate').value);
+      try {
+        const data = await getJson('/api/mobile-scans?' + q);
+        $('scanPendingCount').textContent = data.counts.pending;
+        $('scanPendingCount').classList.toggle('hidden', !data.counts.pending);
+        $('scanBody').innerHTML = data.scans.length ? data.scans.map(s => {
+          const map = s.latitude != null ? `<a class="text-brand-600 hover:underline" target="_blank" rel="noopener" href="https://www.google.com/maps?q=${s.latitude},${s.longitude}"><i class="bi bi-geo-alt" aria-hidden="true"></i> แผนที่</a>` : '<span class="text-slate-400">ไม่มี GPS</span>';
+          return `<tr class="align-top hover:bg-slate-50">
+            <td class="px-4 py-2.5"><div class="flex items-center gap-3">
+              ${s.has_photo ? `<a href="/api/mobile-scans/${s.id}/photo" target="_blank" rel="noopener"><img src="/api/mobile-scans/${s.id}/photo" alt="" class="h-12 w-12 rounded-lg bg-slate-100 object-cover" loading="lazy"></a>` : '<div class="h-12 w-12 rounded-lg bg-slate-100"></div>'}
+              <div><div class="font-medium text-slate-900">${esc(s.fullname)}</div><div class="font-mono text-2xs text-slate-500">${esc(s.employee_id)}</div></div></div></td>
+            <td class="whitespace-nowrap px-3 py-2.5"><div class="font-mono text-xs text-slate-800">${esc(s.scanned_at)}</div><div class="text-2xs text-slate-500">${s.direction === 'in' ? 'เข้างาน' : 'ออกงาน'}</div></td>
+            <td class="px-3 py-2.5 text-xs"><div class="text-slate-800">${esc(s.site_name || '—')}${s.distance_m != null ? ` · ${Math.round(s.distance_m)} ม.` : ''}</div>
+              <div class="text-2xs text-slate-500">${s.accuracy_m != null ? `±${Math.round(s.accuracy_m)} ม. · ` : ''}${s.inside_area ? 'ในพื้นที่' : 'นอกพื้นที่'} · ${map}</div></td>
+            <td class="px-3 py-2.5 text-center font-mono text-xs ${s.match_score >= 0.45 ? 'text-emerald-700' : 'text-amber-700'}">${s.match_score != null ? Math.round(s.match_score * 100) + '%' : '—'}</td>
+            <td class="px-3 py-2.5"><span class="inline-block rounded px-1.5 py-0.5 text-2xs font-semibold ring-1 ring-inset ${SCAN_LOOK[s.status]}">${SCAN_TEXT[s.status]}</span>
+              ${s.reject_reason ? `<div class="mt-1 max-w-[220px] text-2xs text-slate-500">${esc(s.reject_reason)}</div>` : ''}${s.reviewed_by ? `<div class="text-2xs text-slate-400">โดย ${esc(s.reviewed_by)}</div>` : ''}</td>
+            <td class="whitespace-nowrap px-3 py-2.5 text-right">${s.status === 'pending' ? `
+              <button type="button" class="erp-btn erp-btn-secondary h-8 text-red-600" data-scan-reject="${s.id}">ไม่อนุมัติ</button>
+              <button type="button" class="erp-btn erp-btn-primary h-8" data-scan-approve="${s.id}">อนุมัติ</button>` : ''}</td>
+          </tr>`;
+        }).join('') : ERP.emptyRow(6, 'ไม่มีรายการ', 'bi-phone');
+      } catch (err) {
+        $('scanBody').innerHTML = ERP.emptyRow(6, err.message, 'bi-exclamation-triangle');
+      }
+    }
+    $('scanStatus').addEventListener('change', loadScans);
+    $('scanDate').addEventListener('change', loadScans);
+    $('scanBody').addEventListener('click', async e => {
+      const a = e.target.closest('[data-scan-approve]');
+      const r = e.target.closest('[data-scan-reject]');
+      if (!a && !r) return;
+      const id = a ? a.dataset.scanApprove : r.dataset.scanReject;
+      const body = { decision: a ? 'approve' : 'reject' };
+      if (r) { const note = prompt('เหตุผลที่ไม่อนุมัติ (เช่น ไม่ได้อยู่ปฏิบัติงานนอกพื้นที่จริง, ใบหน้าไม่ใช่เจ้าของ)'); if (!note) return; body.note = note; }
+      else if (!confirm('อนุมัติและบันทึกเวลาตามเวลาที่สแกนจริง?')) return;
+      try { ERP.toast((await send(`/api/mobile-scans/${id}/review`, 'POST', body)).message, 'success'); loadScans(); }
+      catch (err) { ERP.toast(err.message, 'error'); }
+    });
+
     /* ---------- Settings ---------- */
     function siteRow(s = {}) {
       const dis = IS_SUPER ? '' : 'disabled';
@@ -235,9 +301,10 @@
       const b = e.target.closest('[data-tab]');
       if (!b) return;
       document.querySelectorAll('#tabBar [data-tab]').forEach(t => { t.classList.toggle('active', t === b); t.setAttribute('aria-selected', String(t === b)); });
-      ['pending', 'approved', 'settings'].forEach(t => { $('tab-' + t).style.display = t === b.dataset.tab ? '' : 'none'; });
+      ['pending', 'approved', 'scans', 'settings'].forEach(t => { $('tab-' + t).style.display = t === b.dataset.tab ? '' : 'none'; });
       if (b.dataset.tab === 'pending') loadPending();
       if (b.dataset.tab === 'approved') loadApproved();
+      if (b.dataset.tab === 'scans') loadScans();
       if (b.dataset.tab === 'settings' && !settingsLoaded) loadSettings();
     });
     const loadData = loadPending;

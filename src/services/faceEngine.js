@@ -109,6 +109,8 @@ function analyzeJpeg(buffer) {
       score: round(face.score),
       real: round(face.real),
       live: round(face.live),
+      // head turn in radians: negative = the person turned to their left (raw camera frame)
+      yaw: round(face.rotation && face.rotation.angle ? face.rotation.angle.yaw : 0),
       box: face.box.map(Math.round),
       faces: faces.length
     };

@@ -83,6 +83,7 @@ app.set('views', path.join(__dirname, '..', 'views'));
 app.post('/api/leaves', express.json({ limit: '6mb' }));
 // Face photos (≤ 2 MB JPEG as base64)
 app.post('/api/face/enroll', express.json({ limit: '3mb' }));
+app.post('/api/face/scan', express.json({ limit: '6mb' }));
 app.use(express.json({ limit: '100kb', verify: captureRawBody }));
 app.use(express.urlencoded({ extended: true, limit: '100kb' }));
 

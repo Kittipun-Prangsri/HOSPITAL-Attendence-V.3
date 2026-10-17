@@ -511,6 +511,72 @@ test('face enrolment: consent, server-side face check, approval rules, withdrawa
   assert.equal((await call(users.staff, 'GET', '/api/face/me')).body.approved, null);
 });
 
+test('mobile scan: two-photo liveness, geofence, review queue, hikvision write', async () => {
+  const path = require('path');
+  const photo = name => 'data:image/jpeg;base64,' + fs.readFileSync(path.join(__dirname, '..', 'fixtures', name)).toString('base64');
+  const consentVersion = require('../../src/constants/faceConsent').VERSION;
+  // face-a.jpg looks straight (yaw ≈ 0); face-a2.jpg is the same person turned to her left (yaw ≈ -0.45)
+  const challengeFor = async (who, direction, action) => {
+    for (let i = 0; i < 40; i++) {
+      const c = await call(who, 'POST', '/api/face/scan/challenge', { direction });
+      assert.equal(c.status, 200, JSON.stringify(c.body));
+      if (c.body.action === action) return c.body.token;
+    }
+    throw new Error('no challenge with ' + action);
+  };
+  const enrolApproved = async (who) => {
+    const e = await call(who, 'POST', '/api/face/enroll', { photo: photo('face-a.jpg'), consent: true, consentVersion });
+    assert.equal(e.status, 200, JSON.stringify(e.body));
+    assert.equal((await call(users.super, 'POST', `/api/face/enrollments/${e.body.id}/review`, { decision: 'approve' })).status, 200);
+  };
+  const HOSP = { lat: 13.43, lng: 102.31 };   // site saved by the enrolment test (radius 250 m)
+  await enrolApproved(users.staff);
+
+  // Wrong direction → rejected, and it does not block a retry
+  let token = await challengeFor(users.staff, 'in', 'right');
+  let r = await call(users.staff, 'POST', '/api/face/scan', { token, front: photo('face-a.jpg'), turn: photo('face-a2.jpg'), lat: HOSP.lat, lng: HOSP.lng, accuracy: 15 });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.equal(r.body.status, 'rejected');
+  assert.match(r.body.reason, /ขวา/);
+  assert.equal((await call(users.staff, 'POST', '/api/face/scan', { token, front: photo('face-a.jpg'), turn: photo('face-a2.jpg') })).status, 400, 'challenge is single-use');
+
+  // Correct turn, inside the area → accepted and written to hikvision
+  token = await challengeFor(users.staff, 'in', 'left');
+  r = await call(users.staff, 'POST', '/api/face/scan', { token, front: photo('face-a.jpg'), turn: photo('face-a2.jpg'), lat: HOSP.lat + 0.0005, lng: HOSP.lng, accuracy: 15 });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.equal(r.body.status, 'accepted', JSON.stringify(r.body));
+  const [hik] = await admin.query(`SELECT Direction, AttendanceStatus, AuthenticationType, is_notified FROM ${HOSOFFICE_DB}.hikvision WHERE EmployeeID = '1001' AND AuthenticationType = 'MobileFace'`);
+  assert.deepEqual(hik.map(h => [h.Direction, h.AttendanceStatus, h.is_notified]), [['in', 'i', 1]]);
+  assert.equal((await call(users.staff, 'GET', '/api/face/me')).body.todayScans[0].status, 'accepted');
+
+  // Rate limit
+  token = await challengeFor(users.staff, 'out', 'left');
+  assert.equal((await call(users.staff, 'POST', '/api/face/scan', { token, front: photo('face-a.jpg'), turn: photo('face-a2.jpg'), lat: HOSP.lat, lng: HOSP.lng, accuracy: 15 })).status, 429);
+
+  // Another person, far away → pending; only another admin can approve; approval writes the original time
+  await enrolApproved(users.admin);
+  token = await challengeFor(users.admin, 'in', 'left');
+  r = await call(users.admin, 'POST', '/api/face/scan', { token, front: photo('face-a.jpg'), turn: photo('face-a2.jpg'), lat: 13.9, lng: 100.5, accuracy: 10 });
+  assert.equal(r.body.status, 'pending', JSON.stringify(r.body));
+  assert.match(r.body.reason, /นอกพื้นที่/);
+  const pending = await call(users.super, 'GET', '/api/mobile-scans?status=pending');
+  const row = pending.body.scans.find(s => s.employee_id === '1003');
+  assert.ok(row && row.has_photo);
+  assert.equal((await fetch(`${base}/api/mobile-scans/${row.id}/photo`, { headers: { Cookie: users.temp.cookie } })).status, 403, 'others cannot see the photo');
+  assert.equal((await call(users.admin, 'POST', `/api/mobile-scans/${row.id}/review`, { decision: 'approve' })).status, 403, 'not your own scan');
+  assert.equal((await call(users.super, 'POST', `/api/mobile-scans/${row.id}/review`, { decision: 'approve' })).status, 200);
+  assert.equal((await call(users.super, 'POST', `/api/mobile-scans/${row.id}/review`, { decision: 'approve' })).status, 409);
+  const [hik2] = await admin.query(`SELECT COUNT(*) AS n FROM ${HOSOFFICE_DB}.hikvision WHERE EmployeeID = '1003' AND AuthenticationType = 'MobileFace'`);
+  assert.equal(hik2[0].n, 1);
+
+  // Clean up biometric data and photos created by this test
+  await call(users.staff, 'POST', '/api/face/revoke', {});
+  await call(users.admin, 'POST', '/api/face/revoke', {});
+  const { purgeOldScanPhotos } = require('../../src/services/mobileScanRetention');
+  await admin.query(`UPDATE ${HOSPITAL_DB}.mobile_scans SET scanned_at = DATE_SUB(scanned_at, INTERVAL 400 DAY)`);
+  assert.ok(await purgeOldScanPhotos() >= 2, 'old scan photos are deleted');
+});
+
 test('LIFF sign-in refuses to work without a LINE Login channel and never trusts a raw user id', async () => {
   const res = await fetch(`${base}/api/liff/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken: 'x', userId: 'Utest1001' }) });
   assert.equal(res.status, 503);

@@ -217,6 +217,17 @@ cron.schedule('0 1 * * *', async () => {
   }
 }, { timezone: process.env.APP_TIMEZONE || 'Asia/Bangkok' });
 
+// Nightly 02:00: delete mobile-scan photos older than the configured retention (PDPA data minimisation)
+cron.schedule('0 2 * * *', async () => {
+  try {
+    const { purgeOldScanPhotos } = require('../src/services/mobileScanRetention');
+    const n = await purgeOldScanPhotos();
+    if (n) console.log(`[cron] removed ${n} mobile-scan photos past retention`);
+  } catch (err) {
+    console.error('[cron] scan photo purge failed:', err.message);
+  }
+}, { timezone: process.env.APP_TIMEZONE || 'Asia/Bangkok' });
+
 cron.schedule('0 17 * * 5', () => {
   runWeeklySummary();
 }, {
@@ -224,7 +235,7 @@ cron.schedule('0 17 * * 5', () => {
   timezone: "Asia/Bangkok"
 });
 
-console.log('Attendance cron initialized: incident sync 01:00 daily, escalation 08:30 Mon–Fri, weekly summary Fri 17:00');
+console.log('Attendance cron initialized: incident sync 01:00, scan-photo purge 02:00, escalation 08:30 Mon–Fri, weekly summary Fri 17:00');
 
 module.exports = { runWeeklySummary };
 

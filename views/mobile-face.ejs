@@ -57,6 +57,17 @@
         <div id="statusBox" class="mt-4"></div>
       </div>
 
+      <div id="scanBox" class="erp-panel hidden p-5">
+        <h2 class="text-[15px] font-semibold text-plum-900"><i class="bi bi-geo-alt" aria-hidden="true"></i> สแกนลงเวลา</h2>
+        <div class="mt-3 grid grid-cols-2 gap-3">
+          <button type="button" class="flex h-28 flex-col items-center justify-center gap-1 rounded-2xl bg-gradient-to-br from-emerald-400 to-emerald-600 text-white shadow-lg shadow-emerald-200 active:scale-95" onclick="startScan('in')">
+            <i class="bi bi-box-arrow-in-right text-3xl" aria-hidden="true"></i><span class="text-[17px] font-semibold">เข้างาน</span></button>
+          <button type="button" class="flex h-28 flex-col items-center justify-center gap-1 rounded-2xl bg-gradient-to-br from-plum-500 to-plum-700 text-white shadow-lg shadow-plum-200 active:scale-95" onclick="startScan('out')">
+            <i class="bi bi-box-arrow-right text-3xl" aria-hidden="true"></i><span class="text-[17px] font-semibold">ออกงาน</span></button>
+        </div>
+        <div id="todayList" class="mt-4"></div>
+      </div>
+
       <div id="consentBox" class="erp-panel hidden p-5">
         <h2 class="text-[15px] font-semibold text-plum-900"><i class="bi bi-shield-lock" aria-hidden="true"></i> ความยินยอมการใช้ข้อมูลใบหน้า</h2>
         <div id="consentText" class="mt-3 max-h-64 space-y-2 overflow-auto rounded-lg bg-slate-50 p-3 text-[13px] leading-relaxed text-slate-700"></div>
@@ -72,11 +83,23 @@
       <div id="actionsBox" class="hidden space-y-2"></div>
     </section>
 
+    <!-- Scan result -->
+    <section id="v-result" class="hidden space-y-4">
+      <div class="erp-panel p-6 text-center">
+        <div id="resultIcon" class="mx-auto grid h-20 w-20 place-items-center rounded-full text-4xl"></div>
+        <h2 id="resultTitle" class="mt-3 text-lg font-semibold text-slate-900"></h2>
+        <p id="resultText" class="mt-1 text-[13px] text-slate-600"></p>
+        <p id="resultPlace" class="mt-3 text-2xs text-slate-400"></p>
+      </div>
+      <button type="button" class="erp-btn erp-btn-secondary h-12 w-full" onclick="loadStatus()"><i class="bi bi-arrow-left" aria-hidden="true"></i> กลับ</button>
+    </section>
+
     <!-- Camera -->
     <section id="v-camera" class="hidden space-y-3">
       <div class="face-stage">
         <video id="video" playsinline muted autoplay></video>
         <div id="oval" class="face-oval"></div>
+        <div id="turnArrow" class="absolute top-1/2 hidden -translate-y-1/2 text-7xl text-white drop-shadow-lg"></div>
         <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-4 pt-10 text-center">
           <p id="hint" class="text-[15px] font-semibold text-white">กำลังเปิดกล้อง…</p>
           <p id="subhint" class="mt-0.5 text-xs text-white/80"></p>
@@ -86,7 +109,7 @@
         <button type="button" class="erp-btn erp-btn-secondary h-11" onclick="stopCamera(true)"><i class="bi bi-x-lg" aria-hidden="true"></i> ยกเลิก</button>
         <button type="button" id="manualBtn" class="erp-btn erp-btn-secondary h-11 hidden" onclick="capture()"><i class="bi bi-camera" aria-hidden="true"></i> ถ่ายภาพเอง</button>
       </div>
-      <p class="text-center text-2xs text-slate-500">ถอดหน้ากาก/แว่นกันแดด · อยู่ในที่แสงสว่าง · ให้ใบหน้าอยู่ในกรอบ แล้วกะพริบตา 1 ครั้ง</p>
+      <p id="camNote" class="text-center text-2xs text-slate-500">ถอดหน้ากาก/แว่นกันแดด · อยู่ในที่แสงสว่าง · ให้ใบหน้าอยู่ในกรอบ</p>
     </section>
   </div>
 
@@ -98,7 +121,7 @@
     let me = null;
 
     function show(view) {
-      ['loading', 'error', 'main', 'camera'].forEach(v => $('v-' + v).classList.toggle('hidden', v !== view));
+      ['loading', 'error', 'main', 'camera', 'result'].forEach(v => $('v-' + v).classList.toggle('hidden', v !== view));
     }
     function fail(message, lineUserId) {
       $('errorText').textContent = message;
@@ -165,14 +188,25 @@
 
       // Consent + camera when there is nothing waiting for review
       const canEnroll = me.ready && me.person && me.person.employeeId && !(latest && latest.status === 'pending');
-      $('consentBox').classList.toggle('hidden', !canEnroll);
+      // Already approved: re-enrolment stays behind a button so the scan buttons are what people see first
+      $('consentBox').classList.toggle('hidden', !canEnroll || Boolean(approved));
       $('startBtn').innerHTML = approved
         ? '<i class="bi bi-arrow-repeat" aria-hidden="true"></i> ลงทะเบียนใบหน้าใหม่'
         : '<i class="bi bi-camera" aria-hidden="true"></i> เริ่มถ่ายภาพลงทะเบียน';
 
+      $('scanBox').classList.toggle('hidden', !(approved && me.scanEnabled));
+      const STAT = { accepted: ['text-emerald-600', 'bi-check-circle-fill', 'บันทึกแล้ว'], pending: ['text-amber-600', 'bi-hourglass-split', 'รอตรวจ'], rejected: ['text-red-600', 'bi-x-circle-fill', 'ไม่ผ่าน'] };
+      $('todayList').innerHTML = (me.todayScans || []).length
+        ? '<div class="mb-1 text-2xs font-medium text-slate-500">วันนี้</div>' + me.todayScans.map(s => `<div class="flex items-center gap-2 border-t border-slate-100 py-2 text-[13px]">
+            <span class="w-12 font-mono text-slate-800">${esc(s.time)}</span><span class="text-slate-600">${s.direction === 'in' ? 'เข้างาน' : 'ออกงาน'}</span>
+            <span class="ml-auto ${STAT[s.status][0]}"><i class="bi ${STAT[s.status][1]}" aria-hidden="true"></i> ${STAT[s.status][2]}</span></div>`).join('')
+        : '';
       const actions = [];
-      if (approved && me.scanEnabled) {
-        actions.push('<div class="erp-panel p-4 text-center text-[13px] text-slate-600"><i class="bi bi-geo-alt" aria-hidden="true"></i> การสแกนลงเวลาผ่านมือถือจะเปิดให้ใช้ในขั้นถัดไป</div>');
+      if (approved && !me.scanEnabled) {
+        actions.push('<div class="erp-panel p-4 text-center text-[13px] text-slate-600"><i class="bi bi-geo-alt" aria-hidden="true"></i> ผู้ดูแลระบบยังไม่เปิดให้สแกนลงเวลาผ่านมือถือ</div>');
+      }
+      if (canEnroll && approved) {
+        actions.push('<button type="button" class="erp-btn erp-btn-secondary h-11 w-full" onclick="document.getElementById(\'consentBox\').classList.remove(\'hidden\'); this.remove()"><i class="bi bi-arrow-repeat" aria-hidden="true"></i> ลงทะเบียนใบหน้าใหม่</button>');
       }
       if (latest || approved) {
         actions.push('<button type="button" class="erp-btn h-11 w-full border border-red-200 bg-white text-red-600" onclick="withdraw()"><i class="bi bi-shield-x" aria-hidden="true"></i> ถอนความยินยอมและลบข้อมูลใบหน้า</button>');
@@ -190,8 +224,10 @@
       catch (err) { ERP.toast(err.message, 'error'); }
     }
 
-    /* ---------- Camera + on-device guidance (the server re-checks the face itself) ---------- */
-    let stream = null, human = null, running = false, blinkAt = 0, goodSince = 0, busy = false;
+    /* ---------- Camera + on-device guidance (the server re-checks everything itself) ---------- */
+    let stream = null, human = null, running = false, busy = false;
+    let mode = 'enroll', stage = 'front', goodSince = 0, blinkAt = 0, stageAt = 0;
+    let scan = null; // { direction, token, action, fix, front }
 
     async function loadHuman() {
       if (human) return human;
@@ -212,32 +248,39 @@
       return human;
     }
 
-    async function startCamera() {
-      if (!$('consentCheck').checked) return;
+    async function openCamera() {
       show('camera');
-      $('hint').textContent = 'กำลังเปิดกล้อง…';
+      setGuide('', 'กำลังเปิดกล้อง…');
       $('manualBtn').classList.add('hidden');
+      $('turnArrow').classList.add('hidden');
       try {
         stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 720 }, height: { ideal: 960 } }, audio: false });
       } catch (err) {
         stopCamera(false);
-        return fail('เปิดกล้องไม่ได้ กรุณาอนุญาตการใช้กล้องให้ LINE / เบราว์เซอร์ แล้วลองใหม่');
+        fail('เปิดกล้องไม่ได้ กรุณาอนุญาตการใช้กล้องให้ LINE / เบราว์เซอร์ แล้วลองใหม่');
+        return false;
       }
       const video = $('video');
       video.srcObject = stream;
       await video.play().catch(() => {});
-      blinkAt = 0; goodSince = 0; running = true;
-      // Old phones: if the model can't load or is too slow, offer manual capture (server still validates)
-      setTimeout(() => { if (running) $('manualBtn').classList.remove('hidden'); }, 8000);
-      $('hint').textContent = 'กำลังโหลดระบบตรวจใบหน้า…';
-      try {
-        await loadHuman();
-        loop();
-      } catch (err) {
+      running = true; goodSince = 0; blinkAt = 0; stageAt = Date.now();
+      // Old phones: offer manual capture if guidance is slow (the server still validates every photo)
+      setTimeout(() => { if (running) $('manualBtn').classList.remove('hidden'); }, 10000);
+      setGuide('', 'กำลังโหลดระบบตรวจใบหน้า…');
+      try { await loadHuman(); loop(); }
+      catch (err) {
         console.warn('face model unavailable', err);
-        $('hint').textContent = 'ให้ใบหน้าอยู่ในกรอบ แล้วกด "ถ่ายภาพเอง"';
+        setGuide('', mode === 'scan' && stage === 'turn' ? turnText() : 'ให้ใบหน้าอยู่ในกรอบ แล้วกด "ถ่ายภาพเอง"');
         $('manualBtn').classList.remove('hidden');
       }
+      return true;
+    }
+
+    async function startCamera() {
+      if (!$('consentCheck').checked) return;
+      mode = 'enroll'; stage = 'front';
+      $('camNote').textContent = 'ถอดหน้ากาก/แว่นกันแดด · อยู่ในที่แสงสว่าง · ให้ใบหน้าอยู่ในกรอบ แล้วกะพริบตา 1 ครั้ง';
+      await openCamera();
     }
 
     function stopCamera(backToMain) {
@@ -252,54 +295,134 @@
       $('hint').textContent = hint;
       $('subhint').textContent = sub || '';
     }
+    const turnText = () => `หันหน้าไปทาง${scan.action === 'left' ? 'ซ้าย' : 'ขวา'}ช้า ๆ`;
+
+    /* GPS: a fix is optional (no fix → the scan goes to review), but always asked for */
+    function getFix() {
+      return new Promise(resolve => {
+        if (!navigator.geolocation) return resolve(null);
+        navigator.geolocation.getCurrentPosition(
+          p => resolve({ lat: p.coords.latitude, lng: p.coords.longitude, accuracy: p.coords.accuracy }),
+          () => resolve(null),
+          { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+      });
+    }
+
+    async function startScan(direction) {
+      show('loading');
+      $('loadingText').textContent = 'กำลังหาตำแหน่ง GPS…';
+      const fix = await getFix();
+      if (!fix && !confirm('หาตำแหน่งไม่ได้ (ไม่ได้อนุญาต GPS หรือสัญญาณอ่อน)\nสแกนต่อได้ แต่จะต้องรอหัวหน้าอนุมัติ — ดำเนินการต่อ?')) return loadStatus();
+      try {
+        const ch = await api('/api/face/scan/challenge', { method: 'POST', body: JSON.stringify({ direction }) });
+        scan = { direction, token: ch.token, action: ch.action, fix, front: null };
+      } catch (err) { ERP.toast(err.message, 'error'); return loadStatus(); }
+      mode = 'scan'; stage = 'front';
+      $('camNote').textContent = `${direction === 'in' ? 'เข้างาน' : 'ออกงาน'} · ขั้นที่ 1 มองตรง → ขั้นที่ 2 ${turnText()}`;
+      await openCamera();
+    }
 
     async function loop() {
       if (!running) return;
       const video = $('video');
       const res = await human.detect(video);
+      if (!running) return;
       const faces = res.face.filter(f => f.score > 0.6);
       const W = video.videoWidth, H = video.videoHeight;
-      if (!faces.length) { goodSince = 0; setGuide('', 'มองตรงมาที่กล้อง', 'ไม่พบใบหน้า'); }
+      const turning = mode === 'scan' && stage === 'turn';
+      if (!faces.length) { goodSince = 0; setGuide('', turning ? turnText() : 'มองตรงมาที่กล้อง', 'ไม่พบใบหน้า'); }
       else if (faces.length > 1) { goodSince = 0; setGuide('warn', 'ต้องมีใบหน้าเดียวในภาพ'); }
       else {
-        const [x, y, w, h] = faces[0].box;
+        const f = faces[0];
+        const [x, y, w, h] = f.box;
         const cx = (x + w / 2) / W, cy = (y + h / 2) / H;
+        const yaw = f.rotation && f.rotation.angle ? f.rotation.angle.yaw : 0;
         if (w < W * 0.35) { goodSince = 0; setGuide('warn', 'ขยับเข้าใกล้กล้องอีกนิด'); }
-        else if (Math.abs(cx - 0.5) > 0.15 || Math.abs(cy - 0.46) > 0.15) { goodSince = 0; setGuide('warn', 'เลื่อนใบหน้าให้อยู่กลางกรอบ'); }
-        else {
+        else if (!turning && (Math.abs(cx - 0.5) > 0.15 || Math.abs(cy - 0.46) > 0.15)) { goodSince = 0; setGuide('warn', 'เลื่อนใบหน้าให้อยู่กลางกรอบ'); }
+        else if (mode === 'enroll') {
           if (!goodSince) goodSince = Date.now();
           if (res.gesture.some(g => /blink/.test(g.gesture || ''))) blinkAt = Date.now();
           if (!blinkAt) setGuide('ok', 'กะพริบตา 1 ครั้ง', 'ตรวจว่าเป็นคนจริง');
           else if (Date.now() - goodSince > 600) { setGuide('ok', 'กำลังถ่ายภาพ…'); return capture(); }
+        } else if (stage === 'front') {
+          if (Math.abs(yaw) > 0.15) { goodSince = 0; setGuide('warn', 'มองตรงมาที่กล้อง'); }
+          else {
+            if (!goodSince) goodSince = Date.now();
+            setGuide('ok', 'นิ่งไว้…');
+            if (Date.now() - goodSince > 500) return capture();
+          }
+        } else {
+          // Negative yaw = the person turned to their own left (raw camera frame, same as the server)
+          const done = scan.action === 'left' ? yaw <= -0.32 : yaw >= 0.32;
+          setGuide(done ? 'ok' : '', turnText(), done ? 'กำลังถ่ายภาพ…' : '');
+          if (done) return capture();
         }
       }
       requestAnimationFrame(loop);
     }
 
-    async function capture() {
-      if (busy) return;
-      busy = true;
+    function frameJpeg() {
       const video = $('video');
       const scale = Math.min(1, 960 / Math.max(video.videoWidth, video.videoHeight));
       const c = document.createElement('canvas');
       c.width = Math.round(video.videoWidth * scale);
       c.height = Math.round(video.videoHeight * scale);
       c.getContext('2d').drawImage(video, 0, 0, c.width, c.height);
-      const photo = c.toDataURL('image/jpeg', 0.9);
+      return c.toDataURL('image/jpeg', 0.88);
+    }
+
+    async function capture() {
+      if (busy) return;
+      if (mode === 'scan' && stage === 'front') {
+        // Step 2: keep the camera running and ask for the random head turn
+        scan.front = frameJpeg();
+        stage = 'turn'; stageAt = Date.now(); goodSince = 0;
+        $('turnArrow').innerHTML = `<i class="bi bi-arrow-${scan.action === 'left' ? 'left' : 'right'}-circle-fill"></i>`;
+        // The preview is mirrored, so the person's left appears on the screen's left
+        $('turnArrow').style.left = scan.action === 'left' ? '6%' : '';
+        $('turnArrow').style.right = scan.action === 'right' ? '6%' : '';
+        $('turnArrow').classList.remove('hidden');
+        setGuide('', turnText());
+        if (running && human) requestAnimationFrame(loop);
+        return;
+      }
+      busy = true;
+      const photo = frameJpeg();
       stopCamera(false);
       show('loading');
       $('loadingText').textContent = 'กำลังตรวจสอบใบหน้า…';
       try {
-        const data = await api('/api/face/enroll', { method: 'POST', body: JSON.stringify({ photo, consent: true, consentVersion: me.consent.version }) });
-        ERP.toast(data.message, 'success');
-        $('consentCheck').checked = false; $('startBtn').disabled = true;
-        await loadStatus();
+        if (mode === 'enroll') {
+          const data = await api('/api/face/enroll', { method: 'POST', body: JSON.stringify({ photo, consent: true, consentVersion: me.consent.version }) });
+          ERP.toast(data.message, 'success');
+          $('consentCheck').checked = false; $('startBtn').disabled = true;
+          await loadStatus();
+        } else {
+          const body = { token: scan.token, front: scan.front, turn: photo };
+          if (scan.fix) Object.assign(body, scan.fix);
+          showResult(await api('/api/face/scan', { method: 'POST', body: JSON.stringify(body) }));
+        }
       } catch (err) {
         ERP.toast(err.message, 'error');
         await loadStatus();
       } finally {
         busy = false;
+        scan = mode === 'scan' ? null : scan;
       }
+    }
+
+    function showResult(r) {
+      const look = {
+        accepted: ['bg-emerald-100 text-emerald-600', 'bi-check-lg', `${r.direction === 'in' ? 'เข้างาน' : 'ออกงาน'}สำเร็จ`],
+        pending: ['bg-amber-100 text-amber-600', 'bi-hourglass-split', 'รอหัวหน้าตรวจสอบ'],
+        rejected: ['bg-red-100 text-red-600', 'bi-x-lg', 'สแกนไม่ผ่าน']
+      }[r.status];
+      $('resultIcon').className = 'mx-auto grid h-20 w-20 place-items-center rounded-full text-4xl ' + look[0];
+      $('resultIcon').innerHTML = `<i class="bi ${look[1]}" aria-hidden="true"></i>`;
+      $('resultTitle').textContent = look[2];
+      $('resultText').textContent = r.message;
+      $('resultPlace').textContent = r.site ? `${r.site}${r.distanceM != null ? ` · ห่าง ${Math.round(r.distanceM)} ม.` : ''}` : '';
+      show('result');
     }
 
     boot();

@@ -112,5 +112,11 @@ router.post('/face/enrollments/:id/review', checkAuth, checkAdmin, faceControlle
 router.post('/face/enrollments/:id/revoke', checkAuth, checkAdmin, faceController.revoke);
 router.get('/mobile-scan/settings', checkAuth, checkAdmin, faceController.getSettings);
 router.put('/mobile-scan/settings', checkAuth, checkSuper, faceController.saveSettings);
+// Phase 2: scanning
+router.post('/face/scan/challenge', checkAuth, faceController.scanChallenge);
+router.post('/face/scan', checkAuth, faceController.scan);
+router.get('/mobile-scans', checkAuth, checkAdmin, faceController.listScans);
+router.get('/mobile-scans/:id/photo', checkAuth, faceController.scanPhoto);
+router.post('/mobile-scans/:id/review', checkAuth, checkAdmin, faceController.reviewScan);
 
 module.exports = router;
