@@ -15,13 +15,14 @@
     <div class="erp px-4 py-5 lg:px-6">
       <section class="mb-5" aria-labelledby="cal-heading">
         <h2 id="cal-heading" class="text-xl font-semibold text-slate-900">วันหยุดและนโยบายการลา</h2>
-        <p class="mt-1 text-[13px] text-slate-500">วันหยุดราชการใช้คำนวณวันลาและการนับขาดงาน · สิทธิ์การลากำหนดแยกตามประเภทบุคลากรได้</p>
+        <p class="mt-1 text-[13px] text-slate-500">วันหยุดราชการใช้คำนวณวันลาและการนับขาดงาน · สิทธิ์การลากำหนดแยกตามประเภทบุคลากรได้ · บันทึกช่วงที่เครื่องสแกนขัดข้องเพื่อไม่ให้นับขาดงานผิด</p>
       </section>
 
       <section class="erp-panel overflow-hidden">
         <div class="flex gap-1 border-b border-slate-200 px-3" role="tablist" id="tabBar">
           <button type="button" role="tab" class="erp-tab active" data-tab="holidays" aria-selected="true"><i class="bi bi-calendar-heart" aria-hidden="true"></i> วันหยุดราชการ</button>
           <button type="button" role="tab" class="erp-tab" data-tab="policy" aria-selected="false"><i class="bi bi-sliders" aria-hidden="true"></i> สิทธิ์การลาตามประเภทบุคลากร</button>
+          <button type="button" role="tab" class="erp-tab" data-tab="outages" aria-selected="false"><i class="bi bi-fingerprint" aria-hidden="true"></i> เครื่องสแกนขัดข้อง</button>
         </div>
 
         <!-- HOLIDAYS -->
@@ -73,6 +74,33 @@
               <thead id="policyHead" class="sticky top-0 bg-slate-50 text-2xs uppercase tracking-wide text-slate-500"></thead>
               <tbody id="policyBody" class="divide-y divide-slate-100"><tr><td class="px-4 py-12 text-center text-slate-400">กำลังโหลด…</td></tr></tbody>
             </table>
+          </div>
+        </div>
+
+        <!-- SCANNER OUTAGES -->
+        <div id="tab-outages" style="display:none;">
+          <div class="grid grid-cols-1 lg:grid-cols-[1fr_320px]">
+            <div class="max-h-[60vh] overflow-auto">
+              <table class="w-full border-collapse text-left text-[13px]">
+                <thead class="sticky top-0 bg-slate-50 text-2xs uppercase tracking-wide text-slate-500">
+                  <tr class="border-b border-slate-200"><th class="px-4 py-2.5 font-semibold">ช่วงวันที่</th><th class="px-3 py-2.5 font-semibold">สาเหตุ</th><th class="px-3 py-2.5 font-semibold">บันทึกโดย</th><th class="px-3 py-2.5"></th></tr>
+                </thead>
+                <tbody id="outBody" class="divide-y divide-slate-100"></tbody>
+              </table>
+            </div>
+            <form id="outForm" class="m-0 space-y-3 border-t border-slate-200 bg-slate-50/60 p-4 lg:border-l lg:border-t-0">
+              <h3 class="text-[13px] font-semibold text-slate-800">บันทึกช่วงที่เครื่องสแกนขัดข้อง</h3>
+              <div class="grid grid-cols-2 gap-2">
+                <div><label class="erp-label" for="o-start">ตั้งแต่</label><input type="date" id="o-start" class="erp-input" required></div>
+                <div><label class="erp-label" for="o-end">ถึง</label><input type="date" id="o-end" class="erp-input" required></div>
+              </div>
+              <div><label class="erp-label" for="o-reason">สาเหตุ</label><input type="text" id="o-reason" maxlength="255" class="erp-input" required placeholder="เช่น เครื่อง Hikvision ดับ, ระบบดึงข้อมูลหยุดทำงาน"></div>
+              <button type="submit" class="erp-btn erp-btn-primary w-full"><i class="bi bi-plus-lg" aria-hidden="true"></i> บันทึกช่วงขัดข้อง</button>
+              <p class="rounded-md bg-amber-50 p-3 text-2xs leading-relaxed text-amber-800 ring-1 ring-inset ring-amber-200">
+                <i class="bi bi-info-circle" aria-hidden="true"></i> ในช่วงนี้ระบบจะไม่นับ <b>ขาดงาน</b> เพราะไม่มีข้อมูลสแกนให้ตรวจสอบ
+                ส่วนการมาสายยังนับจากข้อมูลสแกนที่มีอยู่ และวันลายังนับตามปกติ · ใช้เฉพาะกรณีที่ดึงข้อมูลย้อนหลังจากเครื่องไม่ได้แล้ว
+              </p>
+            </form>
           </div>
         </div>
       </section>
@@ -200,13 +228,54 @@
       }
     }
 
+    /* ---------- Scanner outages ---------- */
+    let outagesLoaded = false;
+    const shortDate = d => new Date(d + 'T00:00:00').toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
+    async function loadOutages() {
+      outagesLoaded = true;
+      $('outBody').innerHTML = '<tr><td colspan="4" class="px-4 py-12 text-center text-slate-400">กำลังโหลด…</td></tr>';
+      try {
+        const list = (await getJson('/api/scan-outages')).outages || [];
+        $('outBody').innerHTML = list.length ? list.map(o => {
+          const days = Math.round((new Date(o.end_date + 'T12:00:00') - new Date(o.start_date + 'T12:00:00')) / 86400000) + 1;
+          return `<tr class="hover:bg-slate-50">
+            <td class="whitespace-nowrap px-4 py-2.5 text-slate-800">${shortDate(o.start_date)} – ${shortDate(o.end_date)}<div class="text-2xs text-slate-400">${days} วัน</div></td>
+            <td class="px-3 py-2.5 text-slate-900">${esc(o.reason)}</td>
+            <td class="px-3 py-2.5 text-xs text-slate-500">${esc(o.created_by || '—')}</td>
+            <td class="px-3 py-2.5 text-right"><button type="button" class="erp-icon-btn h-8 w-8 hover:bg-red-50 hover:text-red-600" data-del-out="${o.id}" data-label="${esc(shortDate(o.start_date) + ' – ' + shortDate(o.end_date))}" title="ลบ" aria-label="ลบ"><i class="bi bi-trash3"></i></button></td>
+          </tr>`;
+        }).join('') : ERP.emptyRow(4, 'ยังไม่มีช่วงที่เครื่องสแกนขัดข้อง', 'bi-fingerprint');
+      } catch (err) {
+        $('outBody').innerHTML = ERP.emptyRow(4, err.message, 'bi-exclamation-triangle');
+      }
+    }
+
+    $('outForm').addEventListener('submit', async e => {
+      e.preventDefault();
+      const body = { start_date: $('o-start').value, end_date: $('o-end').value, reason: $('o-reason').value.trim() };
+      if (!confirm(`ยืนยันว่าเครื่องสแกนขัดข้องช่วง ${shortDate(body.start_date)} – ${shortDate(body.end_date)}?\nรายการขาดงานในช่วงนี้จะถูกล้างทั้งหมด`)) return;
+      try {
+        ERP.toast((await send('/api/scan-outages', 'POST', body)).message, 'success');
+        $('outForm').reset();
+        loadOutages();
+      } catch (err) { ERP.toast(err.message, 'error'); }
+    });
+
+    $('outBody').addEventListener('click', async e => {
+      const del = e.target.closest('[data-del-out]');
+      if (!del || !confirm(`ลบช่วงขัดข้อง ${del.dataset.label}?\nระบบจะกลับมานับขาดงานในช่วงนี้`)) return;
+      try { ERP.toast((await send(`/api/scan-outages/${del.dataset.delOut}`, 'DELETE')).message, 'success'); loadOutages(); }
+      catch (err) { ERP.toast(err.message, 'error'); }
+    });
+
     /* ---------- Tabs ---------- */
     $('tabBar').addEventListener('click', e => {
       const b = e.target.closest('[data-tab]');
       if (!b) return;
       document.querySelectorAll('#tabBar [data-tab]').forEach(t => { t.classList.toggle('active', t === b); t.setAttribute('aria-selected', String(t === b)); });
-      ['holidays', 'policy'].forEach(t => { $('tab-' + t).style.display = t === b.dataset.tab ? '' : 'none'; });
+      ['holidays', 'policy', 'outages'].forEach(t => { $('tab-' + t).style.display = t === b.dataset.tab ? '' : 'none'; });
       if (b.dataset.tab === 'policy' && !policyData) loadPolicy();
+      if (b.dataset.tab === 'outages' && !outagesLoaded) loadOutages();
     });
     $('yearSel').addEventListener('change', loadHolidays);
     const loadData = loadHolidays;

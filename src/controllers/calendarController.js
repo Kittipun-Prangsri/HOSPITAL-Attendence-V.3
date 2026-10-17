@@ -100,6 +100,82 @@ exports.addFixedHolidays = async (req, res) => {
   }
 };
 
+/* ---------------- Scanner outages (no ABSENT inside these ranges) ---------------- */
+
+const MAX_OUTAGE_DAYS = 120;
+
+function validateOutage(body) {
+  const b = body || {};
+  const reason = typeof b.reason === 'string' ? b.reason.trim() : '';
+  if (!parseDate(b.start_date) || !parseDate(b.end_date)) return { error: 'วันที่ไม่ถูกต้อง' };
+  if (b.start_date > b.end_date) return { error: 'วันเริ่มต้องไม่หลังวันสิ้นสุด' };
+  const days = Math.round((new Date(`${b.end_date}T12:00:00Z`) - new Date(`${b.start_date}T12:00:00Z`)) / 86400000) + 1;
+  if (days > MAX_OUTAGE_DAYS) return { error: `ช่วงขัดข้องยาวได้ไม่เกิน ${MAX_OUTAGE_DAYS} วัน` };
+  if (!reason || reason.length > 255) return { error: 'ระบุสาเหตุ (ไม่เกิน 255 ตัวอักษร)' };
+  return { value: { start_date: b.start_date, end_date: b.end_date, reason, days } };
+}
+exports.validateOutage = validateOutage;
+
+exports.listOutages = async (req, res) => {
+  if (!isAdmin(req.session.user)) return res.status(403).json({ success: false, error: 'สิทธิ์ไม่เพียงพอ' });
+  try {
+    const [rows] = await pool.query(
+      `SELECT id, DATE_FORMAT(start_date, '%Y-%m-%d') AS start_date, DATE_FORMAT(end_date, '%Y-%m-%d') AS end_date,
+              reason, created_by, created_at
+       FROM scan_outages ORDER BY start_date DESC LIMIT 200`
+    );
+    res.json({ success: true, outages: rows });
+  } catch (error) {
+    console.error('Error listing scan outages:', error);
+    res.status(500).json({ success: false, error: 'ไม่สามารถโหลดช่วงเครื่องสแกนขัดข้องได้ (ตรวจสอบว่ารัน npm run migrate แล้ว)', outages: [] });
+  }
+};
+
+exports.saveOutage = async (req, res) => {
+  const user = req.session.user;
+  if (!isAdmin(user)) return res.status(403).json({ success: false, error: 'สิทธิ์ไม่เพียงพอ' });
+  const { error, value } = validateOutage(req.body);
+  if (error) return res.status(400).json({ success: false, error });
+  try {
+    const [result] = await pool.query(
+      'INSERT INTO scan_outages (start_date, end_date, reason, created_by) VALUES (?, ?, ?, ?)',
+      [value.start_date, value.end_date, value.reason, user.fullname]
+    );
+    // ABSENT rows inside the range are now invalid; LATE rows stay (they come from real scans)
+    const [removed] = await pool.query(
+      "DELETE FROM incident_logs WHERE incident_type = 'ABSENT' AND incident_date BETWEEN ? AND ?",
+      [value.start_date, value.end_date]
+    );
+    markIncidentsStale({ from: value.start_date, to: value.end_date });
+    logAudit(req, 'create', 'scan_outage', result.insertId, { ...value, removedAbsent: removed.affectedRows });
+    res.json({ success: true, id: result.insertId, removed: removed.affectedRows, message: `บันทึกแล้ว · ล้างรายการขาดงาน ${removed.affectedRows} รายการ` });
+  } catch (err) {
+    console.error('Error saving scan outage:', err);
+    res.status(500).json({ success: false, error: 'บันทึกช่วงขัดข้องไม่สำเร็จ' });
+  }
+};
+
+exports.deleteOutage = async (req, res) => {
+  if (!isAdmin(req.session.user)) return res.status(403).json({ success: false, error: 'สิทธิ์ไม่เพียงพอ' });
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ success: false, error: 'รหัสไม่ถูกต้อง' });
+  try {
+    const [[row]] = await pool.query(
+      "SELECT DATE_FORMAT(start_date, '%Y-%m-%d') AS start_date, DATE_FORMAT(end_date, '%Y-%m-%d') AS end_date, reason FROM scan_outages WHERE id = ?",
+      [id]
+    );
+    if (!row) return res.status(404).json({ success: false, error: 'ไม่พบรายการ' });
+    await pool.query('DELETE FROM scan_outages WHERE id = ?', [id]);
+    // Absences come back on the next sync of those months (report view or nightly cron)
+    markIncidentsStale({ from: row.start_date, to: row.end_date });
+    logAudit(req, 'delete', 'scan_outage', id, row);
+    res.json({ success: true, message: 'ลบแล้ว · รายการขาดงานในช่วงนี้จะคำนวณใหม่เมื่อเปิดรายงาน' });
+  } catch (err) {
+    console.error('Error deleting scan outage:', err);
+    res.status(500).json({ success: false, error: 'ลบช่วงขัดข้องไม่สำเร็จ' });
+  }
+};
+
 /* ---------------- Leave policy (quotas per staff type) ---------------- */
 
 function validatePolicy(input) {

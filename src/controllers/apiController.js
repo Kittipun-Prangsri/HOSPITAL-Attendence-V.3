@@ -1,7 +1,7 @@
 const { pool, hosofficePool } = require('../config/db');
 const { ensureIncidentsSynced } = require('../services/incidentSync');
 const { approvedLeaveMap, leaveFor } = require('../services/leaveCalendar');
-const { getHolidaySet } = require('../services/holidays');
+const { getHolidaySet, getOutageSet } = require('../services/holidays');
 const { getWorkSettings, resolveWorkSettings } = require('../services/workSettings');
 const { lateThresholdFor, isLateAt, toDateKey } = require('../utils/attendanceTime');
 
@@ -268,6 +268,7 @@ async function syncIncidentsForMonth(year, month) {
   const monthEnd = `${targetMonth}-${String(daysInMonth).padStart(2, '0')}`;
   const appLeaves = await approvedLeaveMap(`${targetMonth}-01`, monthEnd);
   const holidays = await getHolidaySet(`${targetMonth}-01`, monthEnd);
+  const outages = await getOutageSet(`${targetMonth}-01`, monthEnd);
 
   // 4. Get excuses from local DB (using pool)
   const [excuses] = await pool.query(`
@@ -286,7 +287,7 @@ async function syncIncidentsForMonth(year, month) {
 
   // 5. Get existing incidents
   const [incidents] = await pool.query(`
-    SELECT employee_id, incident_date, incident_type, status
+    SELECT incident_id, employee_id, incident_date, incident_type, status
     FROM incident_logs
     WHERE incident_date LIKE ?
   `, [`${targetMonth}-%`]);
@@ -353,6 +354,8 @@ async function syncIncidentsForMonth(year, month) {
       } else {
         // No check-in
         // Normal-template staff are off on weekends and public holidays; shift (template 2) staff are not
+        // No scan data at all during a recorded scanner outage, so a missing check-in proves nothing
+        if (outages.has(dateStr)) continue;
         if (templateId === 2 || (!isWeekend && !holidays.has(dateStr))) {
           const excuseStatus = excusesMap[fingleId]?.[dateStr] || excusesMap[cid]?.[dateStr];
           const currentStatus = incidentsMap[fingleId]?.[dateStr]?.['ABSENT'];
@@ -378,7 +381,23 @@ async function syncIncidentsForMonth(year, month) {
     }
   }
 
-  // 7. Bulk Insert / Upsert
+  // 7. Prune rows that no longer apply (holiday/leave/outage added, excuse approved later, scans imported late).
+  // Only for employees processed here and days this run covered, so resigned staff keep their history.
+  const expected = new Set(insertValues.map(([emp, date, type]) => `${emp}|${date}|${type}`));
+  const processed = new Set(employees.map(e => e.FINGLE_ID));
+  const lastDay = `${targetMonth}-${String(endDay).padStart(2, '0')}`;
+  const staleIds = incidents
+    .filter(inc => {
+      const date = toDateKey(inc.incident_date);
+      return processed.has(inc.employee_id) && date <= lastDay && date !== todayStr
+        && !expected.has(`${inc.employee_id}|${date}|${inc.incident_type}`);
+    })
+    .map(inc => inc.incident_id);
+  for (let i = 0; i < staleIds.length; i += 1000) {
+    await pool.query('DELETE FROM incident_logs WHERE incident_id IN (?)', [staleIds.slice(i, i + 1000)]);
+  }
+
+  // 8. Bulk Insert / Upsert
   if (insertValues.length > 0) {
     const queryStr = `
       INSERT INTO incident_logs (employee_id, incident_date, incident_type, status)

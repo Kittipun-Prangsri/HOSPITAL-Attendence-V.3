@@ -177,7 +177,7 @@ test.after(async () => {
 test('migrations created every table and sessions persist in MySQL', async () => {
   const [tables] = await admin.query('SELECT table_name AS t FROM information_schema.tables WHERE table_schema = ?', [HOSPITAL_DB]);
   const names = tables.map(r => r.t || r.TABLE_NAME);
-  for (const t of ['schema_migrations', 'leave_requests', 'app_settings', 'holidays', 'ot_requests', 'audit_log', 'incident_logs', 'sessions']) {
+  for (const t of ['schema_migrations', 'leave_requests', 'app_settings', 'holidays', 'ot_requests', 'audit_log', 'incident_logs', 'scan_outages', 'sessions']) {
     assert.ok(names.includes(t), `missing table ${t}`);
   }
   const [[{ n }]] = await admin.query(`SELECT COUNT(*) AS n FROM ${HOSPITAL_DB}.sessions`);
@@ -375,6 +375,38 @@ test('incident rebuild removes stale rows left by the old date bug', async () =>
   // Settings now allow 60 minutes (threshold 09:00), so the 08:45 scan is no longer late after a rebuild
   assert.deepEqual(await incidents('1002', DAY), [], 'rebuild applies the current late threshold');
   assert.deepEqual((await incidents('1003', DAY)).map(r => r.incident_type), ['ABSENT']);
+});
+
+test('a plain sync prunes incidents that no longer apply', async () => {
+  const { syncIncidentsForMonth } = require('../../src/controllers/apiController');
+  await admin.query(`INSERT INTO ${HOSPITAL_DB}.incident_logs (employee_id, incident_date, incident_type, status) VALUES ('1001', ?, 'ABSENT', 'OVERDUE')`, [DAY]);
+  await admin.query(`INSERT INTO ${HOSPITAL_DB}.incident_logs (employee_id, incident_date, incident_type, status) VALUES ('1003', '2026-09-18', 'ABSENT', 'OVERDUE')`);
+  await syncIncidentsForMonth(2026, 9);
+  assert.deepEqual(await incidents('1001', DAY), [], 'scanned in, so the ABSENT row is removed');
+  assert.deepEqual(await incidents('1003', '2026-09-18'), [], 'holiday added after a sync no longer leaves a stale ABSENT');
+  assert.deepEqual((await incidents('1003', DAY)).map(r => r.incident_type), ['ABSENT'], 'real absences stay');
+});
+
+test('scanner outage clears absences in its range and they return when it is removed', async () => {
+  const { syncIncidentsForMonth } = require('../../src/controllers/apiController');
+  const range = { start_date: '2026-09-14', end_date: DAY, reason: 'เครื่องสแกนดับ' };
+  assert.equal((await call(users.staff, 'POST', '/api/scan-outages', range)).status, 403);
+  assert.equal((await call(users.admin, 'POST', '/api/scan-outages', { ...range, end_date: '2026-09-01' })).status, 400);
+  const saved = await call(users.admin, 'POST', '/api/scan-outages', range);
+  assert.equal(saved.status, 200);
+  assert.ok(saved.body.removed >= 1);
+  assert.deepEqual(await incidents('1003', DAY), [], 'ABSENT inside the outage is cleared');
+
+  await syncIncidentsForMonth(2026, 9);
+  assert.deepEqual(await incidents('1003', DAY), [], 'resync does not recreate it');
+  assert.deepEqual((await incidents('1003', '2026-09-22')).map(r => r.incident_type), ['ABSENT'], 'days outside the range still count');
+
+  const list = (await call(users.admin, 'GET', '/api/scan-outages')).body.outages;
+  assert.equal(list.length, 1);
+  assert.equal(list[0].start_date, '2026-09-14');
+  assert.equal((await call(users.admin, 'DELETE', `/api/scan-outages/${list[0].id}`)).status, 200);
+  await syncIncidentsForMonth(2026, 9);
+  assert.deepEqual((await incidents('1003', DAY)).map(r => r.incident_type), ['ABSENT'], 'absence is back after the outage is removed');
 });
 
 test('escalation finds approvals pending for more than two days', async () => {

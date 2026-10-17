@@ -77,6 +77,10 @@ router.get('/holidays', checkAuth, calendarController.listHolidays);
 router.post('/holidays', checkAuth, calendarController.saveHoliday);
 router.post('/holidays/fixed', checkAuth, calendarController.addFixedHolidays);
 router.delete('/holidays/:date', checkAuth, calendarController.deleteHoliday);
+// Scanner outages (admin/super — enforced in controller)
+router.get('/scan-outages', checkAuth, calendarController.listOutages);
+router.post('/scan-outages', checkAuth, calendarController.saveOutage);
+router.delete('/scan-outages/:id', checkAuth, calendarController.deleteOutage);
 
 // Leave quotas per staff type (read: admin/super, write: super)
 router.get('/leave-policy', checkAuth, calendarController.getPolicy);

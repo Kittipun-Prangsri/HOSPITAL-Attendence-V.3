@@ -217,6 +217,23 @@ const migrations = [
         WHERE LOWER(TRIM(shift)) IN ('morning', 'เช้า', 'เวรเช้า', 'กะเช้า', 'afternoon', 'บ่าย', 'เวรบ่าย', 'กะบ่าย', 'night', 'ดึก', 'เวรดึก', 'กะดึก')
       `);
     }
+  },
+  {
+    // Date ranges when the Hikvision feed was down: no ABSENT incidents are generated inside them
+    id: '007_scan_outages',
+    up: async () => {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS scan_outages (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          start_date DATE NOT NULL,
+          end_date DATE NOT NULL,
+          reason VARCHAR(255) NOT NULL,
+          created_by VARCHAR(150) NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          KEY idx_scan_outages_range (start_date, end_date)
+        ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+      `);
+    }
   }
 ];
 
