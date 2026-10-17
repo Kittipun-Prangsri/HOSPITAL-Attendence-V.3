@@ -112,7 +112,7 @@ function describeLineError(err) {
   if (status === 429 && /monthly limit/i.test(text)) return 'LINE: ใช้โควตาข้อความรายเดือนหมดแล้ว (429 monthly limit)';
   if (status === 429) return 'LINE: ส่งถี่เกินไป (429)';
   if (status === 401) return 'LINE: Channel access token ไม่ถูกต้องหรือหมดอายุ (401)';
-  if (status === 400 && /invalid.*to|not found/i.test(text)) return 'LINE: User ID ไม่ถูกต้อง หรือผู้ใช้ยังไม่ได้เพิ่มเพื่อน OA (400)';
+  if (status === 400 && /'to'|\bto\b.*invalid|not found/i.test(text)) return 'LINE: User ID ไม่ถูกต้อง หรือผู้ใช้ยังไม่ได้เพิ่มเพื่อน OA (400)';
   if (status === 403) return 'LINE: ไม่มีสิทธิ์ส่ง หรือผู้ใช้บล็อก OA (403)';
   return `LINE: ${status || ''} ${text !== '{}' ? text : err.message}`.trim();
 }
