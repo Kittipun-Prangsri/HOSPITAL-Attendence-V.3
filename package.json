@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
-    "build": "echo \"No build step required for Node.js Express server\"",
+    "build": "npm run build:css",
     "build:css": "tailwindcss -c tailwind.config.js -i src/styles/erp.css -o public/css/erp.css --minify",
     "watch:css": "tailwindcss -c tailwind.config.js -i src/styles/erp.css -o public/css/erp.css --watch",
     "init-db": "node scripts/init_db.js",
