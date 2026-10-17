@@ -170,6 +170,16 @@ function lineQuickReply() {
   return { items };
 }
 
+/** Unknown message / new follower: point to self-service linking (LIFF) instead of copy-pasting the id. */
+function linkHelpText(lineUserId) {
+  const liffId = (process.env.LIFF_ID || '').trim();
+  if (liffId) {
+    return `🔗 ผูกบัญชี LINE กับระบบได้เอง (ครั้งเดียว):\nhttps://liff.line.me/${liffId}\nเข้าสู่ระบบด้วยรหัสเดียวกับเว็บ KHH HRM\n\n` +
+      `ถ้าผูกแล้ว ใช้ปุ่มด้านล่างได้เลยครับ\n(ไอดีของคุณ: ${lineUserId})`;
+  }
+  return `LINE User ID ของคุณคือ:\n${lineUserId}\n\nแจ้งไอดีนี้กับ HR / IT เพื่อผูกบัญชีรับการแจ้งเตือนครับ`;
+}
+
 // LINE Webhook Route (Highest Priority)
 app.post(['/', '/webhook'], verifyLineSignature, async (req, res) => {
   try {
@@ -210,10 +220,7 @@ app.post(['/', '/webhook'], verifyLineSignature, async (req, res) => {
               let replyText = await chatbotService.handleMessage(incomingText, lineUserId);
 
               // Fallback to default message showing LINE ID if no command matched
-              if (!replyText) {
-                replyText = `LINE User ID ของคุณคือ:\n${lineUserId}\n\n` +
-                            `คัดลอกไอดีด้านบนเพื่อนำไปวางในช่อง 'LINE ID' ในฟอร์มลงทะเบียนพนักงานเพื่อรับข้อความแจ้งเตือนครับ`;
-              }
+              if (!replyText) replyText = linkHelpText(lineUserId);
 
               await notificationService.replyLineMessage(event.replyToken, replyText, lineQuickReply());
             }
@@ -225,9 +232,7 @@ app.post(['/', '/webhook'], verifyLineSignature, async (req, res) => {
               await notificationService.replyLineMessage(event.replyToken, replyText, lineQuickReply());
             }
           } else if (event.type === 'follow') {
-            const replyText = `สวัสดีครับ ยินดีต้อนรับสู่ระบบบันทึกเวลาปฏิบัติงาน KHH Attendance\n\n` +
-                              `LINE User ID ของคุณคือ:\n${event.source.userId}\n\n` +
-                              `คัดลอกไอดีด้านบนเพื่อนำไปวางในช่อง 'LINE ID' ในฟอร์มลงทะเบียนพนักงานเพื่อรับข้อความแจ้งเตือนครับ`;
+            const replyText = `สวัสดีครับ ยินดีต้อนรับสู่ระบบบันทึกเวลาปฏิบัติงาน KHH HRM\n\n${linkHelpText(event.source.userId)}`;
             
             await notificationService.replyLineMessage(event.replyToken, replyText, lineQuickReply());
           }

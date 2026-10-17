@@ -31,6 +31,20 @@
       <p class="mt-2" id="loadingText">กำลังเตรียมระบบ…</p>
     </section>
 
+    <!-- First visit from a LINE account that is not linked yet: sign in once to link it -->
+    <section id="v-link" class="erp-panel hidden p-5">
+      <h2 class="text-[15px] font-semibold text-plum-900"><i class="bi bi-link-45deg" aria-hidden="true"></i> ผูกบัญชี LINE กับระบบ</h2>
+      <p class="mt-1 text-[13px] text-slate-600">ครั้งแรกเท่านั้น: เข้าสู่ระบบด้วยรหัสเดียวกับเว็บ KHH HRM ระบบจะผูก LINE นี้กับข้อมูลบุคลากรของท่านให้อัตโนมัติ</p>
+      <form id="linkForm" class="mt-4 space-y-3">
+        <label class="block text-xs font-medium text-slate-700">เลขบัตรประชาชน หรือรหัสพนักงาน
+          <input id="linkUser" class="erp-input mt-1 h-11" autocomplete="username" inputmode="text" required maxlength="50"></label>
+        <label class="block text-xs font-medium text-slate-700">รหัสผ่าน
+          <input id="linkPass" type="password" class="erp-input mt-1 h-11" autocomplete="current-password" required maxlength="200"></label>
+        <button type="submit" id="linkBtn" class="erp-btn erp-btn-primary h-12 w-full text-[15px]"><i class="bi bi-link" aria-hidden="true"></i> ผูกบัญชีและเข้าสู่ระบบ</button>
+      </form>
+      <p class="mt-3 text-2xs leading-relaxed text-slate-500">ลืมรหัสผ่าน หรือยังไม่มีรหัส? แจ้ง HR / IT พร้อมไอดีนี้: <code id="linkLineId" class="select-all font-mono"></code></p>
+    </section>
+
     <!-- Not linked / errors -->
     <section id="v-error" class="erp-panel hidden p-6">
       <div class="flex items-start gap-3">
@@ -153,7 +167,7 @@
     let me = null;
 
     function show(view) {
-      ['loading', 'error', 'main', 'camera', 'result', 'month'].forEach(v => $('v-' + v).classList.toggle('hidden', v !== view));
+      ['loading', 'error', 'main', 'camera', 'result', 'month', 'link'].forEach(v => $('v-' + v).classList.toggle('hidden', v !== view));
       // Tabs only on the two top-level screens
       const tabs = view === 'main' || view === 'month';
       $('mobileTabs').classList.toggle('hidden', !tabs);
@@ -190,6 +204,10 @@
           await api('/api/liff/login', { method: 'POST', body: JSON.stringify({ idToken: liff.getIDToken() }) });
           location.reload();
         } catch (err) {
+          if (err.data && err.data.notLinked) {
+            $('linkLineId').textContent = err.data.lineUserId || '';
+            return show('link');
+          }
           fail(err.message, err.data && err.data.lineUserId);
         }
         return;
@@ -251,6 +269,7 @@
       if (latest || approved) {
         actions.push('<button type="button" class="erp-btn h-11 w-full border border-red-200 bg-white text-red-600" onclick="withdraw()"><i class="bi bi-shield-x" aria-hidden="true"></i> ถอนความยินยอมและลบข้อมูลใบหน้า</button>');
       }
+      actions.unshift(await renderChannels());
       $('actionsBox').innerHTML = actions.join('');
       $('actionsBox').classList.toggle('hidden', !actions.length);
       show('main');
@@ -258,6 +277,51 @@
     }
 
     $('consentCheck').addEventListener('change', e => { $('startBtn').disabled = !e.target.checked; });
+
+    /* Link this LINE account: the server checks the LINE ID token AND the HOSoffice password */
+    $('linkForm').addEventListener('submit', async e => {
+      e.preventDefault();
+      $('linkBtn').disabled = true;
+      try {
+        await api('/api/liff/link', { method: 'POST', body: JSON.stringify({ idToken: liff.getIDToken(), username: $('linkUser').value.trim(), password: $('linkPass').value }) });
+        ERP.toast('ผูกบัญชี LINE เรียบร้อยแล้ว', 'success');
+        location.reload();
+      } catch (err) {
+        ERP.toast(err.message, 'error');
+        $('linkPass').value = '';
+      } finally { $('linkBtn').disabled = false; }
+    });
+
+    /* Notification channels card: LINE status + one-tap Telegram linking */
+    async function renderChannels() {
+      let l;
+      try { l = await api('/api/me/links'); } catch (err) { return ''; }
+      const row = (icon, name, val, action) => `<div class="flex items-center gap-3 py-2">
+          <i class="bi ${icon} text-xl ${val ? 'text-emerald-600' : 'text-slate-300'}" aria-hidden="true"></i>
+          <div class="min-w-0 flex-1"><div class="text-[13px] font-medium text-slate-800">${name}</div>
+            <div class="text-2xs ${val ? 'text-emerald-700' : 'text-slate-400'}">${val ? 'เชื่อมแล้ว · ' + esc(val) : 'ยังไม่เชื่อม'}</div></div>${action || ''}</div>`;
+      const tgAction = !l.telegramReady ? '' : l.telegram
+        ? '<button type="button" class="text-2xs text-slate-400 underline" onclick="unlinkTelegram()">ยกเลิก</button>'
+        : '<button type="button" class="erp-btn erp-btn-primary h-9 px-3 text-xs" onclick="connectTelegram()"><i class="bi bi-telegram"></i> เชื่อม</button>';
+      return `<div class="erp-panel p-4"><h2 class="mb-1 text-[14px] font-semibold text-plum-900"><i class="bi bi-bell" aria-hidden="true"></i> ช่องทางแจ้งเตือน</h2>
+        ${row('bi-line', 'LINE', l.line)}${row('bi-telegram', 'Telegram (รับการ์ดสแกนทุกครั้ง)', l.telegram, tgAction)}</div>`;
+    }
+    async function connectTelegram() {
+      try {
+        const { url } = await api('/api/me/links/telegram', { method: 'POST', body: '{}' });
+        // Inside LINE, open Telegram outside the in-app browser
+        let inLine = false;
+        try { inLine = typeof liff !== 'undefined' && liff.isInClient(); } catch (e) { inLine = false; }
+        if (inLine) liff.openWindow({ url, external: true });
+        else window.location.href = url;
+        ERP.toast('กด Start ในแอป Telegram เพื่อเชื่อม (ลิงก์ใช้ได้ 10 นาที) แล้วกลับมาหน้านี้', 'success');
+      } catch (err) { ERP.toast(err.message, 'error'); }
+    }
+    async function unlinkTelegram() {
+      if (!confirm('ยกเลิกการรับแจ้งเตือนทาง Telegram?')) return;
+      try { ERP.toast((await api('/api/me/links/telegram', { method: 'DELETE' })).message, 'success'); loadStatus(); }
+      catch (err) { ERP.toast(err.message, 'error'); }
+    }
 
     async function withdraw() {
       if (!confirm('ถอนความยินยอม? ระบบจะลบข้อมูลใบหน้าของท่านทั้งหมดทันที และจะสแกนผ่านมือถือไม่ได้จนกว่าจะลงทะเบียนใหม่')) return;

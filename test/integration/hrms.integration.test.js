@@ -851,6 +851,56 @@ test('LINE / Telegram links are saved in hospital_db only, one person per accoun
   assert.equal(gone.length, 0);
 });
 
+test('self-service linking: LINE needs a verified ID token AND the password; Telegram via one-time link', async () => {
+  const LINE_NEW = 'U1004' + 'c'.repeat(28);
+  // Stand in for LINE's verify endpoint (the app calls it from this same process)
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url, opts) => {
+    if (String(url).startsWith('https://api.line.me/oauth2/v2.1/verify')) {
+      const body = new URLSearchParams(String(opts.body));
+      return new Response(JSON.stringify(body.get('id_token') === 'good-token' ? { sub: LINE_NEW } : { error: 'invalid' }), { status: body.get('id_token') === 'good-token' ? 200 : 400 });
+    }
+    return realFetch(url, opts);
+  };
+  process.env.LINE_LOGIN_CHANNEL_ID = '2000000000';
+  try {
+    const post = (path, body, cookie) => fetch(`${base}${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...(cookie ? { Cookie: cookie } : {}) }, body: JSON.stringify(body) });
+    assert.equal((await post('/api/liff/login', { idToken: 'good-token' })).status, 404, 'not linked yet');
+    assert.equal((await post('/api/liff/link', { idToken: 'bad-token', username: '1004', password: PASSWORD })).status, 401, 'LINE must vouch');
+    assert.equal((await post('/api/liff/link', { idToken: 'good-token', username: '1004', password: 'wrong-pass' })).status, 401, 'password must match');
+    const linked = await post('/api/liff/link', { idToken: 'good-token', username: '1004', password: PASSWORD });
+    assert.equal(linked.status, 200, await linked.clone().text());
+    const cookie = linked.headers.getSetCookie().map(c => c.split(';')[0]).join('; ');
+    assert.equal((await fetch(`${base}/api/face/me`, { headers: { Cookie: cookie, Accept: 'application/json' } })).status, 200, 'signed in right away');
+    const [[row]] = await admin.query(`SELECT external_id, linked_via FROM ${HOSPITAL_DB}.messaging_links WHERE hr_person_id = 4 AND channel = 'line'`);
+    assert.deepEqual(row, { external_id: LINE_NEW, linked_via: 'liff' });
+    assert.equal((await post('/api/liff/login', { idToken: 'good-token' })).status, 200, 'next time LIFF signs in directly');
+    assert.equal((await post('/api/liff/link', { idToken: 'good-token', username: '1003', password: PASSWORD })).status, 409, 'one LINE account, one person');
+
+    // Telegram: one-time deep link, private chats only, single use
+    process.env.TELEGRAM_BOT_USERNAME = 'KH_SmartAccess_bot';
+    const t = await call(users.super, 'POST', '/api/me/links/telegram', {});
+    assert.equal(t.status, 200);
+    const token = /start=link_([A-Za-z0-9_-]+)/.exec(t.body.url)[1];
+    const tl = require('../../src/services/telegramLink');
+    assert.match(await tl.handleStart(`/start link_${token}`, { id: -100123, type: 'group' }), /แชตส่วนตัว/);
+    const t2 = (await call(users.super, 'POST', '/api/me/links/telegram', {})).body.url;
+    const token2 = /start=link_([A-Za-z0-9_-]+)/.exec(t2)[1];
+    assert.match(await tl.handleStart(`/start link_${token2}`, { id: 9990001, type: 'private' }), /เรียบร้อยแล้ว/);
+    assert.match(await tl.handleStart(`/start link_${token2}`, { id: 9990001, type: 'private' }), /หมดอายุ|ใช้ไปแล้ว/);
+    assert.equal(await tl.handleStart('hello', { id: 1, type: 'private' }), null, 'normal chat is not a link request');
+    const mine = (await call(users.super, 'GET', '/api/me/links')).body;
+    assert.match(mine.telegram, /^9990…0001$/);
+    assert.equal((await call(users.super, 'DELETE', '/api/me/links/telegram')).status, 200);
+    assert.equal((await call(users.super, 'GET', '/api/me/links')).body.telegram, null);
+  } finally {
+    globalThis.fetch = realFetch;
+    process.env.LINE_LOGIN_CHANNEL_ID = '';
+    delete process.env.TELEGRAM_BOT_USERNAME;
+    await admin.query(`DELETE FROM ${HOSPITAL_DB}.messaging_links WHERE hr_person_id = 4`);
+  }
+});
+
 test('escalation finds approvals pending for more than two days', async () => {
   const { collectStalePending, formatEscalation } = require('../../src/services/pendingEscalation');
   assert.equal((await collectStalePending(2)).leaves.length, 0);

@@ -24,6 +24,13 @@ if (isTelegramConfigured) {
         const text = msg.text;
         if (!text) return;
 
+        // "/start link_<token>" from the "เชื่อม Telegram" button links this chat to the account
+        const linkReply = await require('./telegramLink').handleStart(text, msg.chat);
+        if (linkReply) {
+          await telegramBot.sendMessage(chatId, linkReply);
+          return;
+        }
+
         // Import inside to prevent circular dependency
         const chatbotService = require('./chatbotService');
         const replyText = await chatbotService.handleMessage(text, chatId.toString());
@@ -152,6 +159,14 @@ class NotificationService {
 
   linePushPolicy() {
     return linePushPolicy();
+  }
+
+  /** Bot @username for t.me links (TELEGRAM_BOT_USERNAME, else asked from Telegram once). */
+  async telegramBotUsername() {
+    if (process.env.TELEGRAM_BOT_USERNAME) return process.env.TELEGRAM_BOT_USERNAME.replace(/^@/, '');
+    if (!isTelegramConfigured) return null;
+    if (!this._botUsername) this._botUsername = telegramBot.getMe().then(me => me.username).catch(() => { this._botUsername = null; return null; });
+    return this._botUsername;
   }
 
   /**

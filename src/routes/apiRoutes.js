@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { checkAuth, checkAdmin, checkSuper } = require('../middleware/auth');
+const { loginRateLimit } = require('../middleware/loginRateLimit');
 const apiController = require('../controllers/apiController');
 const userController = require('../controllers/userController');
 const personnelController = require('../controllers/personnelController');
@@ -106,6 +107,7 @@ router.get('/notifications/inbox', checkAuth, inboxController.getInbox);
 
 // Mobile face scan (Phase 1: LIFF sign-in, consent + enrolment, admin approval, settings)
 router.post('/liff/login', liffController.login);
+router.post('/liff/link', loginRateLimit, liffController.link);
 router.get('/face/me', checkAuth, faceController.me);
 router.post('/face/enroll', checkAuth, faceController.enroll);
 router.post('/face/revoke', checkAuth, faceController.revokeOwn);
@@ -117,6 +119,9 @@ router.get('/mobile-scan/settings', checkAuth, checkAdmin, faceController.getSet
 router.put('/mobile-scan/settings', checkAuth, checkSuper, faceController.saveSettings);
 // My month (mobile LIFF + web): own day-by-day status
 router.get('/me/month', checkAuth, meController.month);
+router.get('/me/links', checkAuth, meController.links);
+router.post('/me/links/telegram', checkAuth, meController.telegramLink);
+router.delete('/me/links/:channel(line|telegram)', checkAuth, meController.unlink);
 // Department heads (super only): who reviews which department
 router.get('/department-heads', checkAuth, checkSuper, departmentHeadsController.list);
 router.get('/department-heads/people', checkAuth, checkSuper, departmentHeadsController.searchPeople);

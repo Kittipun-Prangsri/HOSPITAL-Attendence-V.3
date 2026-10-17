@@ -18,11 +18,14 @@ function loginRateLimit(req, res, next) {
 
   const current = attempts.get(key);
   if (current && current.count >= MAX_ATTEMPTS) {
-    return res.status(429).render('login', { error: 'ลองเข้าสู่ระบบผิดหลายครั้งเกินไป กรุณารอ 15 นาทีแล้วลองใหม่' });
+    const message = 'ลองเข้าสู่ระบบผิดหลายครั้งเกินไป กรุณารอ 15 นาทีแล้วลองใหม่';
+    if ((req.originalUrl || '').startsWith('/api/')) return res.status(429).json({ success: false, error: message });
+    return res.status(429).render('login', { error: message });
   }
 
   res.on('finish', () => {
-    if (res.statusCode === 302) {
+    // Page login succeeds with a redirect; JSON endpoints (LIFF account linking) flag success explicitly
+    if (res.statusCode === 302 || (res.locals && res.locals.loginOk)) {
       attempts.delete(key);
       return;
     }

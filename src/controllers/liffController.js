@@ -1,6 +1,7 @@
 const { hosofficePool } = require('../config/db');
 const { logAudit } = require('../utils/audit');
-const { personByExternal } = require('../services/messagingLinks');
+const bcrypt = require('bcryptjs');
+const { personByExternal, setLink, linkOf } = require('../services/messagingLinks');
 
 /**
  * Ask LINE to verify a LIFF ID token. Never trust a userId sent by the page itself.
@@ -64,6 +65,73 @@ exports.login = async (req, res) => {
   } catch (err) {
     console.error('[LIFF] login error:', err);
     res.status(500).json({ success: false, error: 'เข้าสู่ระบบไม่สำเร็จ' });
+  }
+};
+
+/** Start a normal web session for this hr_person row (same shape as the password login). */
+function startSession(req, res, user, via, done) {
+  req.session.regenerate(err => {
+    if (err) return res.status(500).json({ success: false, error: 'สร้างเซสชันไม่สำเร็จ' });
+    req.session.user = {
+      id: user.id,
+      username: user.fingle_id || user.cid,
+      fullname: user.fullname,
+      role: user.role ? String(user.role).toLowerCase() : 'user',
+      via
+    };
+    done();
+  });
+}
+
+/**
+ * POST /api/liff/link { idToken, username, password }
+ * Links the LINE account to the staff member only when BOTH check out: LINE vouches for the account
+ * (ID token verified with LINE) and the HOSoffice password proves who the person is.
+ */
+exports.link = async (req, res) => {
+  if (!process.env.LINE_LOGIN_CHANNEL_ID) return res.status(503).json({ success: false, error: 'ยังไม่ได้ตั้งค่า LINE Login' });
+  const { idToken, username, password } = req.body || {};
+  if (typeof username !== 'string' || typeof password !== 'string' || !username.trim() || username.length > 50 || password.length > 200) {
+    return res.status(400).json({ success: false, error: 'กรอกรหัสผู้ใช้และรหัสผ่าน' });
+  }
+  let lineUserId;
+  try { lineUserId = await verifyIdToken(idToken); } catch (err) { lineUserId = null; }
+  if (!lineUserId) return res.status(401).json({ success: false, error: 'บัญชี LINE ไม่ถูกต้องหรือหมดอายุ กรุณาเปิดจาก LINE อีกครั้ง' });
+
+  try {
+    const [rows] = await hosofficePool.query(
+      `SELECT ID AS id, HR_CID AS cid, FINGLE_ID AS fingle_id, CONCAT(HR_FNAME, ' ', HR_LNAME) AS fullname, USER_TYPE AS role, HR_PASSWORD_HASH AS hash
+       FROM hr_person WHERE (HR_CID = ? OR FINGLE_ID = ?) AND HR_STATUS_ID IN ('01', '02', '03', '04', '09') LIMIT 1`,
+      [username.trim(), username.trim()]);
+    const user = rows[0];
+    const ok = user && user.hash && await bcrypt.compare(password, user.hash);
+    if (!ok) {
+      logAudit(req, 'link_failed', 'line', null, { username: username.trim().slice(0, 50) }, { username: null, fullname: null, role: null });
+      return res.status(401).json({ success: false, error: 'รหัสผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' });
+    }
+    const before = await linkOf(user.id);
+    let previous;
+    try {
+      ({ previous } = await setLink({ personId: user.id, channel: 'line', externalId: lineUserId, via: 'liff', by: user.fullname }));
+    } catch (err) {
+      if (err.code === 'TAKEN') return res.status(409).json({ success: false, error: 'บัญชี LINE นี้ผูกกับบุคลากรคนอื่นอยู่แล้ว กรุณาติดต่อ HR' });
+      throw err;
+    }
+    res.locals.loginOk = true; // clears the failed-attempt counter
+    logAudit(req, previous ? 'relink' : 'link', 'line', user.id, { via: 'liff', replaced: Boolean(previous) },
+      { username: user.fingle_id || user.cid, fullname: user.fullname, role: user.role });
+    if (previous || before.telegram) {
+      // Tell the old account(s) so a takeover does not go unnoticed
+      const NotificationService = require('../services/notificationService');
+      const msg = `🔐 บัญชี KHH HRM ของคุณ${user.fullname} ถูกผูกกับ LINE ${previous ? 'บัญชีใหม่' : ''}แล้ว\nถ้าไม่ได้ทำเอง กรุณาเปลี่ยนรหัสผ่านและแจ้ง HR ทันที`;
+      NotificationService.sendDirectNotification(previous, before.telegram, msg).catch(() => {});
+    }
+    startSession(req, res, user, 'liff', () => {
+      req.session.save(() => res.json({ success: true, message: 'ผูกบัญชี LINE เรียบร้อยแล้ว', relinked: Boolean(previous) }));
+    });
+  } catch (err) {
+    console.error('[LIFF] link failed:', err);
+    res.status(500).json({ success: false, error: 'ผูกบัญชีไม่สำเร็จ' });
   }
 };
 
