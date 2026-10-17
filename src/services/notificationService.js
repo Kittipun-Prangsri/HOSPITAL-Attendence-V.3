@@ -99,6 +99,14 @@ if (isTelegramConfigured) {
   }
 }
 
+/**
+ * LINE push is metered (free OA plan: 300 messages a month, gone in a day or two if every scan sends a
+ * card). 'important' (default) keeps push for approvals, reminders and admin alerts and moves routine
+ * traffic (scan cards, check-in/out, weekly summary) to Telegram. Replies to chat commands are free
+ * either way. LINE_PUSH_POLICY=all restores push for everything (paid plan).
+ */
+const linePushPolicy = () => ((process.env.LINE_PUSH_POLICY || '').toLowerCase() === 'all' ? 'all' : 'important');
+
 const lineConfigured = () => {
   const t = process.env.LINE_CHANNEL_ACCESS_TOKEN;
   return Boolean(t && !t.startsWith('your_'));
@@ -137,6 +145,15 @@ async function telegramSend(chatId, text, options = {}) {
 const MAPPING_PATH = path.join(__dirname, '../../data/notification_mappings.json');
 
 class NotificationService {
+  /** LINE user id for routine (non-essential) pushes, or null when the policy keeps LINE for important ones. */
+  routineLineId(lineUserId) {
+    return linePushPolicy() === 'all' ? lineUserId : null;
+  }
+
+  linePushPolicy() {
+    return linePushPolicy();
+  }
+
   /**
    * Send message to Admin on both platforms
    */
@@ -189,7 +206,8 @@ class NotificationService {
         await telegramBot.sendMessage(telegramChatId, message);
       }
 
-      // Send to LINE if user_id exists
+      // Send to LINE if user_id exists (check-in/out confirmations are routine traffic)
+      lineUserId = this.routineLineId(lineUserId);
       if (lineUserId && process.env.LINE_CHANNEL_ACCESS_TOKEN) {
         await lineClient.pushMessage({
           to: lineUserId,

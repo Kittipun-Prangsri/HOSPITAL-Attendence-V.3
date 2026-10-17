@@ -154,7 +154,16 @@ async function checkNewScans() {
         const copyAdmin = process.env.REALTIME_COPY_ADMIN !== 'false';
         const targetTelegram = validEmpTelegram || (copyAdmin ? process.env.TELEGRAM_ADMIN_CHAT_ID : null);
 
-        const result = await NotificationService.sendDirectNotification(hr.line_user_id, targetTelegram, telegramCardMessage, undefined, lineFlexContents);
+        // Scan cards are routine: under the default LINE policy they go to Telegram only
+        const targetLine = NotificationService.routineLineId(hr.line_user_id);
+        if (!targetLine && !targetTelegram) {
+          await pool.query(
+            `UPDATE notification_deliveries SET status = 'skipped', sent_at = NOW(), last_error = ? WHERE employee_id = ? AND access_date = ? AND access_time = ?`,
+            [hr.line_user_id ? 'ไม่มี Telegram · LINE ใช้เฉพาะเรื่องสำคัญ (พิมพ์ 1 ใน LINE เพื่อดูการสแกน)' : 'ยังไม่ได้ผูก LINE/Telegram', scan.EmployeeID, dateStr, scan.AccessTime]
+          );
+          continue;
+        }
+        const result = await NotificationService.sendDirectNotification(targetLine, targetTelegram, telegramCardMessage, undefined, lineFlexContents);
 
         if (copyAdmin && validEmpTelegram && process.env.TELEGRAM_ADMIN_CHAT_ID && validEmpTelegram !== process.env.TELEGRAM_ADMIN_CHAT_ID) {
           await NotificationService.sendDirectTelegram(process.env.TELEGRAM_ADMIN_CHAT_ID, telegramCardMessage, { parse_mode: 'Markdown' });

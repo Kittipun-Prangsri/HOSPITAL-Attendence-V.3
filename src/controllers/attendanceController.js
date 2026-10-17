@@ -140,6 +140,7 @@ exports.getNotificationStatus = async (req, res) => {
        FROM notification_deliveries WHERE access_date = CURDATE()`
     );
     status.today = { sent: Number(today.sent) || 0, failed: Number(today.failed) || 0 };
+    status.linePolicy = NotificationService.linePushPolicy();
     status.realtime = { enabled: process.env.ENABLE_REALTIME_NOTIFICATIONS !== 'false', copyAdmin: process.env.REALTIME_COPY_ADMIN !== 'false' };
     res.json({ success: true, status });
   } catch (e) {
@@ -316,7 +317,7 @@ exports.logAttendance = async (req, res) => {
     const targetTelegramChatId = process.env.TELEGRAM_ADMIN_CHAT_ID || null;
 
     await NotificationService.sendDirectNotification(
-      line_user_id,
+      NotificationService.routineLineId(line_user_id),
       targetTelegramChatId,
       plainMessage,
       telegramOptions,

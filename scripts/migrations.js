@@ -234,6 +234,13 @@ const migrations = [
         ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
       `);
     }
+  },
+  {
+    // Scan cards that were deliberately not pushed (LINE kept for important messages, no Telegram)
+    id: '008_delivery_skipped_status',
+    up: async () => {
+      await pool.query("ALTER TABLE notification_deliveries MODIFY status ENUM('pending', 'sent', 'failed', 'skipped') NOT NULL DEFAULT 'pending'");
+    }
   }
 ];
 

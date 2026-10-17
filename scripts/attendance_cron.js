@@ -170,7 +170,7 @@ async function runWeeklySummary() {
       });
 
       const result = await NotificationService.sendDirectNotification(
-        emp.line_user_id,
+        NotificationService.routineLineId(emp.line_user_id), // weekly summary is routine traffic
         emp.telegram_chat_id,
         message,
         {},

@@ -289,7 +289,8 @@
           const pct = limited ? Math.min(100, Math.round(line.used / Math.max(line.quota, 1) * 100)) : 0;
           const bar = pct >= 90 ? 'bg-red-500' : pct >= 70 ? 'bg-amber-500' : 'bg-emerald-500';
           lineBody = `${pill(true, esc(line.name || 'OA'))} <span class="text-2xs text-slate-400">${esc(line.basicId || '')}</span>
-            <div class="mt-2 text-2xs text-slate-600">ข้อความ push เดือนนี้: <b class="font-mono">${line.used.toLocaleString()}</b>${limited ? ` / <span class="font-mono">${line.quota.toLocaleString()}</span>` : ' (ไม่จำกัด)'}</div>
+            <div class="mt-2 text-2xs text-slate-600">ส่งทาง LINE: ${data.status.linePolicy === 'all' ? 'ทุกการแจ้งเตือน' : 'เฉพาะเรื่องสำคัญ (อนุมัติ/เตือนค้างส่ง/แจ้งแอดมิน) · การ์ดสแกนไป Telegram'}</div>
+            <div class="mt-1 text-2xs text-slate-600">ข้อความ push เดือนนี้: <b class="font-mono">${line.used.toLocaleString()}</b>${limited ? ` / <span class="font-mono">${line.quota.toLocaleString()}</span>` : ' (ไม่จำกัด)'}</div>
             ${limited ? `<div class="mt-1 h-1.5 overflow-hidden rounded bg-slate-100" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><div class="h-full ${bar}" style="width:${pct}%"></div></div>
             ${pct >= 90 ? '<p class="mt-1 text-2xs font-medium text-red-600">โควตาใกล้หมด — ข้อความ push จะส่งไม่ได้จนถึงต้นเดือน</p>' : ''}` : ''}`;
         }
