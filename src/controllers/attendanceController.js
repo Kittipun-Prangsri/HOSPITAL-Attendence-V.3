@@ -2,7 +2,7 @@ const NotificationService = require('../services/notificationService');
 const { getLateThreshold } = require('../services/workSettings');
 const { pool, hosofficePool } = require('../config/db');
 const flexBuilder = require('../services/flexBuilder');
-const { getTimeInTimezone, isLateCheckIn } = require('../utils/attendanceTime');
+const { getTimeInTimezone, isLateCheckIn, toDateKey } = require('../utils/attendanceTime');
 
 function getStatusLabel(attendanceStatus, authResult, direction) {
   if (authResult === 'Failed') {
@@ -172,7 +172,7 @@ exports.getFailedNotifications = async (req, res) => {
     const failures = rows.map(row => ({
       employeeId: row.employee_id,
       employeeName: nameMap[row.employee_id] || row.employee_id,
-      accessDate: row.access_date,
+      accessDate: toDateKey(row.access_date), // DATE → Date at +07:00; JSON would show the previous day in UTC
       accessTime: row.access_time,
       attempts: row.attempts,
       lastError: row.last_error,
