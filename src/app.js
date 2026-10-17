@@ -159,6 +159,7 @@ function lineQuickReply() {
   const base = (process.env.SYSTEM_URL || '').trim().replace(/\/+$/, '');
   const items = [
     liffId && uri('📸 สแกนใบหน้า', `https://liff.line.me/${liffId}`),
+    liffId && uri('📅 เดือนนี้ของฉัน', `https://liff.line.me/${liffId}?tab=month`),
     pb('📇 สแกนล่าสุด', 'action=latest_scan', 'สแกนล่าสุด'),
     pb('📋 ประวัติวันนี้', 'action=today_history', 'ดูประวัติการเข้างาน'),
     pb('🏖️ สิทธิ์ลาคงเหลือ', 'action=leave_balance', 'สิทธิ์ลาคงเหลือ'),

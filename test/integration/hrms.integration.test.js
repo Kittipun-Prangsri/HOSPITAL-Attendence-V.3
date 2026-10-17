@@ -802,6 +802,28 @@ test('evening reminder finds office staff who scanned in but not out', async () 
   await admin.query(`UPDATE ${HOSOFFICE_DB}.hr_person SET TELEGRAM_CHAT_ID = NULL WHERE FINGLE_ID = '1002'`);
 });
 
+test('my month: own day-by-day status, and excuses are validated', async () => {
+  const r = await call(users.staff, 'GET', '/api/me/month?ym=2026-09');
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  const day = d => r.body.days.find(x => x.day === d);
+  assert.equal(day(16).status, 'ok');
+  assert.equal(day(16).first, '07:55');
+  assert.equal(day(16).last, '16:10');
+  assert.equal(day(17).status, 'leave');
+  assert.equal(day(19).status, 'off', 'Saturday');
+  assert.equal(day(18).holiday, 'วันหยุดทดสอบ');
+  assert.ok(r.body.totals.leave >= 2);
+  assert.equal((await call(users.staff, 'GET', '/api/me/month?ym=2025-01')).status, 400, 'too far back');
+  assert.equal((await call(users.staff, 'GET', '/api/me/month?ym=2030-01')).status, 400, 'future');
+
+  const future = new Date(Date.now() + 3 * 86400000).toLocaleDateString('sv-SE', { timeZone: 'Asia/Bangkok' });
+  assert.equal((await call(users.staff, 'POST', '/api/excuses', { date: future, issue_type: 'late', reason: 'x' })).status, 400, 'no future excuses');
+  assert.equal((await call(users.staff, 'POST', '/api/excuses', { date: '2026-09-29', issue_type: 'party', reason: 'x' })).status, 400, 'unknown type');
+  assert.equal((await call(users.staff, 'POST', '/api/excuses', { date: '2026-09-29', issue_type: 'late', reason: '   ' })).status, 400, 'empty reason');
+  // 1001's excuse for the 23rd was approved by the department head earlier: it cannot be reopened
+  assert.equal((await call(users.staff, 'POST', '/api/excuses', { date: '2026-09-23', issue_type: 'late', reason: 'แก้ไข' })).status, 409);
+});
+
 test('escalation finds approvals pending for more than two days', async () => {
   const { collectStalePending, formatEscalation } = require('../../src/services/pendingEscalation');
   assert.equal((await collectStalePending(2)).leaves.length, 0);

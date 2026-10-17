@@ -14,6 +14,7 @@ const liffController = require('../controllers/liffController');
 const faceController = require('../controllers/faceController');
 const reportController = require('../controllers/reportController');
 const departmentHeadsController = require('../controllers/departmentHeadsController');
+const meController = require('../controllers/meController');
 const calendarController = require('../controllers/calendarController');
 const otController = require('../controllers/otController');
 const auditController = require('../controllers/auditController');
@@ -114,6 +115,8 @@ router.post('/face/enrollments/:id/review', checkAuth, checkAdmin, faceControlle
 router.post('/face/enrollments/:id/revoke', checkAuth, checkAdmin, faceController.revoke);
 router.get('/mobile-scan/settings', checkAuth, checkAdmin, faceController.getSettings);
 router.put('/mobile-scan/settings', checkAuth, checkSuper, faceController.saveSettings);
+// My month (mobile LIFF + web): own day-by-day status
+router.get('/me/month', checkAuth, meController.month);
 // Department heads (super only): who reviews which department
 router.get('/department-heads', checkAuth, checkSuper, departmentHeadsController.list);
 router.get('/department-heads/people', checkAuth, checkSuper, departmentHeadsController.searchPeople);

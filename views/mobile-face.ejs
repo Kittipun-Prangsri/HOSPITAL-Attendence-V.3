@@ -48,6 +48,31 @@
       </div>
     </section>
 
+    <!-- Tabs: scan | my month -->
+    <nav id="mobileTabs" class="mb-4 hidden grid-cols-2 gap-1 rounded-xl bg-white p-1 shadow-sm ring-1 ring-plum-100" aria-label="เมนู">
+      <button type="button" data-mtab="main" class="rounded-lg py-2 text-[14px] font-semibold"><i class="bi bi-person-bounding-box" aria-hidden="true"></i> สแกนลงเวลา</button>
+      <button type="button" data-mtab="month" class="rounded-lg py-2 text-[14px] font-semibold"><i class="bi bi-calendar3" aria-hidden="true"></i> เดือนนี้ของฉัน</button>
+    </nav>
+
+    <!-- My month -->
+    <section id="v-month" class="hidden space-y-4">
+      <div class="erp-panel p-4">
+        <div class="flex items-center justify-between">
+          <button type="button" id="mPrev" class="erp-icon-btn h-9 w-9" aria-label="เดือนก่อน"><i class="bi bi-chevron-left"></i></button>
+          <h2 id="mTitle" class="text-[15px] font-semibold text-plum-900">—</h2>
+          <button type="button" id="mNext" class="erp-icon-btn h-9 w-9" aria-label="เดือนถัดไป"><i class="bi bi-chevron-right"></i></button>
+        </div>
+        <div id="mTotals" class="mt-3 grid grid-cols-4 gap-2 text-center"></div>
+        <div class="mt-3 grid grid-cols-7 gap-1 text-center text-2xs font-medium text-slate-400"><span>อา</span><span>จ</span><span>อ</span><span>พ</span><span>พฤ</span><span>ศ</span><span>ส</span></div>
+        <div id="mGrid" class="mt-1 grid grid-cols-7 gap-1"></div>
+        <div class="mt-3 flex flex-wrap justify-center gap-x-3 gap-y-1 text-2xs text-slate-500">
+          <span><i class="bi bi-circle-fill text-emerald-400"></i> มา</span><span><i class="bi bi-circle-fill text-amber-400"></i> สาย</span>
+          <span><i class="bi bi-circle-fill text-red-400"></i> ขาด</span><span><i class="bi bi-circle-fill text-sky-400"></i> ลา</span><span><i class="bi bi-circle-fill text-slate-200"></i> วันหยุด</span>
+        </div>
+      </div>
+      <div id="mDetail" class="erp-panel hidden p-4"></div>
+    </section>
+
     <!-- Status + consent -->
     <section id="v-main" class="hidden space-y-4">
       <div class="erp-panel p-5">
@@ -115,13 +140,28 @@
 
   <script>
     const LIFF_ID = <%- JSON.stringify(liffId || '') %>;
+    // ?tab=month opens "เดือนนี้ของฉัน" (LIFF forwards it either as-is or inside liff.state)
+    const START_TAB = (() => {
+      const q = new URLSearchParams(location.search);
+      const st = q.get('liff.state');
+      return q.get('tab') || (st ? new URLSearchParams(st.replace(/^[^?]*\?/, '')).get('tab') : null);
+    })();
+    let startTabUsed = false;
     const SIGNED_IN = <%- JSON.stringify(Boolean(locals.user)) %>;
     const $ = id => document.getElementById(id);
     const esc = ERP.escapeHtml;
     let me = null;
 
     function show(view) {
-      ['loading', 'error', 'main', 'camera', 'result'].forEach(v => $('v-' + v).classList.toggle('hidden', v !== view));
+      ['loading', 'error', 'main', 'camera', 'result', 'month'].forEach(v => $('v-' + v).classList.toggle('hidden', v !== view));
+      // Tabs only on the two top-level screens
+      const tabs = view === 'main' || view === 'month';
+      $('mobileTabs').classList.toggle('hidden', !tabs);
+      $('mobileTabs').classList.toggle('grid', tabs);
+      document.querySelectorAll('[data-mtab]').forEach(b => {
+        const on = b.dataset.mtab === view;
+        b.className = 'rounded-lg py-2 text-[14px] font-semibold ' + (on ? 'bg-plum-600 text-white' : 'text-slate-600');
+      });
     }
     function fail(message, lineUserId) {
       $('errorText').textContent = message;
@@ -214,6 +254,7 @@
       $('actionsBox').innerHTML = actions.join('');
       $('actionsBox').classList.toggle('hidden', !actions.length);
       show('main');
+      if (START_TAB === 'month' && !startTabUsed) { startTabUsed = true; loadMonth(); }
     }
 
     $('consentCheck').addEventListener('change', e => { $('startBtn').disabled = !e.target.checked; });
@@ -424,6 +465,95 @@
       $('resultPlace').textContent = r.site ? `${r.site}${r.distanceM != null ? ` · ห่าง ${Math.round(r.distanceM)} ม.` : ''}` : '';
       show('result');
     }
+
+    /* ---------- My month ---------- */
+    let monthYm = null;
+    const MLOOK = {
+      ok: 'bg-emerald-100 text-emerald-800', late: 'bg-amber-100 text-amber-800', absent: 'bg-red-100 text-red-700',
+      leave: 'bg-sky-100 text-sky-800', off: 'bg-slate-100 text-slate-400', none: 'bg-white text-slate-700 ring-1 ring-inset ring-slate-200',
+      future: 'bg-white text-slate-300'
+    };
+    const MTEXT = { ok: 'มาปฏิบัติงาน', late: 'มาสาย', absent: 'ไม่พบการสแกน (ขาด)', leave: 'ลา', off: 'วันหยุด', none: 'ไม่พบการสแกน', future: '' };
+    const EXSTAT = { pending: ['text-amber-700', 'รอพิจารณา'], approved: ['text-emerald-700', 'อนุมัติแล้ว'], rejected: ['text-red-600', 'ไม่อนุมัติ'] };
+    let monthData = null;
+
+    async function loadMonth(ym) {
+      show('month');
+      $('mGrid').innerHTML = '<div class="col-span-7 py-8 text-center text-xs text-slate-400">กำลังโหลด…</div>';
+      $('mDetail').classList.add('hidden');
+      try {
+        monthData = await api('/api/me/month' + (ym ? `?ym=${ym}` : ''));
+      } catch (err) { $('mGrid').innerHTML = `<div class="col-span-7 py-8 text-center text-xs text-red-600">${esc(err.message)}</div>`; return; }
+      monthYm = monthData.ym;
+      const [y, m] = monthYm.split('-').map(Number);
+      $('mTitle').textContent = new Date(y, m - 1, 1).toLocaleDateString('th-TH', { month: 'long', year: 'numeric' });
+      $('mPrev').disabled = !monthData.canPrev; $('mNext').disabled = !monthData.canNext;
+      const t = monthData.totals;
+      $('mTotals').innerHTML = [['มา', t.ok + t.late, 'text-emerald-700'], ['สาย', t.late, 'text-amber-700'], ['ขาด', t.absent, 'text-red-600'], ['ลา', t.leave, 'text-sky-700']]
+        .map(([l, n, c]) => `<div class="rounded-lg bg-slate-50 py-1.5"><div class="font-mono text-lg font-semibold ${c}">${n}</div><div class="text-2xs text-slate-500">${l}</div></div>`).join('');
+      const lead = monthData.days[0].dow;
+      $('mGrid').innerHTML = '<div></div>'.repeat(lead) + monthData.days.map(d => `
+        <button type="button" data-day="${d.day}" class="relative aspect-square rounded-lg text-[13px] font-semibold ${MLOOK[d.status]}" ${d.status === 'future' ? 'disabled' : ''}>
+          ${d.day}${d.excuse ? '<span class="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-plum-500"></span>' : ''}
+        </button>`).join('');
+      // Open the most recent day that needs attention, if any
+      const todo = [...monthData.days].reverse().find(d => (d.status === 'late' || d.status === 'absent') && !(d.excuse && d.excuse.status !== 'rejected'));
+      if (todo) showDay(todo.day);
+    }
+
+    function showDay(day) {
+      const d = monthData.days.find(x => x.day === day);
+      if (!d) return;
+      const dateTh = new Date(`${d.date}T00:00:00`).toLocaleDateString('th-TH', { weekday: 'long', day: 'numeric', month: 'long' });
+      const needs = (d.status === 'late' || d.status === 'absent' || d.status === 'none') && !(d.excuse && d.excuse.status === 'approved');
+      const issue = d.status === 'late' ? 'late' : d.status === 'absent' ? 'absent' : 'scan-failed';
+      $('mDetail').innerHTML = `
+        <div class="flex items-start justify-between gap-2">
+          <div><div class="text-[15px] font-semibold text-slate-900">${esc(dateTh)}</div>
+            <div class="text-xs text-slate-500">${esc(MTEXT[d.status])}${d.holiday ? ' · ' + esc(d.holiday) : ''}${d.shift ? ' · เวร' + esc(d.shift) : ''}${d.leave ? ' · ' + esc(d.leave) : ''}</div></div>
+          <span class="rounded-md px-2 py-0.5 text-2xs font-semibold ${MLOOK[d.status]}">${d.day}</span>
+        </div>
+        <div class="mt-3 grid grid-cols-2 gap-2 text-center">
+          <div class="rounded-lg bg-slate-50 py-2"><div class="text-2xs text-slate-500">สแกนเข้า</div><div class="font-mono text-base font-semibold text-slate-900">${d.first || '—'}</div></div>
+          <div class="rounded-lg bg-slate-50 py-2"><div class="text-2xs text-slate-500">สแกนออก</div><div class="font-mono text-base font-semibold text-slate-900">${d.last || '—'}</div></div>
+        </div>
+        ${d.mobile ? '<p class="mt-2 text-center text-2xs text-plum-600"><i class="bi bi-phone"></i> มีการสแกนผ่านมือถือ</p>' : ''}
+        ${d.excuse ? `<div class="mt-3 rounded-lg bg-plum-50 p-3 text-xs"><b>คำร้องแก้ต่าง:</b> <span class="${EXSTAT[d.excuse.status][0]} font-semibold">${EXSTAT[d.excuse.status][1]}</span>${d.excuse.comment ? `<div class="mt-1 text-slate-600">ความเห็น: ${esc(d.excuse.comment)}</div>` : ''}</div>` : ''}
+        ${needs ? `
+          <form id="exForm" class="mt-3 space-y-2">
+            <label class="block text-xs font-medium text-slate-700">แจ้งเหตุ
+              <select id="exType" class="erp-input mt-1 h-10">
+                <option value="late" ${issue === 'late' ? 'selected' : ''}>มาสาย</option>
+                <option value="absent" ${issue === 'absent' ? 'selected' : ''}>ขาดงาน</option>
+                <option value="scan-failed" ${issue === 'scan-failed' ? 'selected' : ''}>มาทำงานแต่สแกนไม่ติด / ลืมสแกน</option>
+                <option value="leave">ลา (แจ้งย้อนหลัง)</option>
+              </select></label>
+            <textarea id="exReason" class="erp-input min-h-[80px]" maxlength="1000" required placeholder="เหตุผล เช่น ไปประชุมนอกสถานที่, รถเสีย"></textarea>
+            <button type="submit" class="erp-btn erp-btn-primary h-11 w-full"><i class="bi bi-send"></i> ${d.excuse ? 'ส่งใหม่' : 'ส่งคำร้อง'}</button>
+          </form>` : ''}`;
+      $('mDetail').classList.remove('hidden');
+      const form = $('exForm');
+      if (form) form.addEventListener('submit', async e => {
+        e.preventDefault();
+        try {
+          const r = await api('/api/excuses', { method: 'POST', body: JSON.stringify({ date: d.date, issue_type: $('exType').value, reason: $('exReason').value.trim() }) });
+          ERP.toast(r.message, 'success');
+          await loadMonth(monthYm);
+          showDay(d.day);
+        } catch (err) { ERP.toast(err.message, 'error'); }
+      });
+      $('mDetail').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    $('mGrid').addEventListener('click', e => { const b = e.target.closest('[data-day]'); if (b) showDay(Number(b.dataset.day)); });
+    const shiftYm = (ym, delta) => { const [y, m] = ym.split('-').map(Number); const d = new Date(y, m - 1 + delta, 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; };
+    $('mPrev').addEventListener('click', () => loadMonth(shiftYm(monthYm, -1)));
+    $('mNext').addEventListener('click', () => loadMonth(shiftYm(monthYm, 1)));
+    $('mobileTabs').addEventListener('click', e => {
+      const b = e.target.closest('[data-mtab]');
+      if (!b) return;
+      if (b.dataset.mtab === 'month') loadMonth(monthYm); else loadStatus();
+    });
 
     boot();
   </script>

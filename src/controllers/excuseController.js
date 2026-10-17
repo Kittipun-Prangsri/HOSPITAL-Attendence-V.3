@@ -79,14 +79,30 @@ exports.createExcuse = async (req, res) => {
   if (!date || !issue_type || !reason) {
     return res.status(400).json({ success: false, error: 'กรุณากรอกข้อมูลให้ครบถ้วน' });
   }
-  
+  const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Bangkok' });
+  const oldest = new Date(Date.now() - 90 * 86400000).toLocaleDateString('sv-SE', { timeZone: 'Asia/Bangkok' });
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date > today || date < oldest) {
+    return res.status(400).json({ success: false, error: 'วันที่ต้องไม่เกินวันนี้ และย้อนหลังได้ไม่เกิน 90 วัน' });
+  }
+  if (!['scan-failed', 'absent', 'leave', 'late'].includes(issue_type)) {
+    return res.status(400).json({ success: false, error: 'ประเภทปัญหาไม่ถูกต้อง' });
+  }
+  if (typeof reason !== 'string' || !reason.trim() || reason.length > 1000) {
+    return res.status(400).json({ success: false, error: 'กรุณาระบุเหตุผล (ไม่เกิน 1000 ตัวอักษร)' });
+  }
+
   try {
+    // An approved excuse is final; only pending/rejected ones can be resubmitted
+    const [[existing]] = await pool.query('SELECT status FROM attendance_excuses WHERE username = ? AND date = ?', [user.username, date]);
+    if (existing && existing.status === 'approved') {
+      return res.status(409).json({ success: false, error: 'วันนี้มีคำร้องที่อนุมัติแล้ว' });
+    }
     // Insert and update on duplicate (resubmission)
     await pool.query(`
       INSERT INTO attendance_excuses (username, fullname, date, issue_type, reason, status) 
       VALUES (?, ?, ?, ?, ?, 'pending')
       ON DUPLICATE KEY UPDATE issue_type = VALUES(issue_type), reason = VALUES(reason), status = 'pending', admin_comment = NULL, reviewed_at = NULL
-    `, [user.username, user.fullname, date, issue_type, reason]);
+    `, [user.username, user.fullname, date, issue_type, reason.trim()]);
     
     // Notify Admin via both channels (LINE & Telegram)
     let thaiIssue = 'แสกนไม่ติด';

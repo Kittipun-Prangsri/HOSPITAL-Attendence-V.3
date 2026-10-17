@@ -30,3 +30,14 @@ test('rostered day: on time, late, absent — including a night shift that start
   assert.equal(j('2026-09-26', '08:00'), 'absent', 'no scan in the window');
   assert.equal(judgeRosteredDay({ date: '2026-09-23', start: '00:00', lateMin: 30, scanMs: scans }).result, 'ok', '00:05 within grace');
 });
+
+test('my-month day status precedence', () => {
+  const { dayStatus } = require('../src/services/myMonth');
+  assert.equal(dayStatus({ future: true, scanned: true }), 'future');
+  assert.equal(dayStatus({ leave: 'ลาป่วย', absent: 'PENDING', scanned: false }), 'leave');
+  assert.equal(dayStatus({ absent: 'OVERDUE' }), 'absent');
+  assert.equal(dayStatus({ late: 'PENDING', scanned: true }), 'late');
+  assert.equal(dayStatus({ scanned: true }), 'ok');
+  assert.equal(dayStatus({ off: true }), 'off');
+  assert.equal(dayStatus({}), 'none');
+});
