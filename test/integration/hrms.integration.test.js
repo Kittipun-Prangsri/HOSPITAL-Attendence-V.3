@@ -68,7 +68,7 @@ async function setupDatabases() {
   });
   await admin.query(`DROP DATABASE IF EXISTS ${HOSPITAL_DB}; DROP DATABASE IF EXISTS ${HOSOFFICE_DB};
     CREATE DATABASE ${HOSPITAL_DB} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-    CREATE DATABASE ${HOSOFFICE_DB} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`);
+    CREATE DATABASE ${HOSOFFICE_DB} CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci; -- like production HOSoffice: differs from hospital_db on purpose`);
 
   // HOSoffice tables: only the columns this system reads/writes (HR_STATUS_ID is text, compared as '01')
   await admin.query(`USE ${HOSOFFICE_DB};

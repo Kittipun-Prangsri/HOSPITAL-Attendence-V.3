@@ -468,7 +468,7 @@ exports.getMonthlyReport = async (req, res) => {
         FROM ${hospitalDb}.incident_logs
         WHERE incident_date LIKE ?
         GROUP BY employee_id
-      ) i ON p.FINGLE_ID = i.employee_id
+      ) i ON CONVERT(p.FINGLE_ID USING utf8mb4) COLLATE utf8mb4_unicode_ci = i.employee_id -- HOSoffice collation differs (general_ci / tis620)
       WHERE p.HR_STATUS_ID IN ('01', '02', '03', '04', '09')
     `;
 
