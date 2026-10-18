@@ -16,7 +16,8 @@ const NAV_SECTIONS = [
       { href: '/schedule', label: 'ตารางเวรของฉัน', icon: 'bi-calendar-check', access: 'all' },
       { href: '/leave', label: 'การลา', icon: 'bi-calendar2-x', access: 'all' },
       { href: '/ot', label: 'ขอทำงานล่วงเวลา (OT)', icon: 'bi-stopwatch', access: 'all' },
-      { href: '/excuses', label: 'แจ้งสาเหตุการลงเวลา', icon: 'bi-clipboard2-pulse', access: 'all' }
+      { href: '/excuses', label: 'แจ้งสาเหตุการลงเวลา', icon: 'bi-clipboard2-pulse', access: 'all' },
+      { href: '/security', label: 'ความปลอดภัยบัญชี', icon: 'bi-shield-check', access: 'all' }
     ]
   },
   {

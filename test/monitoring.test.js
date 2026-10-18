@@ -79,3 +79,26 @@ test('forgot-checkout selection and schedule', () => {
   assert.equal(cronFor('7:05'), '5 7 * * 1-5');
   assert.equal(cronFor('bad'), '30 17 * * 1-5');
 });
+
+test('TOTP matches RFC 6238 and accepts only ±1 step', () => {
+  const mfa = require('../src/services/mfa');
+  const key = Buffer.from('12345678901234567890');
+  assert.equal(mfa.hotp(key, Math.floor(59 / 30), 8), '94287082');
+  assert.equal(mfa.hotp(key, Math.floor(1111111109 / 30), 8), '07081804');
+  assert.equal(mfa.hotp(key, Math.floor(2000000000 / 30), 8), '69279037');
+  const secret = mfa.base32Encode(key);
+  assert.equal(mfa.base32Decode(secret).toString(), '12345678901234567890');
+  const now = 1_700_000_000_000;
+  const at = s => mfa.hotp(key, Math.floor(now / 30000) + s);
+  assert.notEqual(mfa.checkTotp(secret, at(0), now), null);
+  assert.notEqual(mfa.checkTotp(secret, at(-1), now), null, 'clock drift');
+  assert.equal(mfa.checkTotp(secret, at(-3), now), null, 'too old');
+  assert.equal(mfa.checkTotp(secret, 'abc', now), null);
+  const saved = process.env.ADMIN_MFA;
+  process.env.ADMIN_MFA = 'on';
+  assert.equal(mfa.enforcedFor('admin'), true);
+  assert.equal(mfa.enforcedFor('user'), false);
+  process.env.ADMIN_MFA = 'off';
+  assert.equal(mfa.enforcedFor('super'), false, 'emergency switch');
+  if (saved === undefined) delete process.env.ADMIN_MFA; else process.env.ADMIN_MFA = saved;
+});

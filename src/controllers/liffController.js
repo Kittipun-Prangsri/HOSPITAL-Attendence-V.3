@@ -49,11 +49,12 @@ exports.login = async (req, res) => {
     const user = rows[0];
     req.session.regenerate(err => {
       if (err) return res.status(500).json({ success: false, error: 'สร้างเซสชันไม่สำเร็จ' });
+      // LINE sign-in skips the two-step check, so it never carries admin rights (staff + head features only)
       req.session.user = {
         id: user.id,
         username: user.fingle_id || user.cid,
         fullname: user.fullname,
-        role: user.role ? String(user.role).toLowerCase() : 'user',
+        role: 'user',
         via: 'liff'
       };
       logAudit(req, 'login', 'auth', user.id, { via: 'liff' }, req.session.user);
@@ -76,7 +77,7 @@ function startSession(req, res, user, via, done) {
       id: user.id,
       username: user.fingle_id || user.cid,
       fullname: user.fullname,
-      role: user.role ? String(user.role).toLowerCase() : 'user',
+      role: 'user', // see login(): no admin rights through LINE
       via
     };
     done();

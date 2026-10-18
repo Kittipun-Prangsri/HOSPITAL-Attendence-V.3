@@ -64,6 +64,9 @@ pages.forEach(p => {
   }
 });
 
+// Account security (two-step sign-in, linked channels): every signed-in user
+router.get('/security', checkAuth, (req, res) => res.render('security', { ...viewLocals({ path: '/security' }) }));
+
 // Mobile face-scan page, opened from LINE (LIFF). No checkAuth: inside LINE it signs in with the
 // LIFF ID token itself; in a normal browser without a session it sends the user to /login.
 router.get('/m/face', (req, res) => {

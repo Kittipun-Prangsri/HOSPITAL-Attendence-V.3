@@ -124,6 +124,11 @@ router.get('/me/month', checkAuth, meController.month);
 router.get('/me/links', checkAuth, meController.links);
 router.post('/me/links/telegram', checkAuth, meController.telegramLink);
 router.delete('/me/links/:channel(line|telegram)', checkAuth, meController.unlink);
+router.get('/me/mfa', checkAuth, meController.mfaStatus);
+router.post('/me/mfa/totp/setup', checkAuth, meController.mfaSetup);
+router.post('/me/mfa/totp/confirm', checkAuth, meController.mfaConfirm);
+router.post('/me/mfa/totp/disable', checkAuth, meController.mfaDisable);
+router.post('/me/mfa/recovery', checkAuth, meController.mfaRecovery);
 // Department heads (super only): who reviews which department
 router.get('/department-heads', checkAuth, checkSuper, departmentHeadsController.list);
 router.get('/department-heads/people', checkAuth, checkSuper, departmentHeadsController.searchPeople);

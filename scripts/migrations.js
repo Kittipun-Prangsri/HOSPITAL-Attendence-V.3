@@ -353,6 +353,22 @@ const migrations = [
       }
       console.log(`[migrate] 011: imported ${values.length} LINE/Telegram link(s) from HOSoffice`);
     }
+  },
+  {
+    // Two-step sign-in: authenticator (TOTP) secret, encrypted, and hashed one-time recovery codes
+    id: '012_account_mfa',
+    up: async () => {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS account_mfa (
+          hr_person_id INT PRIMARY KEY,
+          totp_secret TEXT NULL,
+          totp_enabled_at DATETIME NULL,
+          pending_secret TEXT NULL,
+          recovery_hashes TEXT NULL,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+      `);
+    }
   }
 ];
 

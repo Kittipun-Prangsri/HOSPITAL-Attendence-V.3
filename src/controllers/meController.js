@@ -49,10 +49,65 @@ exports.unlink = async (req, res) => {
   if (!['line', 'telegram'].includes(channel)) return res.status(400).json({ success: false, error: 'ช่องทางไม่ถูกต้อง' });
   try {
     const removed = await removeLink({ personId: req.session.user.id, channel });
+    require('../services/mfa').clearSetupCache(req.session.user.id);
     if (removed) logAudit(req, 'unlink', channel, req.session.user.id, { via: 'self' });
     res.json({ success: true, message: `ยกเลิกการเชื่อม ${channel === 'line' ? 'LINE' : 'Telegram'} แล้ว` });
   } catch (err) {
     console.error('[me] unlink failed:', err);
     res.status(500).json({ success: false, error: 'ยกเลิกไม่สำเร็จ' });
   }
+};
+
+/* ---------------- Two-step sign-in (security page) ---------------- */
+const mfa = require('../services/mfa');
+
+exports.mfaStatus = async (req, res) => {
+  try {
+    const st = await mfa.status(req.session.user.id);
+    res.json({ success: true, ...st, required: mfa.enforcedFor(req.session.user.role), telegramReady: Boolean(process.env.TELEGRAM_BOT_TOKEN) });
+  } catch (err) {
+    console.error('[mfa] status failed:', err);
+    res.status(500).json({ success: false, error: 'โหลดข้อมูลไม่สำเร็จ (ตรวจสอบว่ารัน npm run migrate แล้ว)' });
+  }
+};
+
+exports.mfaSetup = async (req, res) => {
+  try {
+    const u = req.session.user;
+    const { secret, qr } = await mfa.beginTotpSetup(u.id, u.username || String(u.id));
+    res.json({ success: true, secret, qr });
+  } catch (err) {
+    console.error('[mfa] setup failed:', err);
+    res.status(500).json({ success: false, error: 'เริ่มตั้งค่าไม่สำเร็จ' });
+  }
+};
+
+exports.mfaConfirm = async (req, res) => {
+  const r = await mfa.confirmTotp(req.session.user.id, (req.body || {}).code).catch(err => ({ error: err.message }));
+  if (r.error) return res.status(400).json({ success: false, error: r.error });
+  mfa.clearSetupCache(req.session.user.id);
+  logAudit(req, 'mfa_enable', 'auth', req.session.user.id, { method: 'totp' });
+  res.json({ success: true, codes: r.codes, message: 'เปิดใช้แอป Authenticator แล้ว' });
+};
+
+/** Sensitive changes need a current authenticator or recovery code. */
+async function proveFactor(req) {
+  const code = String((req.body || {}).code || '').trim();
+  const id = req.session.user.id;
+  return (/^\d{6}$/.test(code) && await mfa.verifyTotpFor(id, code)) || (/^[A-Za-z0-9]{5}-?[A-Za-z0-9]{5}$/.test(code) && await mfa.useRecovery(id, code));
+}
+
+exports.mfaDisable = async (req, res) => {
+  if (!await proveFactor(req)) return res.status(400).json({ success: false, error: 'รหัสยืนยันไม่ถูกต้อง' });
+  await mfa.disableTotp(req.session.user.id);
+  mfa.clearSetupCache(req.session.user.id);
+  logAudit(req, 'mfa_disable', 'auth', req.session.user.id, { method: 'totp' });
+  res.json({ success: true, message: 'ปิดการใช้แอป Authenticator แล้ว' });
+};
+
+exports.mfaRecovery = async (req, res) => {
+  if (!await proveFactor(req)) return res.status(400).json({ success: false, error: 'รหัสยืนยันไม่ถูกต้อง' });
+  const codes = await mfa.regenerateRecovery(req.session.user.id);
+  logAudit(req, 'mfa_recovery_regenerated', 'auth', req.session.user.id);
+  res.json({ success: true, codes });
 };

@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+  <%- include("components/erp-head", { title: "ความปลอดภัยบัญชี" }) %>
+</head>
+
+<body class="erp-page">
+  <%- include("components/sidebar") %>
+  <div class="main" role="main">
+    <%- include("components/topbar") %>
+
+    <div class="erp mx-auto max-w-4xl px-4 py-5 lg:px-6">
+      <section class="mb-5">
+        <h2 class="text-xl font-semibold text-slate-900">ความปลอดภัยบัญชี</h2>
+        <p class="mt-1 text-[13px] text-slate-500">การยืนยันตัวตน 2 ขั้นตอนเข้าสู่ระบบด้วยรหัสผ่าน · บังคับสำหรับผู้ดูแลระบบ และเปิดใช้ได้สำหรับทุกคน</p>
+      </section>
+
+      <div id="requiredBanner" class="mb-5 hidden rounded-xl bg-amber-50 p-4 text-[13px] text-amber-900 ring-1 ring-inset ring-amber-200">
+        <i class="bi bi-shield-exclamation" aria-hidden="true"></i> <b>บัญชีผู้ดูแลระบบต้องเปิดการยืนยัน 2 ขั้น</b> ก่อนใช้งานหน้าอื่น — ตั้งค่าแอป Authenticator หรือเชื่อม Telegram อย่างน้อย 1 วิธี
+      </div>
+
+      <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
+        <section class="erp-panel p-5" aria-labelledby="totpTitle">
+          <div class="flex items-start gap-3">
+            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-plum-50 text-lg text-plum-600"><i class="bi bi-phone" aria-hidden="true"></i></div>
+            <div class="min-w-0 flex-1">
+              <h3 id="totpTitle" class="text-[14px] font-semibold text-slate-900">แอป Authenticator <span class="text-2xs font-normal text-slate-500">(แนะนำ)</span></h3>
+              <p class="text-xs text-slate-500">Google / Microsoft Authenticator · ใช้ได้แม้ไม่มีอินเทอร์เน็ต</p>
+            </div>
+            <span id="totpBadge" class="rounded px-2 py-0.5 text-2xs font-semibold"></span>
+          </div>
+          <div id="totpBody" class="mt-4"></div>
+        </section>
+
+        <section class="erp-panel p-5" aria-labelledby="tgTitle">
+          <div class="flex items-start gap-3">
+            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-sky-50 text-lg text-sky-600"><i class="bi bi-telegram" aria-hidden="true"></i></div>
+            <div class="min-w-0 flex-1">
+              <h3 id="tgTitle" class="text-[14px] font-semibold text-slate-900">รหัสทาง Telegram</h3>
+              <p class="text-xs text-slate-500">ส่งรหัส 6 หลักไปที่ Telegram ที่เชื่อมไว้ ทุกครั้งที่เข้าสู่ระบบ</p>
+            </div>
+            <span id="tgBadge" class="rounded px-2 py-0.5 text-2xs font-semibold"></span>
+          </div>
+          <div id="tgBody" class="mt-4"></div>
+        </section>
+      </div>
+
+      <section id="codesBox" class="erp-panel mt-5 hidden p-5">
+        <h3 class="text-[14px] font-semibold text-slate-900"><i class="bi bi-key" aria-hidden="true"></i> รหัสกู้คืน — บันทึกเก็บไว้ตอนนี้</h3>
+        <p class="mt-1 text-xs text-slate-500">ใช้แทนรหัสจากแอปเมื่อโทรศัพท์หาย · แต่ละรหัสใช้ได้ครั้งเดียว · ระบบจะไม่แสดงรหัสเหล่านี้อีก</p>
+        <div id="codesList" class="mt-3 grid grid-cols-2 gap-2 font-mono text-[15px] sm:grid-cols-4"></div>
+        <div class="mt-3 flex gap-2">
+          <button type="button" class="erp-btn erp-btn-secondary" onclick="copyCodes()"><i class="bi bi-clipboard" aria-hidden="true"></i> คัดลอก</button>
+          <button type="button" class="erp-btn erp-btn-secondary" onclick="window.print()"><i class="bi bi-printer" aria-hidden="true"></i> พิมพ์</button>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    const esc = ERP.escapeHtml;
+    async function api(url, opts) {
+      const res = await fetch(url, Object.assign({ headers: { Accept: 'application/json', 'Content-Type': 'application/json' } }, opts));
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.success === false) throw new Error(data.error || `HTTP ${res.status}`);
+      return data;
+    }
+    const badge = (el, on) => { el.textContent = on ? 'เปิดใช้งาน' : 'ยังไม่ตั้งค่า'; el.className = 'rounded px-2 py-0.5 text-2xs font-semibold ' + (on ? 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200' : 'bg-slate-100 text-slate-500'); };
+    let lastCodes = [];
+
+    async function load() {
+      const st = await api('/api/me/mfa');
+      $('requiredBanner').classList.toggle('hidden', !(st.required && !st.totp && !st.telegram));
+      badge($('totpBadge'), st.totp);
+      badge($('tgBadge'), st.telegram);
+      $('totpBody').innerHTML = st.totp
+        ? `<p class="text-[13px] text-slate-600">รหัสกู้คืนเหลือ <b>${st.recoveryLeft}</b> รหัส</p>
+           <div class="mt-3 flex flex-wrap gap-2">
+             <button type="button" class="erp-btn erp-btn-secondary" onclick="regenCodes()"><i class="bi bi-arrow-repeat"></i> สร้างรหัสกู้คืนใหม่</button>
+             <button type="button" class="erp-btn erp-btn-secondary text-red-600" onclick="disableTotp()"><i class="bi bi-x-circle"></i> ปิดใช้งาน</button></div>`
+        : `<button type="button" class="erp-btn erp-btn-primary" onclick="startTotp()"><i class="bi bi-qr-code"></i> ตั้งค่าแอป Authenticator</button>`;
+      $('tgBody').innerHTML = st.telegram
+        ? '<p class="text-[13px] text-slate-600">เชื่อมแล้ว · ตอนเข้าสู่ระบบกด "ส่งรหัสทาง Telegram" ได้</p>'
+        : (st.telegramReady
+          ? `<button type="button" class="erp-btn erp-btn-secondary" onclick="connectTelegram()"><i class="bi bi-telegram"></i> เชื่อม Telegram</button>
+             <p class="mt-2 text-2xs text-slate-500">กด Start ในแอป Telegram แล้วกลับมากด "โหลดใหม่"</p>
+             <button type="button" class="mt-1 text-2xs text-brand-600 underline" onclick="load()">โหลดใหม่</button>`
+          : '<p class="text-xs text-slate-400">ยังไม่ได้ตั้งค่า Telegram bot ในระบบ</p>');
+    }
+
+    async function startTotp() {
+      try {
+        const { qr, secret } = await api('/api/me/mfa/totp/setup', { method: 'POST', body: '{}' });
+        $('totpBody').innerHTML = `
+          <ol class="list-decimal space-y-1 pl-5 text-[13px] text-slate-700">
+            <li>เปิดแอป Authenticator แล้วสแกน QR นี้</li>
+            <li>กรอกรหัส 6 หลักที่แอปแสดง แล้วกดยืนยัน</li></ol>
+          <img src="${qr}" alt="QR สำหรับแอป Authenticator" class="mx-auto mt-3 h-48 w-48 rounded-lg ring-1 ring-slate-200">
+          <p class="mt-2 break-all text-center font-mono text-2xs text-slate-500">สแกนไม่ได้? พิมพ์รหัส: ${esc(secret)}</p>
+          <form id="totpForm" class="mt-3 flex gap-2">
+            <input id="totpCode" class="erp-input h-10 flex-1 text-center font-mono text-lg tracking-[0.3em]" inputmode="numeric" maxlength="6" required placeholder="000000" autocomplete="one-time-code">
+            <button class="erp-btn erp-btn-primary h-10">ยืนยัน</button></form>`;
+        $('totpForm').addEventListener('submit', async e => {
+          e.preventDefault();
+          try {
+            const r = await api('/api/me/mfa/totp/confirm', { method: 'POST', body: JSON.stringify({ code: $('totpCode').value }) });
+            ERP.toast(r.message, 'success');
+            showCodes(r.codes);
+            load();
+          } catch (err) { ERP.toast(err.message, 'error'); }
+        });
+        $('totpCode').focus();
+      } catch (err) { ERP.toast(err.message, 'error'); }
+    }
+
+    function showCodes(codes) {
+      lastCodes = codes;
+      $('codesList').innerHTML = codes.map(c => `<div class="rounded-md bg-slate-50 px-3 py-2 text-center ring-1 ring-slate-200">${esc(c)}</div>`).join('');
+      $('codesBox').classList.remove('hidden');
+      $('codesBox').scrollIntoView({ behavior: 'smooth' });
+    }
+    function copyCodes() { navigator.clipboard.writeText(lastCodes.join('\n')).then(() => ERP.toast('คัดลอกแล้ว', 'success')); }
+
+    async function regenCodes() {
+      const code = prompt('กรอกรหัส 6 หลักจากแอป Authenticator เพื่อสร้างรหัสกู้คืนชุดใหม่ (ชุดเดิมจะใช้ไม่ได้)');
+      if (!code) return;
+      try { showCodes((await api('/api/me/mfa/recovery', { method: 'POST', body: JSON.stringify({ code }) })).codes); load(); }
+      catch (err) { ERP.toast(err.message, 'error'); }
+    }
+    async function disableTotp() {
+      const code = prompt('กรอกรหัส 6 หลักจากแอป หรือรหัสกู้คืน เพื่อปิดการใช้แอป Authenticator');
+      if (!code) return;
+      try { ERP.toast((await api('/api/me/mfa/totp/disable', { method: 'POST', body: JSON.stringify({ code }) })).message, 'success'); load(); }
+      catch (err) { ERP.toast(err.message, 'error'); }
+    }
+    async function connectTelegram() {
+      try { const { url } = await api('/api/me/links/telegram', { method: 'POST', body: '{}' }); window.open(url, '_blank', 'noopener'); }
+      catch (err) { ERP.toast(err.message, 'error'); }
+    }
+    const loadData = load;
+    load().catch(err => ERP.toast(err.message, 'error'));
+  </script>
+</body>
+
+</html>

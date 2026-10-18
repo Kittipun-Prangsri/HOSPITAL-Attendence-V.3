@@ -29,6 +29,7 @@ async function handleStart(text, chat) {
   if (!chat || chat.type !== 'private') return 'เชื่อมได้เฉพาะแชตส่วนตัวกับบอทเท่านั้น';
   try {
     const { previous } = await setLink({ personId: entry.personId, channel: 'telegram', externalId: String(chat.id), via: 'telegram_start', by: entry.fullname });
+    require('./mfa').clearSetupCache(entry.personId);
     // No HTTP request here: audit with an empty request and the person as actor
     await require('../utils/audit').logAudit({ headers: {}, socket: {} }, previous ? 'relink' : 'link', 'telegram', entry.personId,
       { via: 'telegram_start' }, { username: null, fullname: entry.fullname, role: null });

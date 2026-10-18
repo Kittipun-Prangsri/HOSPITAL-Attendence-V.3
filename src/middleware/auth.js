@@ -12,7 +12,16 @@ const checkAuth = (req, res, next) => {
     res.locals.user = req.session.user; // Make user data available in EJS
     res.locals.RBAC_ENABLED = RBAC_ENABLED; // Expose to EJS views
     const u = req.session.user;
-    if (u.role === 'admin' || u.role === 'super') return next();
+    if (u.role === 'admin' || u.role === 'super') {
+      // Admin accounts without a second factor may only reach the security page until they add one
+      return require('../services/mfa').needsSetup(u).then(needs => {
+        const path = req.originalUrl || '';
+        const allowed = path.startsWith('/security') || path.startsWith('/api/me/') || path.startsWith('/api/notifications/inbox');
+        if (!needs || allowed) return next();
+        if (isApiRequest(req)) return res.status(403).json({ success: false, error: 'กรุณาตั้งค่าการยืนยันตัวตน 2 ขั้นก่อน', mfaSetup: true });
+        return res.redirect('/security');
+      }).catch(() => next());
+    }
     // Department heads get review screens for their departments (lookup is cached for a minute)
     require('../services/reviewScope').reviewScope(u)
       .then(scope => { res.locals.isHead = Boolean(scope); })

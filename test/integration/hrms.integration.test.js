@@ -35,6 +35,7 @@ Object.assign(process.env, {
   GOOGLE_SHEET_URL: '',
   ENABLE_TELEGRAM_POLLING: 'false',
   FACE_TEMPLATE_KEY: 'c'.repeat(64),
+  ADMIN_MFA: 'off', // turned on inside the two-step test only
   LINE_LOGIN_CHANNEL_ID: ''
 });
 
@@ -182,7 +183,7 @@ test.after(async () => {
 test('migrations created every table and sessions persist in MySQL', async () => {
   const [tables] = await admin.query('SELECT table_name AS t FROM information_schema.tables WHERE table_schema = ?', [HOSPITAL_DB]);
   const names = tables.map(r => r.t || r.TABLE_NAME);
-  for (const t of ['schema_migrations', 'leave_requests', 'app_settings', 'holidays', 'ot_requests', 'audit_log', 'incident_logs', 'scan_outages', 'face_enrollments', 'mobile_scans', 'department_heads', 'messaging_links', 'sessions']) {
+  for (const t of ['schema_migrations', 'leave_requests', 'app_settings', 'holidays', 'ot_requests', 'audit_log', 'incident_logs', 'scan_outages', 'face_enrollments', 'mobile_scans', 'department_heads', 'messaging_links', 'account_mfa', 'sessions']) {
     assert.ok(names.includes(t), `missing table ${t}`);
   }
   const [[{ n }]] = await admin.query(`SELECT COUNT(*) AS n FROM ${HOSPITAL_DB}.sessions`);
@@ -875,6 +876,7 @@ test('self-service linking: LINE needs a verified ID token AND the password; Tel
     const [[row]] = await admin.query(`SELECT external_id, linked_via FROM ${HOSPITAL_DB}.messaging_links WHERE hr_person_id = 4 AND channel = 'line'`);
     assert.deepEqual(row, { external_id: LINE_NEW, linked_via: 'liff' });
     assert.equal((await post('/api/liff/login', { idToken: 'good-token' })).status, 200, 'next time LIFF signs in directly');
+    assert.equal((await fetch(`${base}/api/mobile-scan/settings`, { headers: { Cookie: cookie, Accept: 'application/json' } })).status, 403, 'a super signed in through LINE gets staff rights only');
     assert.equal((await post('/api/liff/link', { idToken: 'good-token', username: '1003', password: PASSWORD })).status, 409, 'one LINE account, one person');
 
     // Telegram: one-time deep link, private chats only, single use
@@ -934,6 +936,81 @@ test('OT pay: rates per staff type feed the HR pack', async () => {
   let any1001 = false;
   dept.getWorksheet('OT').eachRow(r => { if (r.getCell(3).value === '1001') any1001 = true; });
   assert.equal(any1001, false);
+});
+
+test('two-step sign-in for admins: setup gate, authenticator, recovery code, Telegram', async () => {
+  const mfa = require('../../src/services/mfa');
+  const NotificationService = require('../../src/services/notificationService');
+  process.env.ADMIN_MFA = 'on';
+  const jar = { c: '' };
+  const keep = res => { const set = res.headers.getSetCookie().map(c => c.split(';')[0]); if (set.length) jar.c = set.join('; '); return res; };
+  const form = (path, body) => fetch(`${base}${path}`, { method: 'POST', redirect: 'manual', headers: { 'Content-Type': 'application/x-www-form-urlencoded', ...(jar.c ? { Cookie: jar.c } : {}) }, body: new URLSearchParams(body) }).then(keep);
+  const get = path => fetch(`${base}${path}`, { redirect: 'manual', headers: { Cookie: jar.c, Accept: path.startsWith('/api') ? 'application/json' : 'text/html' } }).then(keep);
+  const csrf = async () => ((await (await get('/security')).text()).match(/name="csrf-token" content="([a-f0-9]+)"/) || [])[1];
+  const api = async (path, body) => fetch(`${base}${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json', Cookie: jar.c, 'X-CSRF-Token': await csrf() }, body: JSON.stringify(body || {}) }).then(keep);
+  const realTg = NotificationService.sendDirectTelegram;
+  // The chatbot test linked a Telegram chat to 1003; start this one with no second factor at all
+  await admin.query(`DELETE FROM ${HOSPITAL_DB}.messaging_links WHERE hr_person_id = 3 AND channel = 'telegram'`);
+  mfa.clearSetupCache(3);
+  try {
+    // 1. Admin without any second factor: let in, but only the security page works
+    let r = await form('/login', { username: '1003', password: PASSWORD });
+    assert.equal(r.headers.get('location'), '/security');
+    assert.equal((await get('/api/leaves?scope=all')).status, 403);
+    assert.equal((await get('/admin/calendar')).headers.get('location'), '/security');
+    assert.equal((await get('/security')).status, 200);
+
+    // 2. Set up the authenticator
+    const setup = await (await api('/api/me/mfa/totp/setup')).json();
+    assert.match(setup.qr, /^data:image\/png;base64,/);
+    const key = mfa.base32Decode(setup.secret);
+    const codeAt = d => mfa.hotp(key, Math.floor(Date.now() / 30000) + d);
+    assert.equal((await api('/api/me/mfa/totp/confirm', { code: '000000' })).status, 400);
+    const ok = await (await api('/api/me/mfa/totp/confirm', { code: codeAt(0) })).json();
+    assert.equal(ok.codes.length, 8);
+    assert.equal((await get('/api/leaves?scope=all')).status, 200, 'gate lifts once a factor exists');
+
+    // 3. Next login asks for the code; a wrong one is refused, the next step's code works (same step cannot be replayed)
+    jar.c = '';
+    r = await form('/login', { username: '1003', password: PASSWORD });
+    assert.equal(r.headers.get('location'), '/login/mfa');
+    assert.equal((await get('/api/leaves?scope=all')).status, 401, 'not signed in yet');
+    assert.equal((await form('/login/mfa', { code: '123456' })).status, 401);
+    r = await form('/login/mfa', { code: codeAt(1) });
+    assert.equal(r.status, 302);
+    assert.equal((await get('/api/leaves?scope=all')).status, 200);
+
+    // 4. Recovery code: works once
+    jar.c = '';
+    await form('/login', { username: '1003', password: PASSWORD });
+    assert.equal((await form('/login/mfa', { code: ok.codes[0] })).status, 302);
+    jar.c = '';
+    await form('/login', { username: '1003', password: PASSWORD });
+    assert.equal((await form('/login/mfa', { code: ok.codes[0] })).status, 401, 'already used');
+
+    // 5. Five wrong codes end the attempt
+    for (let i = 0; i < 4; i++) await form('/login/mfa', { code: '000000' });
+    r = await form('/login/mfa', { code: codeAt(1) });
+    assert.notEqual(r.status, 302, 'pending login was dropped');
+
+    // 6. Super with Telegram only: the code arrives in the linked chat
+    await admin.query(`INSERT INTO ${HOSPITAL_DB}.messaging_links (hr_person_id, channel, external_id, linked_via) VALUES (4, 'telegram', '4440001', 'admin')`);
+    mfa.clearSetupCache(4);
+    let sent = null;
+    NotificationService.sendDirectTelegram = async (chat, msg) => { sent = { chat, code: (/(\d{6})/.exec(msg) || [])[1] }; return true; };
+    jar.c = '';
+    r = await form('/login', { username: '1004', password: PASSWORD });
+    assert.equal(r.headers.get('location'), '/login/mfa');
+    assert.equal(sent.chat, '4440001');
+    assert.equal((await form('/login/mfa', { code: sent.code })).status, 302);
+    assert.equal((await get('/api/mobile-scan/settings')).status, 200);
+  } finally {
+    NotificationService.sendDirectTelegram = realTg;
+    process.env.ADMIN_MFA = 'off';
+    await admin.query(`DELETE FROM ${HOSPITAL_DB}.account_mfa`);
+    await admin.query(`DELETE FROM ${HOSPITAL_DB}.messaging_links WHERE hr_person_id = 4`);
+    mfa.clearSetupCache(3); mfa.clearSetupCache(4);
+  }
 });
 
 test('escalation finds approvals pending for more than two days', async () => {
