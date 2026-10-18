@@ -12,6 +12,7 @@ const { approvedLeaveMap, leaveFor } = require('./leaveCalendar');
 const { getHolidaySet } = require('./holidays');
 const { LEAVE_TYPES } = require('../constants/leave');
 const { toDateKey } = require('../utils/attendanceTime');
+const { getOtRates, priceOt } = require('./otPay');
 
 const THAI_MONTHS = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
 const ACTIVE = "('01', '02', '03', '04', '09')";
@@ -69,16 +70,26 @@ async function collect({ year, month, department }) {
   const appLeaves = await approvedLeaveMap(from, to);
   const holidays = await getHolidaySet(from, to);
 
-  const [ot] = await pool.query(
-    `SELECT employee_id, fullname, dept, DATE_FORMAT(work_date, '%Y-%m-%d') AS work_date, start_time, end_time, hours, reason, reviewer
+  const [otAll] = await pool.query(
+    `SELECT id, employee_id, fullname, dept, DATE_FORMAT(work_date, '%Y-%m-%d') AS work_date, start_time, end_time, hours, reason, reviewer
      FROM ot_requests WHERE status = 'approved' AND work_date BETWEEN ? AND ? ORDER BY work_date, employee_id`, [from, to]);
+  // Only OT of the people in this report (the department filter applies here too)
+  const statusByEmp = {};
+  people.forEach(p => { [p.fingle, p.cid].filter(Boolean).forEach(k => { statusByEmp[k] = p.status; }); });
+  const ot = otAll.filter(r => statusByEmp[r.employee_id] !== undefined);
+  const priced = priceOt(ot, { rates: await getOtRates(), holidays, statusOf: emp => statusByEmp[emp] || null });
+  ot.forEach(r => Object.assign(r, priced.lines.get(r.id)));
   const [leaves] = await pool.query(
     `SELECT employee_id, fullname, dept, leave_type, DATE_FORMAT(start_date, '%Y-%m-%d') AS start_date,
             DATE_FORMAT(end_date, '%Y-%m-%d') AS end_date, half_day, days, reviewer
      FROM leave_requests WHERE status = 'approved' AND start_date <= ? AND end_date >= ? ORDER BY start_date, employee_id`, [to, from]);
 
   const otHours = {};
-  ot.forEach(r => { otHours[r.employee_id] = (otHours[r.employee_id] || 0) + Number(r.hours || 0); });
+  const otPay = {};
+  ot.forEach(r => {
+    otHours[r.employee_id] = (otHours[r.employee_id] || 0) + Number(r.hours || 0);
+    otPay[r.employee_id] = Math.round(((otPay[r.employee_id] || 0) + r.amount) * 100) / 100;
+  });
 
   const rows = people.map(p => {
     const days = [];
@@ -107,7 +118,8 @@ async function collect({ year, month, department }) {
       }
     }
     const leaveTotal = counts.sick + counts.personal + counts.vacation + counts.other;
-    return { ...p, days, counts, leaveTotal, ot: Math.round((otHours[p.fingle] || 0) * 10) / 10, mobile: mobile[p.fingle] || 0 };
+    const otOf = m => (m[p.fingle] || 0) + (p.cid && p.cid !== p.fingle ? m[p.cid] || 0 : 0);
+    return { ...p, days, counts, leaveTotal, ot: Math.round(otOf(otHours) * 10) / 10, otPay: Math.round(otOf(otPay) * 100) / 100, mobile: mobile[p.fingle] || 0 };
   });
 
   return { ym, year, month, daysInMonth, holidays, rows, ot, leaves };
@@ -146,13 +158,13 @@ async function buildHrWorkbook({ year, month, department, generatedBy }) {
   /* ---- 1. Summary ---- */
   const s = wb.addWorksheet('สรุปรายเดือน', { views: [{ state: 'frozen', ySplit: 4, xSplit: 3 }], pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0, paperSize: 9 } });
   const cols = [['ลำดับ', 6], ['รหัส', 11], ['ชื่อ-สกุล', 26], ['กลุ่มงาน', 24], ['ประเภทบุคลากร', 18], ['มาปฏิบัติงาน (วัน)', 11],
-    ['มาสาย (ครั้ง)', 9], ['ขาด (วัน)', 9], ['ลาป่วย', 8], ['ลากิจ', 8], ['ลาพักผ่อน', 9], ['ลาอื่น ๆ', 8], ['รวมลา (วัน)', 9], ['OT (ชม.)', 9], ['สแกนมือถือ (ครั้ง)', 10]];
+    ['มาสาย (ครั้ง)', 9], ['ขาด (วัน)', 9], ['ลาป่วย', 8], ['ลากิจ', 8], ['ลาพักผ่อน', 9], ['ลาอื่น ๆ', 8], ['รวมลา (วัน)', 9], ['OT (ชม.)', 9], ['ค่า OT (บาท)', 12], ['สแกนมือถือ (ครั้ง)', 10]];
   titleBlock(s, `สรุปการปฏิบัติงานประจำเดือน ${monthTh}`, sub, cols.length);
   styleHeader(s.addRow(cols.map(c => c[0])));
   cols.forEach(([, w], i) => { s.getColumn(i + 1).width = w; });
   data.rows.forEach((r, i) => {
     const row = s.addRow([i + 1, r.fingle, r.name, r.dept, r.status, r.counts.present, r.counts.late, r.counts.absent,
-      r.counts.sick, r.counts.personal, r.counts.vacation, r.counts.other, r.leaveTotal, r.ot, r.mobile]);
+      r.counts.sick, r.counts.personal, r.counts.vacation, r.counts.other, r.leaveTotal, r.ot, r.otPay, r.mobile]);
     row.font = font;
     if (i % 2) row.eachCell(c => { c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.zebra } }; });
     if (r.counts.absent) row.getCell(8).font = { ...font, bold: true, color: { argb: 'FFB91C1C' } };
@@ -160,12 +172,13 @@ async function buildHrWorkbook({ year, month, department, generatedBy }) {
   });
   if (data.rows.length) {
     const first = 5, last = 4 + data.rows.length;
-    const total = s.addRow(['', '', `รวม ${data.rows.length} คน`, '', '', ...'FGHIJKLMNO'.split('').map(c => ({ formula: `SUM(${c}${first}:${c}${last})` }))]);
+    const total = s.addRow(['', '', `รวม ${data.rows.length} คน`, '', '', ...'FGHIJKLMNOP'.split('').map(c => ({ formula: `SUM(${c}${first}:${c}${last})` }))]);
     total.font = { ...font, bold: true };
     total.eachCell(c => { c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.total } }; });
     s.autoFilter = { from: { row: 4, column: 1 }, to: { row: last, column: cols.length } };
   }
   for (let c = 6; c <= cols.length; c++) s.getColumn(c).alignment = { horizontal: 'center' };
+  s.getColumn(15).numFmt = '#,##0.00';
 
   /* ---- 2. Day grid ---- */
   const g = wb.addWorksheet('ปฏิทินรายวัน', { views: [{ state: 'frozen', ySplit: 5, xSplit: 3 }], pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0, paperSize: 9 } });
@@ -205,16 +218,25 @@ async function buildHrWorkbook({ year, month, department, generatedBy }) {
 
   /* ---- 3. OT ---- */
   const o = wb.addWorksheet('OT', { views: [{ state: 'frozen', ySplit: 4 }] });
-  const otCols = [['ลำดับ', 6], ['วันที่', 12], ['รหัส', 11], ['ชื่อ-สกุล', 26], ['กลุ่มงาน', 22], ['เวลา', 14], ['ชั่วโมง', 9], ['เหตุผล', 40], ['ผู้อนุมัติ', 22]];
+  const otCols = [['ลำดับ', 6], ['วันที่', 12], ['รหัส', 11], ['ชื่อ-สกุล', 26], ['กลุ่มงาน', 22], ['เวลา', 14], ['ชั่วโมง', 9],
+    ['ประเภทวัน', 11], ['อัตรา (บาท/ชม.)', 11], ['ชม. ที่เบิกได้', 10], ['จำนวนเงิน (บาท)', 13], ['เหตุผล', 36], ['ผู้อนุมัติ', 20]];
   titleBlock(o, `การทำงานล่วงเวลา (อนุมัติแล้ว) ${monthTh}`, sub, otCols.length);
   styleHeader(o.addRow(otCols.map(c => c[0])));
   otCols.forEach(([, w], i) => { o.getColumn(i + 1).width = w; });
   data.ot.forEach((r, i) => {
-    o.addRow([i + 1, r.work_date, r.employee_id, r.fullname, r.dept || '-', `${r.start_time}–${r.end_time}`, Number(r.hours), r.reason, r.reviewer || '-']).font = font;
+    const row = o.addRow([i + 1, r.work_date, r.employee_id, r.fullname, r.dept || '-', `${r.start_time}–${r.end_time}`, Number(r.hours),
+      r.dayType === 'holiday' ? 'วันหยุด' : 'วันทำการ', r.rate, r.paidHours, r.amount, r.reason, r.reviewer || '-']);
+    row.font = font;
+    // Hours above the daily cap are not paid: make that visible
+    if (r.paidHours < Number(r.hours)) row.getCell(10).font = { ...font, bold: true, color: { argb: 'FFB45309' } };
   });
+  o.getColumn(11).numFmt = '#,##0.00';
   if (data.ot.length) {
-    const t = o.addRow(['', '', '', `รวม ${data.ot.length} รายการ`, '', '', { formula: `SUM(G5:G${4 + data.ot.length})` }]);
+    const last = 4 + data.ot.length;
+    const t = o.addRow(['', '', '', `รวม ${data.ot.length} รายการ`, '', '', { formula: `SUM(G5:G${last})` }, '', '', { formula: `SUM(J5:J${last})` }, { formula: `SUM(K5:K${last})` }]);
     t.font = { ...font, bold: true };
+    o.addRow([]);
+    o.addRow(['', 'หมายเหตุ: คำนวณตามอัตราในหน้าตั้งค่า → อัตราค่า OT · ชั่วโมงเกินเพดานต่อวันไม่นำมาคิดเงิน · กรุณาตรวจสอบกับงานการเงินก่อนเบิกจ่าย']).font = { size: 9, italic: true, color: { argb: COLORS.sub } };
   }
 
   /* ---- 4. Leave ---- */

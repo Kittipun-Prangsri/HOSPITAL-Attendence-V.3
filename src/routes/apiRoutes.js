@@ -92,6 +92,8 @@ router.delete('/scan-outages/:id', checkAuth, calendarController.deleteOutage);
 // Leave quotas per staff type (read: admin/super, write: super)
 router.get('/leave-policy', checkAuth, calendarController.getPolicy);
 router.put('/leave-policy', checkAuth, calendarController.savePolicy);
+router.get('/ot-rates', checkAuth, calendarController.getOtRates);
+router.put('/ot-rates', checkAuth, calendarController.saveOtRates);
 
 // Overtime requests
 router.get('/ot', checkAuth, otController.listOt);

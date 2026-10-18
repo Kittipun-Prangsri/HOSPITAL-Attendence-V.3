@@ -4,6 +4,7 @@ const { LEAVE_TYPES } = require('../constants/leave');
 const { parseDate } = require('../utils/leave');
 const { POLICY_KEY, getLeavePolicy } = require('../services/leavePolicy');
 const { logAudit } = require('../utils/audit');
+const otPay = require('../services/otPay');
 
 const isAdmin = u => u && (u.role === 'admin' || u.role === 'super');
 
@@ -238,5 +239,41 @@ exports.savePolicy = async (req, res) => {
   } catch (err) {
     console.error('Error saving leave policy:', err);
     res.status(500).json({ success: false, error: 'บันทึกนโยบายการลาไม่สำเร็จ' });
+  }
+};
+
+/* ---------------- OT pay rates ---------------- */
+
+exports.getOtRates = async (req, res) => {
+  if (!isAdmin(req.session.user)) return res.status(403).json({ success: false, error: 'สิทธิ์ไม่เพียงพอ' });
+  try {
+    const rates = await otPay.getOtRates();
+    let statuses = [];
+    try {
+      const [rows] = await hosofficePool.query(
+        `SELECT s.HR_STATUS_NAME AS name, COUNT(p.ID) AS staff FROM hr_status s
+         LEFT JOIN hr_person p ON p.HR_STATUS_ID = s.HR_STATUS_ID
+         WHERE s.HR_STATUS_NAME IS NOT NULL GROUP BY s.HR_STATUS_ID, s.HR_STATUS_NAME ORDER BY s.HR_STATUS_ID`);
+      statuses = rows.map(r => ({ name: r.name, staff: Number(r.staff) || 0 }));
+    } catch (err) { console.warn('[otRates] hr_status unavailable:', err.message); }
+    res.json({ success: true, rates, defaults: otPay.DEFAULTS.default, statuses });
+  } catch (err) {
+    console.error('Error loading OT rates:', err);
+    res.status(500).json({ success: false, error: 'โหลดอัตราค่า OT ไม่สำเร็จ' });
+  }
+};
+
+exports.saveOtRates = async (req, res) => {
+  const user = req.session.user;
+  if (!user || user.role !== 'super') return res.status(403).json({ success: false, error: 'เฉพาะ Super Admin เท่านั้นที่แก้ไขอัตราค่า OT ได้' });
+  const { error, value } = otPay.validate(req.body);
+  if (error) return res.status(400).json({ success: false, error });
+  try {
+    await otPay.saveOtRates(value, user.fullname);
+    logAudit(req, 'update', 'ot_rates', null, value);
+    res.json({ success: true, rates: value });
+  } catch (err) {
+    console.error('Error saving OT rates:', err);
+    res.status(500).json({ success: false, error: 'บันทึกอัตราค่า OT ไม่สำเร็จ' });
   }
 };

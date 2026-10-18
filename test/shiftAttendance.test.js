@@ -41,3 +41,25 @@ test('my-month day status precedence', () => {
   assert.equal(dayStatus({ off: true }), 'off');
   assert.equal(dayStatus({}), 'none');
 });
+
+test('OT pay: weekday/holiday rates, daily cap across requests, per staff type', () => {
+  const { priceOt, validate, DEFAULTS } = require('../src/services/otPay');
+  const rates = { default: { ...DEFAULTS.default }, byStatus: { 'พยาบาล': { weekdayRate: 80, weekdayMaxHours: 4, holidayRate: 100, holidayMaxHours: 8 } } };
+  const req = [
+    { id: 1, employee_id: 'A', work_date: '2026-09-16', hours: 3 },      // Wed: 3 h × 50
+    { id: 2, employee_id: 'A', work_date: '2026-09-16', hours: 2 },      // same day: only 1 h left under the 4 h cap
+    { id: 3, employee_id: 'A', work_date: '2026-09-19', hours: 8 },      // Sat: capped at 7 h × 60
+    { id: 4, employee_id: 'A', work_date: '2026-09-18', hours: 2 },      // public holiday (Fri) → holiday rate
+    { id: 5, employee_id: 'N', work_date: '2026-09-16', hours: 5 }       // nurse: 4 h × 80
+  ];
+  const { lines, byEmployee } = priceOt(req, { rates, holidays: new Set(['2026-09-18']), statusOf: e => (e === 'N' ? 'พยาบาล' : null) });
+  assert.deepEqual(lines.get(1), { dayType: 'weekday', rate: 50, paidHours: 3, amount: 150 });
+  assert.deepEqual(lines.get(2), { dayType: 'weekday', rate: 50, paidHours: 1, amount: 50 });
+  assert.deepEqual(lines.get(3), { dayType: 'holiday', rate: 60, paidHours: 7, amount: 420 });
+  assert.deepEqual(lines.get(4), { dayType: 'holiday', rate: 60, paidHours: 2, amount: 120 });
+  assert.deepEqual(lines.get(5), { dayType: 'weekday', rate: 80, paidHours: 4, amount: 320 });
+  assert.deepEqual(byEmployee.A, { hours: 15, paidHours: 13, amount: 740 });
+  assert.ok(validate({ default: { weekdayRate: 50, weekdayMaxHours: 4, holidayRate: 60, holidayMaxHours: 7 } }).value);
+  assert.ok(validate({ default: { weekdayRate: -1, weekdayMaxHours: 4, holidayRate: 60, holidayMaxHours: 7 } }).error);
+  assert.ok(validate({ default: DEFAULTS.default, byStatus: { 'x': { weekdayRate: 50, weekdayMaxHours: 30, holidayRate: 60, holidayMaxHours: 7 } } }).error, 'more than 24 h');
+});

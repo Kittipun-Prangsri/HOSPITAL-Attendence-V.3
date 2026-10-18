@@ -901,6 +901,41 @@ test('self-service linking: LINE needs a verified ID token AND the password; Tel
   }
 });
 
+test('OT pay: rates per staff type feed the HR pack', async () => {
+  const ExcelJS = require('exceljs');
+  assert.equal((await call(users.staff, 'GET', '/api/ot-rates')).status, 403);
+  const got = await call(users.admin, 'GET', '/api/ot-rates');
+  assert.equal(got.status, 200);
+  assert.deepEqual(got.body.rates.default, { weekdayRate: 50, weekdayMaxHours: 4, holidayRate: 60, holidayMaxHours: 7 });
+  const body = { default: got.body.rates.default, byStatus: { 'ข้าราชการ': { weekdayRate: 60, weekdayMaxHours: 4, holidayRate: 70, holidayMaxHours: 7 } } };
+  assert.equal((await call(users.admin, 'PUT', '/api/ot-rates', body)).status, 403, 'super only');
+  assert.equal((await call(users.super, 'PUT', '/api/ot-rates', body)).status, 200);
+
+  const load = async q => {
+    const res = await fetch(`${base}/api/report/monthly/hr-export?month=9&year=2026${q || ''}`, { headers: { Cookie: users.admin.cookie } });
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(Buffer.from(await res.arrayBuffer()));
+    return wb;
+  };
+  const wb = await load();
+  // 1001 (ข้าราชการ): approved OT 3.5 h on the 16th + 2 h on the 22nd, both weekdays → 5.5 × 60
+  let r1001;
+  wb.getWorksheet('สรุปรายเดือน').eachRow(r => { if (r.getCell(2).value === '1001') r1001 = r; });
+  assert.equal(Number(r1001.getCell(14).value), 5.5);
+  assert.equal(Number(r1001.getCell(15).value), 330);
+  const ot = wb.getWorksheet('OT');
+  let line;
+  ot.eachRow(r => { if (r.getCell(3).value === '1001' && r.getCell(2).value === DAY) line = r; });
+  assert.equal(line.getCell(8).value, 'วันทำการ');
+  assert.equal(Number(line.getCell(9).value), 60);
+  assert.equal(Number(line.getCell(11).value), 210);
+  // Department filter applies to the OT sheet as well (1001 is not in digital health)
+  const dept = await load(`&department=${encodeURIComponent('กลุ่มงานสุขภาพดิจิทัล')}`);
+  let any1001 = false;
+  dept.getWorksheet('OT').eachRow(r => { if (r.getCell(3).value === '1001') any1001 = true; });
+  assert.equal(any1001, false);
+});
+
 test('escalation finds approvals pending for more than two days', async () => {
   const { collectStalePending, formatEscalation } = require('../../src/services/pendingEscalation');
   assert.equal((await collectStalePending(2)).leaves.length, 0);

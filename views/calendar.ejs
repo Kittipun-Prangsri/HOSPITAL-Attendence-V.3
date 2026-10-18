@@ -22,6 +22,7 @@
         <div class="flex gap-1 border-b border-slate-200 px-3" role="tablist" id="tabBar">
           <button type="button" role="tab" class="erp-tab active" data-tab="holidays" aria-selected="true"><i class="bi bi-calendar-heart" aria-hidden="true"></i> วันหยุดราชการ</button>
           <button type="button" role="tab" class="erp-tab" data-tab="policy" aria-selected="false"><i class="bi bi-sliders" aria-hidden="true"></i> สิทธิ์การลาตามประเภทบุคลากร</button>
+          <button type="button" role="tab" class="erp-tab" data-tab="otrates" aria-selected="false"><i class="bi bi-cash-coin" aria-hidden="true"></i> อัตราค่า OT</button>
           <button type="button" role="tab" class="erp-tab" data-tab="outages" aria-selected="false"><i class="bi bi-fingerprint" aria-hidden="true"></i> เครื่องสแกนขัดข้อง</button>
         </div>
 
@@ -73,6 +74,30 @@
             <table class="w-full border-collapse text-left text-[13px]">
               <thead id="policyHead" class="sticky top-0 bg-slate-50 text-2xs uppercase tracking-wide text-slate-500"></thead>
               <tbody id="policyBody" class="divide-y divide-slate-100"><tr><td class="px-4 py-12 text-center text-slate-400">กำลังโหลด…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- OT RATES -->
+        <div id="tab-otrates" style="display:none;">
+          <div class="flex flex-wrap items-center gap-3 border-b border-slate-200 p-3">
+            <p class="text-[13px] text-slate-600">อัตราค่าตอบแทนนอกเวลาที่ใช้คำนวณในชุดรายงาน HR · ชั่วโมงที่เกินเพดานต่อวันจะไม่นำมาคิดเงิน</p>
+            <% if (isSuper) { %>
+              <button type="button" id="saveOtBtn" class="erp-btn erp-btn-primary ml-auto" onclick="saveOtRates()"><i class="bi bi-check2" aria-hidden="true"></i> บันทึกอัตรา</button>
+            <% } else { %>
+              <span class="ml-auto text-2xs text-slate-400"><i class="bi bi-lock" aria-hidden="true"></i> แก้ไขได้เฉพาะ Super Admin</span>
+            <% } %>
+          </div>
+          <p class="border-b border-slate-200 bg-amber-50 px-4 py-2 text-2xs text-amber-800"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+            ค่าเริ่มต้นตามระเบียบกระทรวงการคลังฯ พ.ศ. 2550 (วันทำการ 50 บาท/ชม. ไม่เกิน 4 ชม. · วันหยุด 60 บาท/ชม. ไม่เกิน 7 ชม.) — กรุณาตรวจสอบกับงานการเงิน และปรับตามระเบียบค่าตอบแทนของแต่ละสายงาน · ช่องว่าง = ใช้ค่าเริ่มต้น</p>
+          <div class="max-h-[60vh] overflow-auto">
+            <table class="w-full border-collapse text-left text-[13px]">
+              <thead class="sticky top-0 bg-slate-50 text-2xs uppercase tracking-wide text-slate-500">
+                <tr class="border-b border-slate-200"><th class="px-4 py-2.5 font-semibold">ประเภทบุคลากร</th>
+                  <th class="px-2 py-2.5 text-center font-semibold normal-case">วันทำการ (บาท/ชม.)</th><th class="px-2 py-2.5 text-center font-semibold normal-case">ไม่เกิน (ชม./วัน)</th>
+                  <th class="px-2 py-2.5 text-center font-semibold normal-case">วันหยุด (บาท/ชม.)</th><th class="px-2 py-2.5 text-center font-semibold normal-case">ไม่เกิน (ชม./วัน)</th></tr>
+              </thead>
+              <tbody id="otBody" class="divide-y divide-slate-100"><tr><td colspan="5" class="px-4 py-12 text-center text-slate-400">กำลังโหลด…</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -268,14 +293,50 @@
       catch (err) { ERP.toast(err.message, 'error'); }
     });
 
+    /* ---------- OT rates ---------- */
+    let otLoaded = false;
+    const OT_FIELDS = ['weekdayRate', 'weekdayMaxHours', 'holidayRate', 'holidayMaxHours'];
+    async function loadOtRates() {
+      otLoaded = true;
+      try {
+        const { rates, statuses } = await getJson('/api/ot-rates');
+        const dis = IS_SUPER ? '' : 'disabled';
+        const inputs = (row, isDefault) => OT_FIELDS.map(k => `<td class="px-2 py-2 text-center"><input type="number" min="0" step="${k.includes('Rate') ? '1' : '0.5'}" data-k="${k}"
+            value="${row && row[k] != null ? row[k] : ''}" placeholder="${rates.default[k]}" ${dis} ${isDefault ? 'required' : ''}
+            class="erp-input h-8 w-24 text-center font-mono ${!isDefault && row ? 'border-brand-300 bg-brand-50/50' : ''}"></td>`).join('');
+        const names = [...new Set(statuses.map(s => s.name).concat(Object.keys(rates.byStatus || {})))];
+        const count = Object.fromEntries(statuses.map(s => [s.name, s.staff]));
+        $('otBody').innerHTML = `<tr data-default class="bg-slate-50/60"><td class="px-4 py-2 font-semibold text-slate-900">ค่าเริ่มต้น (ทุกประเภท)</td>${inputs(rates.default, true)}</tr>` +
+          names.map(n => `<tr data-status="${esc(n)}"><td class="px-4 py-2"><div class="font-medium text-slate-900">${esc(n)}</div>
+            <div class="text-2xs text-slate-400">${count[n] != null ? count[n] + ' คน' : 'ไม่พบใน HOSoffice'}</div></td>${inputs(rates.byStatus[n], false)}</tr>`).join('');
+      } catch (err) {
+        $('otBody').innerHTML = ERP.emptyRow(5, err.message, 'bi-exclamation-triangle');
+      }
+    }
+    async function saveOtRates() {
+      const read = tr => Object.fromEntries(OT_FIELDS.map(k => [k, tr.querySelector(`[data-k="${k}"]`).value]));
+      const def = read(document.querySelector('#otBody tr[data-default]'));
+      const body = { default: Object.fromEntries(Object.entries(def).map(([k, v]) => [k, Number(v)])), byStatus: {} };
+      document.querySelectorAll('#otBody tr[data-status]').forEach(tr => {
+        const v = read(tr);
+        if (OT_FIELDS.some(k => v[k] !== '')) {
+          // A partly filled row falls back to the default for the empty cells
+          body.byStatus[tr.dataset.status] = Object.fromEntries(OT_FIELDS.map(k => [k, v[k] === '' ? body.default[k] : Number(v[k])]));
+        }
+      });
+      try { await send('/api/ot-rates', 'PUT', body); ERP.toast('บันทึกอัตราค่า OT แล้ว', 'success'); loadOtRates(); }
+      catch (err) { ERP.toast(err.message, 'error'); }
+    }
+
     /* ---------- Tabs ---------- */
     $('tabBar').addEventListener('click', e => {
       const b = e.target.closest('[data-tab]');
       if (!b) return;
       document.querySelectorAll('#tabBar [data-tab]').forEach(t => { t.classList.toggle('active', t === b); t.setAttribute('aria-selected', String(t === b)); });
-      ['holidays', 'policy', 'outages'].forEach(t => { $('tab-' + t).style.display = t === b.dataset.tab ? '' : 'none'; });
+      ['holidays', 'policy', 'otrates', 'outages'].forEach(t => { $('tab-' + t).style.display = t === b.dataset.tab ? '' : 'none'; });
       if (b.dataset.tab === 'policy' && !policyData) loadPolicy();
       if (b.dataset.tab === 'outages' && !outagesLoaded) loadOutages();
+      if (b.dataset.tab === 'otrates' && !otLoaded) loadOtRates();
     });
     $('yearSel').addEventListener('change', loadHolidays);
     const loadData = loadHolidays;
