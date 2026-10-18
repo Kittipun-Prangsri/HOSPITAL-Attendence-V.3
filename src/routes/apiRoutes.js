@@ -25,7 +25,6 @@ router.get('/data', checkAuth, apiController.getData);
 router.get('/report/monthly', checkAuth, apiController.getMonthlyReport);
 
 // Attendance & Notifications
-router.post('/attendance', attendanceController.logAttendance);
 router.post('/attendance/check-in', checkAuth, attendanceController.checkIn);
 router.post('/attendance/check-out', checkAuth, attendanceController.checkOut);
 router.get('/notifications/mappings', checkAuth, checkAdmin, attendanceController.getMappings);

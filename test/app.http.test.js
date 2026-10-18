@@ -69,9 +69,11 @@ test('LINE webhook only accepts requests signed with the channel secret', async 
   assert.equal((await post(good)).status, 200);
 });
 
-test('scanner push endpoint is disabled without ATTENDANCE_PUSH_TOKEN', async () => {
+test('the old scanner push endpoint is gone (the app never inserts device scans into HOSoffice)', async () => {
+  process.env.ATTENDANCE_PUSH_TOKEN = 'x'.repeat(32);
   const res = await fetch(`${base}/api/attendance`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ employeeId: '1001', status: 'in' }) });
-  assert.equal(res.status, 404);
+  delete process.env.ATTENDANCE_PUSH_TOKEN;
+  assert.notEqual(res.status, 200);
 });
 
 test('camera and location are allowed only on the mobile face page', async () => {

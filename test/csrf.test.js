@@ -25,8 +25,8 @@ test('blocks state-changing API calls without the right token', () => {
   assert.equal(run({ method: 'POST', path: '/api/leaves', session, headers: { 'x-csrf-token': 'a'.repeat(64) } }).nextCalled, true);
 });
 
-test('leaves webhooks, device pushes and anonymous requests to their own checks', () => {
+test('leaves webhooks and anonymous requests to their own checks', () => {
   assert.equal(run({ method: 'POST', path: '/webhook', session: { user: { username: 'u' } } }).nextCalled, true);
-  assert.equal(run({ method: 'POST', path: '/api/attendance', session: { user: { username: 'u' }, csrfToken: 'x' } }).nextCalled, true);
+  assert.equal(run({ method: 'POST', path: '/api/attendance', session: { user: { username: 'u' }, csrfToken: 'x' } }).nextCalled, false, 'old scanner push path is no longer exempt');
   assert.equal(run({ method: 'POST', path: '/api/leaves', session: {} }).nextCalled, true);
 });

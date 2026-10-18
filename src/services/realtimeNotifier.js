@@ -5,6 +5,7 @@ const { getLateThreshold } = require('./workSettings');
 const { isLateCheckIn, normalizeClock, toDateKey } = require('../utils/attendanceTime');
 const { linkOf } = require('./messagingLinks');
 
+const DELIVERIES = `\`${process.env.DB_NAME_HOSPITAL}\`.notification_deliveries`;
 let intervalId = null;
 const processingScans = new Set();
 let currentTodayStr = null;
@@ -41,13 +42,21 @@ async function checkNewScans() {
       processingScans.clear();
     }
 
-    // Discover today's brand-new scans (is_notified = 1 or 2)
+    // Today's new scans (the import job sets is_notified 1/2) that have no delivery row yet.
+    // hikvision is read-only: "already handled" lives in hospital_db.notification_deliveries.
+    // Rows marked 3 by older versions of this system are skipped as before.
     const [scans] = await hosofficePool.query(`
       SELECT h.EmployeeID, h.AccessDate, h.AccessTime, h.Direction, h.DeviceName,
              h.ReaderName, h.SkinSurfaceTemperature, h.AttendanceStatus, h.AuthenticationResult, h.PersonName
       FROM hikvision h
       WHERE h.AccessDate = ?
         AND h.is_notified IN (1, 2)
+        AND NOT EXISTS (
+          SELECT 1 FROM ${DELIVERIES} d
+          WHERE d.employee_id = CONVERT(h.EmployeeID USING utf8mb4) COLLATE utf8mb4_unicode_ci
+            AND d.access_date = h.AccessDate
+            AND d.access_time = CAST(h.AccessTime AS CHAR) COLLATE utf8mb4_unicode_ci
+        )
       ORDER BY h.AccessTime ASC
       LIMIT 10
     `, [today]);
@@ -65,11 +74,13 @@ async function checkNewScans() {
       processingScans.add(scanKey);
 
       try {
-        // Immediately mark as notified in hikvision so the scan is never processed again
-        await hosofficePool.query(
-          `UPDATE hikvision SET is_notified = 3 WHERE EmployeeID = ? AND AccessDate = ? AND AccessTime = ?`,
-          [scan.EmployeeID, dateStr, scan.AccessTime]
+        // Claim the scan first: the unique key makes this the one place that decides "already handled"
+        const [claim] = await pool.query(
+          `INSERT IGNORE INTO notification_deliveries (employee_id, access_date, access_time, status, attempts, sent_at)
+           VALUES (?, ?, ?, 'pending', 1, NOW())`,
+          [scan.EmployeeID, dateStr, String(scan.AccessTime)]
         );
+        if (claim.affectedRows === 0) continue;
 
         // Fetch HR person info for full name & channels
         const [hrRows] = await hosofficePool.query(`
@@ -87,13 +98,6 @@ async function checkNewScans() {
           hr.telegram_chat_id = links.telegram;
         }
         const fullname = hr.hr_fullname || (scan.PersonName && !scan.PersonName.includes('เธ') ? scan.PersonName : scan.EmployeeID);
-
-        // Record initial delivery row
-        await pool.query(
-          `INSERT IGNORE INTO notification_deliveries (employee_id, access_date, access_time, status, attempts, sent_at)
-           VALUES (?, ?, ?, 'pending', 1, NOW())`,
-          [scan.EmployeeID, dateStr, scan.AccessTime]
-        );
 
         if (process.env.ENABLE_REALTIME_NOTIFICATIONS === 'false') {
           console.log(`[RealtimeNotifier] Real-time notifications disabled in .env. Skipping push for ${fullname || scan.EmployeeID}.`);
@@ -209,5 +213,6 @@ function stop() {
 
 module.exports = {
   start,
-  stop
+  stop,
+  checkNewScans
 };

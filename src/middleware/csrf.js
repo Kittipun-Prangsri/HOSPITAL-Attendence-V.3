@@ -1,8 +1,8 @@
 const crypto = require('crypto');
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
-// Machine-to-machine endpoints without a browser session (scanner push); LINE webhook lives outside /api
-const EXEMPT_PATHS = [/^\/api\/attendance\/?$/];
+// Machine-to-machine endpoints without a browser session would go here; LINE webhook lives outside /api
+const EXEMPT_PATHS = [];
 
 function tokenFor(req) {
   if (!req.session || !req.session.user) return null;

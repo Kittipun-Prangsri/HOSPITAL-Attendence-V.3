@@ -353,6 +353,24 @@ test('HOSoffice hr_person is read-only: accounts and profiles live in hospital_d
   await admin.query(`UPDATE ${HOSOFFICE_DB}.hr_person SET HR_FNAME = 'สมชาย', HR_PHONE = NULL, HR_EMAIL = NULL WHERE ID = 2`);
 });
 
+test('realtime scan cards: hikvision is read-only, notification_deliveries prevents repeats', async () => {
+  const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Bangkok' });
+  await admin.query(`INSERT INTO ${HOSOFFICE_DB}.hikvision (EmployeeID, AccessDate, AccessTime, Direction, AttendanceStatus, AuthenticationResult, is_notified)
+    VALUES ('1001', ?, '07:31:00', 'in', 'i', 'Success', 1), ('1002', ?, '07:32:00', 'in', 'i', 'Success', 2), ('1003', ?, '07:33:00', 'in', 'i', 'Success', 3)`,
+    [today, today, today]);
+  const checksum = async () => (await admin.query(`CHECKSUM TABLE ${HOSOFFICE_DB}.hikvision`))[0][0].Checksum;
+  const before = await checksum();
+  const { checkNewScans } = require('../../src/services/realtimeNotifier');
+  await checkNewScans();
+  await checkNewScans(); // second poll must not pick the same scans again
+  assert.equal(await checksum(), before, 'hikvision was not written');
+  const [rows] = await admin.query(
+    `SELECT employee_id, access_time, COUNT(*) AS n FROM ${HOSPITAL_DB}.notification_deliveries WHERE access_date = ? GROUP BY employee_id, access_time ORDER BY employee_id`, [today]);
+  assert.deepEqual(rows.map(r => [r.employee_id, r.access_time, Number(r.n)]), [['1001', '07:31:00', 1], ['1002', '07:32:00', 1]],
+    'new scans (1/2) handled once; rows already marked 3 by older versions are skipped');
+  await admin.query(`DELETE FROM ${HOSOFFICE_DB}.hikvision WHERE AccessDate = ? AND AccessTime IN ('07:31:00', '07:32:00', '07:33:00')`, [today]);
+});
+
 test('OT request, overlap guard and approval', async () => {
   const ot = await call(users.staff, 'POST', '/api/ot', { work_date: DAY, start_time: '16:30', end_time: '20:00', reason: 'ER' });
   assert.equal(ot.status, 200);

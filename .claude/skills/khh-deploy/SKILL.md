@@ -12,7 +12,7 @@ Reply to the user in Thai. The user deploys by hand on the server; give commands
 - PM2 app: `attendance-system` (only one — if `attendance-backend` appears, `pm2 delete attendance-backend`)
 - PORT 3004 behind a proxy, public URL https://attendance.kittikhos.site (`SYSTEM_URL`)
 - Backups: `D:\backup\khh-hrm` (`BACKUP_DIR`), 03:00 nightly, `BACKUP_HOSOFFICE_TABLES=hikvision`
-- Two MySQL DBs on one server: `hospital_db` (this app, migrations 001–013 in `scripts/migrations.js`) and `hosoffice` (HOSoffice, read mostly; tis620 tables; we write only `hikvision` rows for mobile scans)
+- Two MySQL DBs on one server: `hospital_db` (this app, migrations 001–013 in `scripts/migrations.js`) and `hosoffice` (HOSoffice, read mostly; tis620 tables; the only write is INSERT into `hikvision` for accepted mobile scans; never UPDATE `is_notified` — dedupe is `notification_deliveries`)
 
 ## Standard deploy (give exactly this, adapted)
 ```powershell

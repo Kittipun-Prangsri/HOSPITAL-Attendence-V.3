@@ -53,6 +53,7 @@
 - **ระบบไม่เขียน `hosoffice.hr_person` เลย** — อ่านผ่าน VIEW `hospital_db.v_staff` (ข้อมูลที่งานบุคคลแก้ใน HOSoffice เห็นทันที) ส่วนที่ระบบนี้แก้เก็บใน hospital_db และมีผลเหนือค่าของ HOSoffice:
   `app_accounts` (บทบาท/รหัสผ่าน/ปิดบัญชี) · `staff_profiles` (ชื่อเล่น เบอร์ อีเมล เวร เวลาเข้า–ออก; แก้ให้ตรงกับ HOSoffice = กลับไปใช้ค่า HOSoffice) · `messaging_links` (LINE/Telegram)
   — สร้างบัญชีได้เฉพาะคนที่มีในทะเบียน HOSoffice แล้ว · `npm run migrate` สร้าง VIEW ใหม่ทุกครั้ง (รองรับคอลัมน์ที่ HOSoffice เพิ่ม)
+- **HOSoffice ที่ระบบยังเขียน มีจุดเดียว**: เพิ่มแถวใน `hikvision` เมื่อสแกนใบหน้าผ่านมือถือสำเร็จ/อนุมัติ (ให้รายงานใน HOSoffice นับด้วย) · การ์ดแจ้งเตือนสแกนไม่แก้ `is_notified` แล้ว — ใช้ `hospital_db.notification_deliveries` กันส่งซ้ำ
 - **แอดมิน login ด้วยรหัสผ่าน ต้องยืนยัน 2 ขั้น** (Authenticator หรือ Telegram) · login ผ่าน LINE ไม่ได้สิทธิ์แอดมิน
 
 ---
