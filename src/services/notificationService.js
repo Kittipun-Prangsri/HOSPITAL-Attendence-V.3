@@ -2,7 +2,7 @@ const TelegramBot = require('node-telegram-bot-api');
 const line = require('@line/bot-sdk');
 const fs = require('fs');
 const path = require('path');
-const { pool, hosofficePool } = require('../config/db');
+const { pool, hosofficePool, STAFF } = require('../config/db');
 require('dotenv').config();
 
 // LINE Config
@@ -205,7 +205,7 @@ class NotificationService {
       let telegramChatId = null;
 
       // Resolve the person (id or national id), then their links from hospital_db.messaging_links
-      const [rows] = await hosofficePool.query('SELECT ID FROM hr_person WHERE ID = ? OR HR_CID = ? LIMIT 1', [userId, userId]);
+      const [rows] = await hosofficePool.query(`SELECT ID FROM ${STAFF} WHERE ID = ? OR HR_CID = ? LIMIT 1`, [userId, userId]);
       if (rows && rows.length > 0) {
         const links = await require('./messagingLinks').linkOf(rows[0].ID);
         lineUserId = links.line;

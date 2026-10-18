@@ -1,4 +1,4 @@
-const { hosofficePool } = require('../config/db');
+const { hosofficePool, STAFF } = require('../config/db');
 const flexBuilder = require('./flexBuilder');
 const { getLateThreshold } = require('./workSettings');
 const { isLateCheckIn, normalizeClock, toDateKey } = require('../utils/attendanceTime');
@@ -58,7 +58,7 @@ class ChatbotService {
     }
     try {
       const [[person]] = await hosofficePool.query(
-        "SELECT CONCAT(TRIM(HR_FNAME), ' ', TRIM(HR_LNAME)) AS fullname FROM hr_person WHERE FINGLE_ID = ? LIMIT 1", [me.empId]);
+        `SELECT CONCAT(TRIM(HR_FNAME), ' ', TRIM(HR_LNAME)) AS fullname FROM ${STAFF} WHERE FINGLE_ID = ? LIMIT 1`, [me.empId]);
       // Most recent scan in the last 7 days (a card from last week is still useful after a holiday)
       const [[scan]] = await hosofficePool.query(`
         SELECT AccessDate, AccessTime, Direction, AttendanceStatus, AuthenticationResult, DeviceName, SkinSurfaceTemperature
@@ -108,7 +108,7 @@ class ChatbotService {
            WHERE employee_id = ? AND start_date BETWEEN ? AND ? AND status IN ('approved', 'pending')`,
           [me.empId, fy.start, fy.end]),
         quotasForEmployee(me.empId),
-        hosofficePool.query("SELECT CONCAT(TRIM(HR_FNAME), ' ', TRIM(HR_LNAME)) AS fullname FROM hr_person WHERE FINGLE_ID = ? LIMIT 1", [me.empId])
+        hosofficePool.query(`SELECT CONCAT(TRIM(HR_FNAME), ' ', TRIM(HR_LNAME)) AS fullname FROM ${STAFF} WHERE FINGLE_ID = ? LIMIT 1`, [me.empId])
       ]);
       const balance = summarizeBalance(rows, quotas);
       const fmt = n => (Number.isInteger(n) ? String(n) : n.toFixed(1));
@@ -185,7 +185,7 @@ class ChatbotService {
   async chatPersonQuery(userId, cols) {
     const personId = await personByChatId(userId);
     if (!personId) return [[]];
-    return hosofficePool.query(`SELECT ${cols} FROM hr_person WHERE ID = ? LIMIT 1`, [personId]);
+    return hosofficePool.query(`SELECT ${cols} FROM ${STAFF} WHERE ID = ? LIMIT 1`, [personId]);
   }
 
   /**
@@ -405,7 +405,7 @@ class ChatbotService {
           // 1. Check if ID exists in hr_person
           const [person] = await hosofficePool.query(`
             SELECT CONCAT(TRIM(HR_FNAME), ' ', TRIM(HR_LNAME)) as fullname
-            FROM hr_person
+            FROM ${STAFF}
             WHERE FINGLE_ID = ?
             LIMIT 1
           `, [nameFilter]);
@@ -445,7 +445,7 @@ class ChatbotService {
               COALESCE(CONCAT(TRIM(p.HR_FNAME), ' ', TRIM(p.HR_LNAME)), h.PersonName, h.EmployeeID) as fullname,
               h.AccessTime
             FROM hikvision h
-            LEFT JOIN hr_person p ON h.EmployeeID = p.FINGLE_ID
+            LEFT JOIN ${STAFF} p ON h.EmployeeID = p.FINGLE_ID
             WHERE h.AccessDate = ?
               AND h.AuthenticationResult = 'Success'
               AND (p.HR_FNAME LIKE ? OR p.HR_LNAME LIKE ? OR h.PersonName LIKE ?)
@@ -474,7 +474,7 @@ class ChatbotService {
           COALESCE(CONCAT(TRIM(p.HR_FNAME), ' ', TRIM(p.HR_LNAME)), h.PersonName, h.EmployeeID) as fullname,
           h.AccessTime
         FROM hikvision h
-        LEFT JOIN hr_person p ON h.EmployeeID = p.FINGLE_ID
+        LEFT JOIN ${STAFF} p ON h.EmployeeID = p.FINGLE_ID
         WHERE h.AccessDate = ?
           AND h.AuthenticationResult = 'Success'
         ORDER BY h.AccessTime ASC
@@ -509,7 +509,7 @@ class ChatbotService {
           COALESCE(CONCAT(TRIM(p.HR_FNAME), ' ', TRIM(p.HR_LNAME)), h.PersonName, h.EmployeeID) as fullname,
           h.AccessTime
         FROM hikvision h
-        LEFT JOIN hr_person p ON h.EmployeeID = p.FINGLE_ID
+        LEFT JOIN ${STAFF} p ON h.EmployeeID = p.FINGLE_ID
         WHERE h.AccessDate = ?
           AND h.AuthenticationResult = 'Success'
           ${empId ? 'AND h.EmployeeID = ?' : ''}
@@ -561,7 +561,7 @@ class ChatbotService {
           // 1. Check if ID exists in hr_person
           const [person] = await hosofficePool.query(`
             SELECT CONCAT(TRIM(HR_FNAME), ' ', TRIM(HR_LNAME)) as fullname
-            FROM hr_person
+            FROM ${STAFF}
             WHERE FINGLE_ID = ?
             LIMIT 1
           `, [nameFilter]);
@@ -601,7 +601,7 @@ class ChatbotService {
               COALESCE(CONCAT(TRIM(p.HR_FNAME), ' ', TRIM(p.HR_LNAME)), h.PersonName, h.EmployeeID) as fullname,
               h.AccessTime
             FROM hikvision h
-            LEFT JOIN hr_person p ON h.EmployeeID = p.FINGLE_ID
+            LEFT JOIN ${STAFF} p ON h.EmployeeID = p.FINGLE_ID
             WHERE h.AccessDate = ?
               AND h.AuthenticationResult = 'Success'
               AND (p.HR_FNAME LIKE ? OR p.HR_LNAME LIKE ? OR h.PersonName LIKE ?)
@@ -630,7 +630,7 @@ class ChatbotService {
           COALESCE(CONCAT(TRIM(p.HR_FNAME), ' ', TRIM(p.HR_LNAME)), h.PersonName, h.EmployeeID) as fullname,
           h.AccessTime
         FROM hikvision h
-        LEFT JOIN hr_person p ON h.EmployeeID = p.FINGLE_ID
+        LEFT JOIN ${STAFF} p ON h.EmployeeID = p.FINGLE_ID
         WHERE h.AccessDate = ?
           AND h.AuthenticationResult = 'Success'
         ORDER BY h.AccessTime ASC
@@ -679,7 +679,7 @@ class ChatbotService {
           // 1. Check if ID exists in hr_person
           const [person] = await hosofficePool.query(`
             SELECT CONCAT(TRIM(HR_FNAME), ' ', TRIM(HR_LNAME)) as fullname
-            FROM hr_person
+            FROM ${STAFF}
             WHERE FINGLE_ID = ?
             LIMIT 1
           `, [nameFilter]);
@@ -751,7 +751,7 @@ class ChatbotService {
               h.AccessDate,
               h.AccessTime
             FROM hikvision h
-            LEFT JOIN hr_person p ON h.EmployeeID = p.FINGLE_ID
+            LEFT JOIN ${STAFF} p ON h.EmployeeID = p.FINGLE_ID
             WHERE h.AccessDate >= ? AND h.AccessDate <= ?
               AND h.AuthenticationResult = 'Success'
               AND (p.HR_FNAME LIKE ? OR p.HR_LNAME LIKE ? OR h.PersonName LIKE ?)
@@ -812,7 +812,7 @@ class ChatbotService {
           h.AccessDate,
           h.AccessTime
         FROM hikvision h
-        LEFT JOIN hr_person p ON h.EmployeeID = p.FINGLE_ID
+        LEFT JOIN ${STAFF} p ON h.EmployeeID = p.FINGLE_ID
         WHERE h.AccessDate >= ? AND h.AccessDate <= ?
           AND h.AuthenticationResult = 'Success'
         ORDER BY h.AccessDate DESC, h.AccessTime ASC

@@ -5,7 +5,7 @@
  *   anyone else → nobody
  * Cached per person for a minute; changes to department_heads clear the cache.
  */
-const { pool, hosofficePool } = require('../config/db');
+const { pool, hosofficePool, STAFF } = require('../config/db');
 
 const TTL_MS = 60 * 1000;
 const cache = new Map(); // hr_person_id → { at, scope }
@@ -22,7 +22,7 @@ async function load(personId) {
   if (!deptRows.length) return null;
   const departments = deptRows.map(r => Number(r.department_id));
   const [people] = await hosofficePool.query(
-    `SELECT ID, FINGLE_ID, HR_CID FROM hr_person WHERE HR_DEPARTMENT_ID IN (?) AND ID <> ?`, [departments, personId]);
+    `SELECT ID, FINGLE_ID, HR_CID FROM ${STAFF} WHERE HR_DEPARTMENT_ID IN (?) AND ID <> ?`, [departments, personId]);
   return {
     all: false,
     departments,

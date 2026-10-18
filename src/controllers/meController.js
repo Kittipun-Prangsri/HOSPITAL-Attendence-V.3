@@ -1,4 +1,4 @@
-const { hosofficePool } = require('../config/db');
+const { hosofficePool, STAFF } = require('../config/db');
 const { myMonth } = require('../services/myMonth');
 const { linkOf, removeLink } = require('../services/messagingLinks');
 const { createToken } = require('../services/telegramLink');
@@ -13,7 +13,7 @@ exports.month = async (req, res) => {
   const back = (ny - y) * 12 + (nm - m);
   if (back < 0 || back > 5) return res.status(400).json({ success: false, error: 'ดูได้เฉพาะเดือนนี้และย้อนหลัง 5 เดือน' });
   try {
-    const [[p]] = await hosofficePool.query('SELECT ID AS id, FINGLE_ID AS fingle_id, HR_CID AS cid FROM hr_person WHERE ID = ?', [req.session.user.id]);
+    const [[p]] = await hosofficePool.query(`SELECT ID AS id, FINGLE_ID AS fingle_id, HR_CID AS cid FROM ${STAFF} WHERE ID = ?`, [req.session.user.id]);
     if (!p || !p.fingle_id) return res.status(400).json({ success: false, error: 'ไม่พบรหัสเครื่องสแกนของท่าน' });
     res.json({ success: true, ...(await myMonth({ person: p, ym })), canPrev: back < 5, canNext: back > 0 });
   } catch (err) {

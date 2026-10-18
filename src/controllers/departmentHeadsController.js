@@ -1,4 +1,4 @@
-const { pool, hosofficePool } = require('../config/db');
+const { pool, hosofficePool, STAFF } = require('../config/db');
 const { logAudit } = require('../utils/audit');
 const { clearReviewScopeCache } = require('../services/reviewScope');
 
@@ -8,13 +8,13 @@ exports.list = async (req, res) => {
     const [departments] = await hosofficePool.query(
       `SELECT d.HR_DEPARTMENT_ID AS id, d.HR_DEPARTMENT_NAME AS name, COUNT(p.ID) AS staff
        FROM hr_department d
-       LEFT JOIN hr_person p ON p.HR_DEPARTMENT_ID = d.HR_DEPARTMENT_ID AND p.HR_STATUS_ID IN ('01', '02', '03', '04', '09')
+       LEFT JOIN ${STAFF} p ON p.HR_DEPARTMENT_ID = d.HR_DEPARTMENT_ID AND p.HR_STATUS_ID IN ('01', '02', '03', '04', '09')
        GROUP BY d.HR_DEPARTMENT_ID, d.HR_DEPARTMENT_NAME ORDER BY d.HR_DEPARTMENT_ID`);
     const [heads] = await pool.query('SELECT hr_person_id, department_id, created_by, created_at FROM department_heads');
     let people = {};
     if (heads.length) {
       const [rows] = await hosofficePool.query(
-        "SELECT ID, FINGLE_ID, CONCAT(HR_FNAME, ' ', HR_LNAME) AS name FROM hr_person WHERE ID IN (?)", [[...new Set(heads.map(h => h.hr_person_id))]]);
+        `SELECT ID, FINGLE_ID, CONCAT(HR_FNAME, ' ', HR_LNAME) AS name FROM ${STAFF} WHERE ID IN (?)`, [[...new Set(heads.map(h => h.hr_person_id))]]);
       people = Object.fromEntries(rows.map(r => [String(r.ID), r]));
     }
     res.json({
@@ -40,7 +40,7 @@ exports.searchPeople = async (req, res) => {
   try {
     const [rows] = await hosofficePool.query(
       `SELECT p.ID AS id, p.FINGLE_ID AS employeeId, CONCAT(p.HR_FNAME, ' ', p.HR_LNAME) AS name, d.HR_DEPARTMENT_NAME AS dept
-       FROM hr_person p LEFT JOIN hr_department d ON d.HR_DEPARTMENT_ID = p.HR_DEPARTMENT_ID
+       FROM ${STAFF} p LEFT JOIN hr_department d ON d.HR_DEPARTMENT_ID = p.HR_DEPARTMENT_ID
        WHERE p.HR_STATUS_ID IN ('01', '02', '03', '04', '09')
          AND (CONCAT(p.HR_FNAME, ' ', p.HR_LNAME) LIKE ? OR p.FINGLE_ID LIKE ?)
        ORDER BY p.HR_FNAME LIMIT 15`, [`%${q}%`, `%${q}%`]);
@@ -57,7 +57,7 @@ exports.add = async (req, res) => {
   if (!Number.isInteger(departmentId) || !Number.isInteger(hrPersonId)) return res.status(400).json({ success: false, error: 'ข้อมูลไม่ครบ' });
   try {
     const [[dept]] = await hosofficePool.query('SELECT HR_DEPARTMENT_NAME AS name FROM hr_department WHERE HR_DEPARTMENT_ID = ?', [departmentId]);
-    const [[person]] = await hosofficePool.query("SELECT CONCAT(HR_FNAME, ' ', HR_LNAME) AS name FROM hr_person WHERE ID = ?", [hrPersonId]);
+    const [[person]] = await hosofficePool.query(`SELECT CONCAT(HR_FNAME, ' ', HR_LNAME) AS name FROM ${STAFF} WHERE ID = ?`, [hrPersonId]);
     if (!dept || !person) return res.status(404).json({ success: false, error: 'ไม่พบกลุ่มงานหรือบุคลากร' });
     await pool.query('INSERT IGNORE INTO department_heads (hr_person_id, department_id, created_by) VALUES (?, ?, ?)',
       [hrPersonId, departmentId, req.session.user.fullname]);

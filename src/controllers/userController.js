@@ -1,10 +1,11 @@
 const bcrypt = require('bcryptjs');
 const { logAudit } = require('../utils/audit');
 const crypto = require('crypto');
-const { pool, hosofficePool } = require('../config/db');
+const { pool, hosofficePool, STAFF } = require('../config/db');
 
 const NotificationService = require('../services/notificationService');
 const { attachLinks, applyLinkInput, linkOf } = require('../services/messagingLinks');
+const { saveAccount, closeAccount } = require('../services/staffStore');
 
 exports.getUsers = async (req, res) => {
   try {
@@ -15,7 +16,7 @@ exports.getUsers = async (req, res) => {
         CONCAT(p.HR_FNAME, " ", p.HR_LNAME) as fullname, 
         p.USER_TYPE as role, 
         d.HR_DEPARTMENT_NAME as dept
-      FROM hr_person p
+      FROM ${STAFF} p
       LEFT JOIN hr_department d ON p.HR_DEPARTMENT_ID = d.HR_DEPARTMENT_ID
       WHERE p.USER_TYPE IS NOT NULL AND p.HR_CID IS NOT NULL`
     );
@@ -44,8 +45,8 @@ exports.saveUser = async (req, res) => {
     if (role === 'super') dbRole = 'SUPER';
     else if (role === 'admin' || role === 'manager' || role === 'staff') dbRole = 'ADMIN';
 
-    // Check if this record already exists in hr_person (by HR_CID / username)
-    const [existing] = await hosofficePool.query('SELECT ID FROM hr_person WHERE HR_CID = ?', [username]);
+    // Accounts are only for people HR has entered in HOSoffice (by HR_CID / username)
+    const [existing] = await hosofficePool.query(`SELECT ID, HR_PASSWORD_HASH AS hash FROM ${STAFF} WHERE HR_CID = ?`, [username]);
 
     const saveLinks = async personId => {
       for (const [channel, value] of [['line', line_user_id], ['telegram', telegram_chat_id]]) {
@@ -53,33 +54,17 @@ exports.saveUser = async (req, res) => {
       }
     };
 
-    if (existing.length > 0) {
-      if (password) {
-        const hashed = await bcrypt.hash(password, 12);
-        await hosofficePool.query('UPDATE hr_person SET USER_TYPE = ?, HR_PASSWORD_HASH = ? WHERE HR_CID = ?', [dbRole, hashed, username]);
-      } else {
-        await hosofficePool.query('UPDATE hr_person SET USER_TYPE = ? WHERE HR_CID = ?', [dbRole, username]);
-      }
-      await saveLinks(existing[0].ID);
-      logAudit(req, 'update', 'user', username, { fullname, role, passwordChanged: Boolean(password) });
-      res.json({ success: true, message: 'User updated successfully' });
-    } else {
-      if (typeof password !== 'string' || password.length < 8) {
-        return res.status(400).json({ error: 'A password of at least 8 characters is required for new users' });
-      }
-      const hashed = await bcrypt.hash(password, 12);
-      const nameParts = (fullname || '').split(' ');
-      const fname = nameParts[0] || 'New';
-      const lname = nameParts.slice(1).join(' ') || 'User';
-
-      const [created] = await hosofficePool.query(
-        'INSERT INTO hr_person (HR_CID, HR_FNAME, HR_LNAME, USER_TYPE, HR_PASSWORD_HASH) VALUES (?, ?, ?, ?, ?)',
-        [username, fname, lname, dbRole, hashed]
-      );
-      await saveLinks(created.insertId);
-      logAudit(req, 'create', 'user', username, { fullname, role });
-      res.json({ success: true, message: 'User created successfully' });
+    if (existing.length === 0) {
+      return res.status(404).json({ error: 'ไม่พบเลขบัตรประชาชนนี้ในทะเบียนบุคลากร HOSoffice — ให้งานบุคคลเพิ่มบุคลากรใน HOSoffice ก่อน แล้วจึงสร้างบัญชี' });
     }
+    if (!password && !existing[0].hash) {
+      return res.status(400).json({ error: 'A password of at least 8 characters is required for new users' });
+    }
+    const passwordHash = password ? await bcrypt.hash(password, 12) : undefined;
+    await saveAccount(existing[0].ID, { role: dbRole, passwordHash }, req.session.user.fullname);
+    await saveLinks(existing[0].ID);
+    logAudit(req, id ? 'update' : 'create', 'user', username, { fullname, role, passwordChanged: Boolean(password) });
+    res.json({ success: true, message: 'User saved successfully' });
   } catch (error) {
     if (error.code === 'TAKEN' || error.code === 'FORMAT') return res.status(error.code === 'TAKEN' ? 409 : 400).json({ error: error.message });
     console.error('Error saving user:', error);
@@ -91,7 +76,7 @@ exports.testLine = async (req, res) => {
   const { userId } = req.body;
   try {
     const [rows] = await hosofficePool.query(
-      'SELECT CONCAT(HR_FNAME, " ", HR_LNAME) as fullname FROM hr_person WHERE ID = ?',
+      `SELECT CONCAT(HR_FNAME, " ", HR_LNAME) as fullname FROM ${STAFF} WHERE ID = ?`,
       [userId]
     );
     if (rows.length === 0) {
@@ -183,7 +168,7 @@ exports.testTelegram = async (req, res) => {
   const { userId } = req.body;
   try {
     const [rows] = await hosofficePool.query(
-      'SELECT CONCAT(HR_FNAME, " ", HR_LNAME) as fullname FROM hr_person WHERE ID = ?',
+      `SELECT CONCAT(HR_FNAME, " ", HR_LNAME) as fullname FROM ${STAFF} WHERE ID = ?`,
       [userId]
     );
     if (rows.length === 0) {
@@ -213,10 +198,7 @@ exports.testTelegram = async (req, res) => {
 exports.deleteUser = async (req, res) => {
   const { id } = req.params;
   try {
-    await hosofficePool.query(
-      'UPDATE hr_person SET USER_TYPE = NULL, HR_PASSWORD_HASH = NULL WHERE ID = ?',
-      [id]
-    );
+    await closeAccount(id, req.session.user.fullname);
     logAudit(req, 'delete', 'user', id);
     res.json({ success: true, message: 'User deleted successfully' });
   } catch (error) {
@@ -230,13 +212,11 @@ exports.resetPassword = async (req, res) => {
   try {
     const temporaryPassword = crypto.randomBytes(12).toString('base64url');
     const hashed = await bcrypt.hash(temporaryPassword, 12);
-    const [result] = await hosofficePool.query(
-      'UPDATE hr_person SET HR_PASSWORD_HASH = ? WHERE ID = ?',
-      [hashed, id]
-    );
-    if (result.affectedRows === 0) {
+    const [found] = await hosofficePool.query(`SELECT ID FROM ${STAFF} WHERE ID = ?`, [id]);
+    if (found.length === 0) {
       return res.status(404).json({ success: false, error: 'ไม่พบผู้ใช้งานนี้ในระบบ' });
     }
+    await saveAccount(id, { passwordHash: hashed }, req.session.user.fullname);
     logAudit(req, 'reset_password', 'user', id);
     res.json({
       success: true,

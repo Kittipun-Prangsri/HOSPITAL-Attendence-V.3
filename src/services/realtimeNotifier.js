@@ -1,4 +1,4 @@
-const { pool, hosofficePool } = require('../config/db');
+const { pool, hosofficePool, STAFF } = require('../config/db');
 const NotificationService = require('./notificationService');
 const flexBuilder = require('./flexBuilder');
 const { getLateThreshold } = require('./workSettings');
@@ -75,7 +75,7 @@ async function checkNewScans() {
         const [hrRows] = await hosofficePool.query(`
           SELECT p.ID,
                  NULLIF(TRIM(CONCAT(COALESCE(TRIM(p.HR_FNAME),''), ' ', COALESCE(TRIM(p.HR_LNAME),''))), '') as hr_fullname
-          FROM hr_person p
+          FROM ${STAFF} p
           WHERE p.FINGLE_ID = ? OR CAST(p.ID AS CHAR) = ? OR p.HR_CID = ? OR p.PERMIS_ID = ?
           LIMIT 1
         `, [scan.EmployeeID, scan.EmployeeID, scan.EmployeeID, scan.EmployeeID]);

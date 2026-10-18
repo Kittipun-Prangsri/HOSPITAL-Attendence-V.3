@@ -1,4 +1,4 @@
-const { pool, hosofficePool } = require('../config/db');
+const { pool, hosofficePool, STAFF } = require('../config/db');
 const { markIncidentsStale } = require('../services/incidentSync');
 const { logAudit } = require('../utils/audit');
 const NotificationService = require('../services/notificationService');
@@ -47,7 +47,7 @@ exports.getExcuses = async (req, res) => {
     if (rows.length > 0) {
       const usernames = rows.map(r => r.username);
       const [personRows] = await hosofficePool.query(
-        "SELECT HR_CID as cid, FINGLE_ID as fingle_id, CONCAT(HR_FNAME, ' ', HR_LNAME) as real_fullname FROM hr_person WHERE HR_CID IN (?) OR FINGLE_ID IN (?)",
+        `SELECT HR_CID as cid, FINGLE_ID as fingle_id, CONCAT(HR_FNAME, ' ', HR_LNAME) as real_fullname FROM ${STAFF} WHERE HR_CID IN (?) OR FINGLE_ID IN (?)`,
         [usernames, usernames]
       );
       // excuses.username holds the session username (FINGLE_ID, or HR_CID when no FINGLE_ID)
@@ -198,7 +198,7 @@ exports.reviewExcuse = async (req, res) => {
     if (rows.length > 0) {
       const excuse = rows[0];
       markIncidentsStale(excuse.date instanceof Date ? excuse.date : String(excuse.date));
-      const [userRows] = await hosofficePool.query('SELECT ID, CONCAT(HR_FNAME, \' \', HR_LNAME) as fullname FROM hr_person WHERE HR_CID = ? OR FINGLE_ID = ? LIMIT 1', [excuse.username, excuse.username]);
+      const [userRows] = await hosofficePool.query(`SELECT ID, CONCAT(HR_FNAME, ' ', HR_LNAME) as fullname FROM ${STAFF} WHERE HR_CID = ? OR FINGLE_ID = ? LIMIT 1`, [excuse.username, excuse.username]);
       if (userRows.length > 0) {
         const { fullname } = userRows[0];
         const { line: line_user_id, telegram: telegram_chat_id } = await linkOf(userRows[0].ID);
@@ -291,7 +291,7 @@ exports.sendReminders = async (req, res) => {
   try {
     for (const c of candidates) {
       // Find notification IDs of candidate
-      const [userRows] = await hosofficePool.query('SELECT ID FROM hr_person WHERE HR_CID = ? OR FINGLE_ID = ? LIMIT 1', [c.username, c.username]);
+      const [userRows] = await hosofficePool.query(`SELECT ID FROM ${STAFF} WHERE HR_CID = ? OR FINGLE_ID = ? LIMIT 1`, [c.username, c.username]);
       if (userRows.length > 0) {
         const { line: line_user_id, telegram: telegram_chat_id } = await linkOf(userRows[0].ID);
         const thaiIssue = c.issue_type === 'late' ? 'มาสาย' : 'ขาดงาน / ไม่แสกนเข้างาน';
@@ -326,7 +326,7 @@ exports.compileReminderCandidates = async () => {
   const lateThresholdTime = lateThresholdFor(workSettings);
 
   // 1. Get all local users who are registered
-  const [users] = await hosofficePool.query('SELECT ID, FINGLE_ID as employee_id, HR_CID as username, CONCAT(HR_FNAME, \' \', HR_LNAME) as fullname FROM hr_person WHERE USER_TYPE IS NOT NULL AND HR_CID IS NOT NULL');
+  const [users] = await hosofficePool.query(`SELECT ID, FINGLE_ID as employee_id, HR_CID as username, CONCAT(HR_FNAME, ' ', HR_LNAME) as fullname FROM ${STAFF} WHERE USER_TYPE IS NOT NULL AND HR_CID IS NOT NULL`);
   const userLinks = await linksFor(users.map(u => u.ID));
   users.forEach(u => { const l = userLinks.get(String(u.ID)) || {}; u.line_user_id = l.line || null; u.telegram_chat_id = l.telegram || null; });
   

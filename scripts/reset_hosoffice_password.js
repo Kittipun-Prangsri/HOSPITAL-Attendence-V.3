@@ -1,6 +1,7 @@
 require('dotenv').config();
 const bcrypt = require('bcryptjs');
-const { hosofficePool } = require('../src/config/db');
+const { hosofficePool, STAFF } = require('../src/config/db');
+const { saveAccount } = require('../src/services/staffStore');
 
 async function resetPassword() {
   const username = process.argv[2];
@@ -13,11 +14,10 @@ async function resetPassword() {
   }
 
   const hash = await bcrypt.hash(password, 12);
-  const [result] = await hosofficePool.query(
-    'UPDATE hr_person SET HR_PASSWORD_HASH = ? WHERE HR_CID = ?',
-    [hash, username]
-  );
-  if (result.affectedRows !== 1) throw new Error('User not found or password was not updated');
+  // Stored in hospital_db.app_accounts (HOSoffice hr_person is never written)
+  const [rows] = await hosofficePool.query(`SELECT ID FROM ${STAFF} WHERE HR_CID = ?`, [username]);
+  if (rows.length !== 1) throw new Error('User not found (HR_CID must exist in HOSoffice hr_person)');
+  await saveAccount(rows[0].ID, { passwordHash: hash }, 'reset-password script');
   console.log(`Password updated for ${username}.`);
 }
 

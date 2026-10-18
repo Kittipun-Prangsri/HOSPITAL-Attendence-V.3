@@ -5,7 +5,7 @@
  * LINE can still check with the free "สแกนล่าสุด" reply. People on leave today and anyone on the
  * duty roster today (their shift ends at another time) are skipped.
  */
-const { pool, hosofficePool } = require('../config/db');
+const { pool, hosofficePool, STAFF } = require('../config/db');
 const { getHolidaySet } = require('./holidays');
 const { approvedLeaveMap, leaveFor } = require('./leaveCalendar');
 const { getWorkSettings } = require('./workSettings');
@@ -44,7 +44,7 @@ async function run({ now = new Date(), sendPersonal, sendAdmin } = {}) {
   const [people] = await hosofficePool.query(
     `SELECT p.ID AS id, p.FINGLE_ID AS fingle, p.HR_CID AS cid, CONCAT(p.HR_FNAME, ' ', p.HR_LNAME) AS name,
             COALESCE(d.HR_DEPARTMENT_NAME, '-') AS dept
-     FROM hr_person p
+     FROM ${STAFF} p
      LEFT JOIN hr_person_hiling_time h ON h.HR_PERSON_ID = p.ID
      LEFT JOIN hr_department d ON d.HR_DEPARTMENT_ID = p.HR_DEPARTMENT_ID
      WHERE p.HR_STATUS_ID IN ('01', '02', '03', '04', '09') AND p.FINGLE_ID IS NOT NULL AND p.FINGLE_ID <> ''

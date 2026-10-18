@@ -304,11 +304,53 @@ test('saving settings changes the late rule everywhere immediately', async () =>
 
 test('partial staff update keeps untouched columns', async () => {
   assert.equal((await call(users.staff, 'POST', '/api/staff/update', { id: '1001', nickname: 'หญิง' })).status, 200);
-  const [[row]] = await admin.query(`SELECT NICKNAME, LINE_YOUR_USER_ID, WORK_SHIFT FROM ${HOSOFFICE_DB}.hr_person WHERE ID = 1`);
-  assert.deepEqual(row, { NICKNAME: 'หญิง', LINE_YOUR_USER_ID: LINE_1001, WORK_SHIFT: 'เช้า' });
+  const [[row]] = await admin.query(`SELECT NICKNAME, WORK_SHIFT FROM ${HOSPITAL_DB}.v_staff WHERE ID = 1`);
+  assert.deepEqual(row, { NICKNAME: 'หญิง', WORK_SHIFT: 'เช้า' });
+  const [[hos]] = await admin.query(`SELECT NICKNAME FROM ${HOSOFFICE_DB}.hr_person WHERE ID = 1`);
+  assert.equal(hos.NICKNAME, null, 'HOSoffice is not written');
   const [[link]] = await admin.query(`SELECT external_id, linked_via FROM ${HOSPITAL_DB}.messaging_links WHERE hr_person_id = 1 AND channel = 'line'`);
   assert.deepEqual(link, { external_id: LINE_1001, linked_via: 'import' }, 'migration 011 imported the HOSoffice link');
   assert.equal((await call(users.staff, 'POST', '/api/staff/update', { id: '1002', nickname: 'x' })).status, 403);
+});
+
+test('HOSoffice hr_person is read-only: accounts and profiles live in hospital_db, HOSoffice edits show at once', async () => {
+  const checksum = async () => (await admin.query(`CHECKSUM TABLE ${HOSOFFICE_DB}.hr_person`))[0][0].Checksum;
+  const before = await checksum();
+
+  // Admin edits a profile, saves a role, resets a password, closes and re-opens an account
+  assert.equal((await call(users.admin, 'POST', '/api/staff/update', { id: '1002', phone: '081-000-0000', work_shift: 'บ่าย' })).status, 200);
+  assert.equal((await call(users.super, 'POST', '/api/users', { username: '1100000000002', fullname: 'สมชาย ลูกจ้าง', role: 'user' })).status, 200);
+  const reset = await call(users.super, 'POST', '/api/users/2/reset-password');
+  assert.equal(reset.status, 200);
+  assert.equal((await call(users.super, 'DELETE', '/api/users/2')).status, 200);
+  assert.equal((await call(users.super, 'POST', '/api/users', { username: '9999999999999', fullname: 'ไม่มี ในทะเบียน', role: 'user', password: 'Passw0rd!x' })).status, 404,
+    'accounts only for people HR entered in HOSoffice');
+  assert.equal(await checksum(), before, 'nothing above wrote HOSoffice');
+
+  const [[acc]] = await admin.query(`SELECT disabled FROM ${HOSPITAL_DB}.app_accounts WHERE hr_person_id = 2`);
+  assert.equal(acc.disabled, 1);
+  const closed = await fetch(`${base}/login`, { method: 'POST', redirect: 'manual', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ username: '1002', password: reset.body.temporaryPassword }) });
+  assert.notEqual(closed.headers.get('location'), '/', 'a closed account cannot sign in');
+  assert.equal((await call(users.super, 'POST', '/api/users', { username: '1100000000002', fullname: 'สมชาย ลูกจ้าง', role: 'user', password: PASSWORD })).status, 200);
+  await login('1002'); // re-opened with a new password
+
+  // HR changes HOSoffice: the view shows it immediately; our own override still wins, an equal value follows HOSoffice
+  await admin.query(`UPDATE ${HOSOFFICE_DB}.hr_person SET HR_FNAME = 'สมชาติ', HR_PHONE = '02-111-1111', HR_EMAIL = 'a@khh.go.th' WHERE ID = 2`);
+  const [[v]] = await admin.query(`SELECT HR_FNAME, HR_PHONE, HR_EMAIL, WORK_SHIFT, USER_TYPE FROM ${HOSPITAL_DB}.v_staff WHERE ID = 2`);
+  assert.deepEqual(v, { HR_FNAME: 'สมชาติ', HR_PHONE: '081-000-0000', HR_EMAIL: 'a@khh.go.th', WORK_SHIFT: 'บ่าย', USER_TYPE: 'USER' });
+  const list = (await call(users.admin, 'GET', '/api/personnel')).body.personnel;
+  assert.equal(list.find(p => p.FINGLE_ID === '1002').HR_FNAME, 'สมชาติ');
+  // Clearing a field is kept as a deliberate blank, not a fallback
+  assert.equal((await call(users.admin, 'POST', '/api/staff/update', { id: '1002', email: '' })).status, 200);
+  const [[cleared]] = await admin.query(`SELECT HR_EMAIL FROM ${HOSPITAL_DB}.v_staff WHERE ID = 2`);
+  assert.equal(cleared.HR_EMAIL, null);
+  // A new person entered in HOSoffice appears without any sync
+  await admin.query(`INSERT INTO ${HOSOFFICE_DB}.hr_person (ID, FINGLE_ID, HR_CID, HR_FNAME, HR_LNAME, HR_DEPARTMENT_ID, HR_STATUS_ID) VALUES (5, '1005', '1100000000005', 'ใหม่', 'เข้างาน', 1, '01')`);
+  const [[nw]] = await admin.query(`SELECT HR_FNAME, USER_TYPE FROM ${HOSPITAL_DB}.v_staff WHERE ID = 5`);
+  assert.deepEqual(nw, { HR_FNAME: 'ใหม่', USER_TYPE: null });
+  await admin.query(`DELETE FROM ${HOSOFFICE_DB}.hr_person WHERE ID = 5`);
+  await admin.query(`UPDATE ${HOSOFFICE_DB}.hr_person SET HR_FNAME = 'สมชาย', HR_PHONE = NULL, HR_EMAIL = NULL WHERE ID = 2`);
 });
 
 test('OT request, overlap guard and approval', async () => {

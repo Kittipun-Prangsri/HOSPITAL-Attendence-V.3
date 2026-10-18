@@ -38,9 +38,14 @@ function forceUtf8mb4(p) {
 forceUtf8mb4(pool);
 forceUtf8mb4(hosofficePool);
 
+// hospital_db.v_staff: hosoffice.hr_person plus this system's own overrides (see services/staffStore.js).
+// Fully qualified so hosofficePool queries can still JOIN HOSoffice tables (both DBs share one server).
+const STAFF = `\`${process.env.DB_NAME_HOSPITAL}\`.v_staff`;
+
 module.exports = {
   pool,
   hosofficePool,
+  STAFF,
   forceUtf8mb4,
   dbConfig // useful for tools that need to create connection without specific DB first
 };

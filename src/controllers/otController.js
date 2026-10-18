@@ -1,4 +1,4 @@
-const { pool, hosofficePool } = require('../config/db');
+const { pool, hosofficePool, STAFF } = require('../config/db');
 const NotificationService = require('../services/notificationService');
 const { validateOtRequest, otInterval, overlaps } = require('../utils/ot');
 const { parseDate } = require('../utils/leave');
@@ -60,7 +60,7 @@ exports.createOt = async (req, res) => {
     let dept = null;
     try {
       const [p] = await hosofficePool.query(
-        `SELECT d.HR_DEPARTMENT_NAME AS dept FROM hr_person p LEFT JOIN hr_department d ON p.HR_DEPARTMENT_ID = d.HR_DEPARTMENT_ID WHERE p.ID = ? LIMIT 1`,
+        `SELECT d.HR_DEPARTMENT_NAME AS dept FROM ${STAFF} p LEFT JOIN hr_department d ON p.HR_DEPARTMENT_ID = d.HR_DEPARTMENT_ID WHERE p.ID = ? LIMIT 1`,
         [user.id]
       );
       dept = p[0] ? p[0].dept : null;

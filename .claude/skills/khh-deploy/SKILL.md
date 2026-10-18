@@ -12,7 +12,7 @@ Reply to the user in Thai. The user deploys by hand on the server; give commands
 - PM2 app: `attendance-system` (only one — if `attendance-backend` appears, `pm2 delete attendance-backend`)
 - PORT 3004 behind a proxy, public URL https://attendance.kittikhos.site (`SYSTEM_URL`)
 - Backups: `D:\backup\khh-hrm` (`BACKUP_DIR`), 03:00 nightly, `BACKUP_HOSOFFICE_TABLES=hikvision`
-- Two MySQL DBs: `hospital_db` (this app, migrations 001–012 in `scripts/migrations.js`) and `hosoffice` (HOSoffice, read mostly; tis620 tables; we write only `hikvision` rows for mobile scans)
+- Two MySQL DBs on one server: `hospital_db` (this app, migrations 001–013 in `scripts/migrations.js`) and `hosoffice` (HOSoffice, read mostly; tis620 tables; we write only `hikvision` rows for mobile scans)
 
 ## Standard deploy (give exactly this, adapted)
 ```powershell
@@ -42,7 +42,7 @@ pm2 logs attendance-system --lines 30 --nostream
 | Admin locked out of MFA | recovery code → another admin → last resort `ADMIN_MFA=off` + restart `--update-env`, then remove it |
 
 ## Rules to keep when changing code
-- LINE/Telegram IDs live only in `hospital_db.messaging_links` (`src/services/messagingLinks.js`); never read/write `hr_person` link columns.
+- Never write `hosoffice.hr_person`. Read staff through `${STAFF}` (= `hospital_db.v_staff`, exported by `src/config/db.js`), never `FROM hr_person`. App-owned values: `app_accounts` / `staff_profiles` via `src/services/staffStore.js`, LINE/Telegram via `messagingLinks.js`. The view is rebuilt by every `npm run migrate`; if MySQL says v_staff doesn't exist, run migrate.
 - LINE push quota 300/month: `LINE_PUSH_POLICY=important`; routine cards go to Telegram, chat answers use reply tokens.
 - Approvals go through `src/services/reviewScope.js` (admins all, department heads own departments, never self).
 - Face templates are AES-256-GCM with `FACE_TEMPLATE_KEY`; TOTP secrets derive from `SESSION_SECRET` — changing either breaks enrolled users.

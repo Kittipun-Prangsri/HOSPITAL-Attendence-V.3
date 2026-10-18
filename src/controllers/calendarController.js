@@ -1,4 +1,4 @@
-const { pool, hosofficePool } = require('../config/db');
+const { pool, hosofficePool, STAFF } = require('../config/db');
 const { markIncidentsStale } = require('../services/incidentSync');
 const { LEAVE_TYPES } = require('../constants/leave');
 const { parseDate } = require('../utils/leave');
@@ -209,7 +209,7 @@ exports.getPolicy = async (req, res) => {
     try {
       const [rows] = await hosofficePool.query(
         `SELECT s.HR_STATUS_NAME AS name, COUNT(p.ID) AS staff FROM hr_status s
-         LEFT JOIN hr_person p ON p.HR_STATUS_ID = s.HR_STATUS_ID
+         LEFT JOIN ${STAFF} p ON p.HR_STATUS_ID = s.HR_STATUS_ID
          WHERE s.HR_STATUS_NAME IS NOT NULL GROUP BY s.HR_STATUS_ID, s.HR_STATUS_NAME ORDER BY s.HR_STATUS_ID`
       );
       statuses = rows.map(r => ({ name: r.name, staff: Number(r.staff) || 0 }));
@@ -252,7 +252,7 @@ exports.getOtRates = async (req, res) => {
     try {
       const [rows] = await hosofficePool.query(
         `SELECT s.HR_STATUS_NAME AS name, COUNT(p.ID) AS staff FROM hr_status s
-         LEFT JOIN hr_person p ON p.HR_STATUS_ID = s.HR_STATUS_ID
+         LEFT JOIN ${STAFF} p ON p.HR_STATUS_ID = s.HR_STATUS_ID
          WHERE s.HR_STATUS_NAME IS NOT NULL GROUP BY s.HR_STATUS_ID, s.HR_STATUS_NAME ORDER BY s.HR_STATUS_ID`);
       statuses = rows.map(r => ({ name: r.name, staff: Number(r.staff) || 0 }));
     } catch (err) { console.warn('[otRates] hr_status unavailable:', err.message); }

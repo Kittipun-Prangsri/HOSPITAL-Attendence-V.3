@@ -7,7 +7,7 @@
  * negative = the person turned to THEIR left, positive = to their right.
  */
 const crypto = require('crypto');
-const { pool, hosofficePool } = require('../config/db');
+const { pool, hosofficePool, STAFF } = require('../config/db');
 const { analyzeJpeg, similarity, MODEL_VERSION } = require('./faceEngine');
 const { decryptTemplate } = require('../utils/faceCrypto');
 const { savePhoto } = require('../utils/faceFiles');
@@ -148,7 +148,7 @@ async function reviewScan(id, decision, reviewer, note) {
   if (row.status !== 'pending') return { error: 'รายการนี้ถูกดำเนินการไปแล้ว', code: 409 };
   if (decision === 'approve') {
     const [[p]] = await hosofficePool.query(
-      "SELECT CONCAT(HR_FNAME, ' ', HR_LNAME) AS fullname FROM hr_person WHERE FINGLE_ID = ? LIMIT 1", [row.employee_id]);
+      `SELECT CONCAT(HR_FNAME, ' ', HR_LNAME) AS fullname FROM ${STAFF} WHERE FINGLE_ID = ? LIMIT 1`, [row.employee_id]);
     await writeToHikvision({ employeeId: row.employee_id, fullname: p ? p.fullname : row.employee_id, scannedAt: new Date(row.scanned_at), direction: row.direction, site: row.site_name });
   }
   await pool.query(

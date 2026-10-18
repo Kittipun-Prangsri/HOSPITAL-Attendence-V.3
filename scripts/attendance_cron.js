@@ -1,5 +1,5 @@
 const cron = require('node-cron');
-const { pool, hosofficePool } = require('../src/config/db');
+const { pool, hosofficePool, STAFF } = require('../src/config/db');
 const NotificationService = require('../src/services/notificationService');
 const { syncIncidentsForMonth } = require('../src/controllers/apiController');
 const { buildWeeklySummaryFlex } = require('../src/services/flexBuilder');
@@ -89,7 +89,7 @@ async function runWeeklySummary() {
     const linkedIds = [...links.keys()];
     const [people] = linkedIds.length ? await hosofficePool.query(`
       SELECT p.ID, p.FINGLE_ID, CONCAT(p.HR_FNAME, ' ', p.HR_LNAME) AS fullname
-      FROM hr_person p
+      FROM ${STAFF} p
       WHERE p.HR_STATUS_ID IN (?) AND p.ID IN (?)
         AND p.FINGLE_ID IS NOT NULL AND p.FINGLE_ID != ''
     `, [ACTIVE_STATUS_IDS, linkedIds]) : [[]];

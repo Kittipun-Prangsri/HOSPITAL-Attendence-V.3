@@ -1,6 +1,6 @@
 const NotificationService = require('../services/notificationService');
 const { getLateThreshold } = require('../services/workSettings');
-const { pool, hosofficePool } = require('../config/db');
+const { pool, hosofficePool, STAFF } = require('../config/db');
 const flexBuilder = require('../services/flexBuilder');
 const { getTimeInTimezone, isLateCheckIn, toDateKey } = require('../utils/attendanceTime');
 
@@ -167,7 +167,7 @@ exports.getFailedNotifications = async (req, res) => {
     const employeeIds = [...new Set(rows.map(row => row.employee_id))];
     if (employeeIds.length > 0) {
       const [people] = await hosofficePool.query(
-        `SELECT FINGLE_ID, CONCAT(HR_FNAME, ' ', HR_LNAME) AS name FROM hr_person WHERE FINGLE_ID IN (?)`,
+        `SELECT FINGLE_ID, CONCAT(HR_FNAME, ' ', HR_LNAME) AS name FROM ${STAFF} WHERE FINGLE_ID IN (?)`,
         [employeeIds]
       );
       nameMap = Object.fromEntries(people.map(p => [p.FINGLE_ID, p.name]));
@@ -224,7 +224,7 @@ exports.logAttendance = async (req, res) => {
     // 1. Fetch employee details from HOSoffice DB hr_person
     const { hosofficePool } = require('../config/db');
     const [empRows] = await hosofficePool.query(
-      "SELECT ID, CONCAT(HR_FNAME, ' ', HR_LNAME) as fullname FROM hr_person WHERE FINGLE_ID = ? OR HR_CID = ?",
+      `SELECT ID, CONCAT(HR_FNAME, ' ', HR_LNAME) as fullname FROM ${STAFF} WHERE FINGLE_ID = ? OR HR_CID = ?`,
       [employeeId, employeeId]
     );
 

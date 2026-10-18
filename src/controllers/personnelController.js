@@ -1,8 +1,9 @@
-const { hosofficePool } = require('../config/db');
+const { hosofficePool, STAFF } = require('../config/db');
 const { resolveWorkSettings } = require('../services/workSettings');
 const { isLateAt } = require('../utils/attendanceTime');
 const { logAudit } = require('../utils/audit');
 const { attachLinks, applyLinkInput } = require('../services/messagingLinks');
+const { saveProfile } = require('../services/staffStore');
 
 exports.getPersonnel = async (req, res) => {
   try {
@@ -16,7 +17,7 @@ exports.getPersonnel = async (req, res) => {
         p.HR_POSITION_ID, p.HR_STATUS_ID, s.HR_STATUS_NAME,
         p.HR_STARTWORK_DATE, p.HR_CID,
         p.WORK_SHIFT, p.TIME_IN, p.TIME_OUT
-      FROM hr_person p
+      FROM ${STAFF} p
       LEFT JOIN hr_department d ON p.HR_DEPARTMENT_ID = d.HR_DEPARTMENT_ID
       LEFT JOIN hr_status s ON s.HR_STATUS_ID = p.HR_STATUS_ID
     `;
@@ -58,14 +59,14 @@ exports.updateStaff = async (req, res) => {
 
   try {
     if (!isPrivileged) {
-      const [userRows] = await hosofficePool.query('SELECT FINGLE_ID FROM hr_person WHERE ID = ?', [currentUser.id]);
+      const [userRows] = await hosofficePool.query(`SELECT FINGLE_ID FROM ${STAFF} WHERE ID = ?`, [currentUser.id]);
       if (String(id) !== String(userRows[0]?.FINGLE_ID || '')) {
         return res.status(403).json({ success: false, message: 'แก้ไขข้อมูลได้เฉพาะของตนเองเท่านั้น' });
       }
     }
     // Partial update: only columns present in the request body are written,
     // so callers that send a subset (e.g. the dashboard profile editor) don't wipe the rest.
-    const [[target]] = await hosofficePool.query('SELECT ID FROM hr_person WHERE FINGLE_ID = ? LIMIT 1', [id]);
+    const [[target]] = await hosofficePool.query(`SELECT ID FROM ${STAFF} WHERE FINGLE_ID = ? LIMIT 1`, [id]);
     if (!target) return res.status(404).json({ success: false, message: 'Personnel not found.' });
     // LINE / Telegram are stored in hospital_db.messaging_links, never in HOSoffice
     const linkChanges = [];
@@ -92,10 +93,8 @@ exports.updateStaff = async (req, res) => {
       return res.status(400).json({ success: false, message: 'No fields to update' });
     }
     if (columns.length) {
-      await hosofficePool.query(
-        `UPDATE hr_person SET ${columns.map(([column]) => `${column} = ?`).join(', ')} WHERE FINGLE_ID = ?`,
-        [...columns.map(([, value, maxLength]) => normalizeText(value, maxLength)), id]
-      );
+      // Stored in hospital_db.staff_profiles; HOSoffice hr_person is never written
+      await saveProfile(target.ID, Object.fromEntries(columns.map(([column, value, maxLength]) => [column, normalizeText(value, maxLength)])), currentUser.fullname);
     }
     logAudit(req, 'update', 'staff', id, { fields: columns.map(([column]) => column), links: linkChanges.length ? linkChanges : undefined });
     res.json({ success: true, message: 'อัปเดตข้อมูลบุคลากรเรียบร้อยแล้ว' });
@@ -120,7 +119,7 @@ exports.getPersonnelTemplate2 = async (req, res) => {
         hp.ID, hp.FINGLE_ID, hp.HR_FNAME, hp.HR_LNAME,
         COALESCE(htt.HILING_TIME_NAME, d.HR_DEPARTMENT_NAME) AS HR_DEPARTMENT_NAME,
         s.HR_STATUS_NAME AS role
-      FROM hr_person hp
+      FROM ${STAFF} hp
       LEFT JOIN hr_person_hiling_time hht ON hht.HR_PERSON_ID = hp.ID
       LEFT JOIN hiling_time_template htt ON htt.ID = hht.TEMPLATE_ID
       LEFT JOIN hr_department d ON hp.HR_DEPARTMENT_ID = d.HR_DEPARTMENT_ID
@@ -181,7 +180,7 @@ exports.getPersonByFingleId = async (req, res) => {
         s.HR_STATUS_NAME,
         p.HR_STARTWORK_DATE,
         p.HR_CID
-      FROM hr_person p
+      FROM ${STAFF} p
       LEFT JOIN hr_department d ON p.HR_DEPARTMENT_ID = d.HR_DEPARTMENT_ID
       LEFT JOIN hr_status s     ON s.HR_STATUS_ID = p.HR_STATUS_ID
       WHERE p.FINGLE_ID = ?
@@ -213,7 +212,7 @@ exports.getAttendanceHistory = async (req, res) => {
 
     if (!isPrivileged) {
       // Find the user's FINGLE_ID
-      const [userRows] = await hosofficePool.query('SELECT FINGLE_ID FROM hr_person WHERE ID = ?', [currentUser.id]);
+      const [userRows] = await hosofficePool.query(`SELECT FINGLE_ID FROM ${STAFF} WHERE ID = ?`, [currentUser.id]);
       const userFingleId = userRows.length > 0 ? userRows[0].FINGLE_ID : null;
       if (String(fingleId) !== String(userFingleId)) {
         return res.status(403).json({ success: false, error: 'เข้าถึงไม่ได้: สิทธิ์การเข้าถึงข้อมูลเฉพาะของตนเองเท่านั้น' });
@@ -256,7 +255,7 @@ exports.getAttendanceHistory = async (req, res) => {
         try {
           const day = d.getDate();
           const ym  = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-          const [pRows] = await hosofficePool.query(`SELECT p.ID FROM hr_person p WHERE p.FINGLE_ID = ? LIMIT 1`, [fingleId]);
+          const [pRows] = await hosofficePool.query(`SELECT p.ID FROM ${STAFF} p WHERE p.FINGLE_ID = ? LIMIT 1`, [fingleId]);
           if (pRows.length > 0) {
             const [swRows] = await hosofficePool.query(
               `SELECT \`di${day}\` AS dayval FROM service_work_scans_morning

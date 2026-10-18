@@ -1,7 +1,7 @@
 const bcrypt = require('bcryptjs');
 const { logAudit } = require('../utils/audit');
 const { safeReturnTo } = require('../middleware/auth');
-const { hosofficePool } = require('../config/db');
+const { hosofficePool, STAFF } = require('../config/db');
 const mfa = require('../services/mfa');
 
 const PENDING_TTL_MS = 10 * 60 * 1000;
@@ -43,7 +43,7 @@ exports.postLogin = async (req, res) => {
   }
   try {
     const [rows] = await hosofficePool.query(
-      'SELECT ID as id, HR_CID as cid, FINGLE_ID as fingle_id, CONCAT(HR_FNAME, \' \', HR_LNAME) as fullname, USER_TYPE as role, HR_PASSWORD_HASH as password_hash FROM hr_person WHERE HR_CID = ? OR FINGLE_ID = ?',
+      `SELECT ID as id, HR_CID as cid, FINGLE_ID as fingle_id, CONCAT(HR_FNAME, ' ', HR_LNAME) as fullname, USER_TYPE as role, HR_PASSWORD_HASH as password_hash FROM ${STAFF} WHERE HR_CID = ? OR FINGLE_ID = ?`,
       [username, username]
     );
 

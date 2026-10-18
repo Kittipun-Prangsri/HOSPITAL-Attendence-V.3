@@ -7,7 +7,7 @@
  * Numbers come from the same sources as the monthly report (incident_logs, hikvision, leaves).
  */
 const ExcelJS = require('exceljs');
-const { pool, hosofficePool } = require('../config/db');
+const { pool, hosofficePool, STAFF } = require('../config/db');
 const { approvedLeaveMap, leaveFor } = require('./leaveCalendar');
 const { getHolidaySet } = require('./holidays');
 const { LEAVE_TYPES } = require('../constants/leave');
@@ -44,7 +44,7 @@ async function collect({ year, month, department }) {
   const [people] = await hosofficePool.query(
     `SELECT p.ID, p.FINGLE_ID AS fingle, p.HR_CID AS cid, CONCAT(p.HR_FNAME, ' ', p.HR_LNAME) AS name,
             COALESCE(d.HR_DEPARTMENT_NAME, '-') AS dept, COALESCE(s.HR_STATUS_NAME, '-') AS status
-     FROM hr_person p
+     FROM ${STAFF} p
      LEFT JOIN hr_department d ON d.HR_DEPARTMENT_ID = p.HR_DEPARTMENT_ID
      LEFT JOIN hr_status s ON s.HR_STATUS_ID = p.HR_STATUS_ID
      WHERE p.HR_STATUS_ID IN ${ACTIVE} AND p.FINGLE_ID IS NOT NULL AND p.FINGLE_ID <> ''${filter}

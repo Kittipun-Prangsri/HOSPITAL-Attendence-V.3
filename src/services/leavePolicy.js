@@ -1,4 +1,4 @@
-const { pool, hosofficePool } = require('../config/db');
+const { pool, hosofficePool, STAFF } = require('../config/db');
 const { DEFAULT_LEAVE_POLICY } = require('../constants/leave');
 const { quotasForStatus } = require('../utils/leave');
 
@@ -21,7 +21,7 @@ async function getLeavePolicy() {
 async function statusOfEmployee(employeeId) {
   try {
     const [rows] = await hosofficePool.query(
-      `SELECT s.HR_STATUS_NAME AS status FROM hr_person p
+      `SELECT s.HR_STATUS_NAME AS status FROM ${STAFF} p
        LEFT JOIN hr_status s ON s.HR_STATUS_ID = p.HR_STATUS_ID
        WHERE p.FINGLE_ID = ? OR p.HR_CID = ? LIMIT 1`,
       [employeeId, employeeId]

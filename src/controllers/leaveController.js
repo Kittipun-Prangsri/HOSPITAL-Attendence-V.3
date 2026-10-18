@@ -1,4 +1,4 @@
-const { pool, hosofficePool } = require('../config/db');
+const { pool, hosofficePool, STAFF } = require('../config/db');
 const { markIncidentsStale } = require('../services/incidentSync');
 const NotificationService = require('../services/notificationService');
 const { LEAVE_TYPES } = require('../constants/leave');
@@ -132,7 +132,7 @@ exports.createLeave = async (req, res) => {
     let dept = null;
     try {
       const [p] = await hosofficePool.query(
-        `SELECT d.HR_DEPARTMENT_NAME AS dept FROM hr_person p
+        `SELECT d.HR_DEPARTMENT_NAME AS dept FROM ${STAFF} p
          LEFT JOIN hr_department d ON p.HR_DEPARTMENT_ID = d.HR_DEPARTMENT_ID WHERE p.ID = ? LIMIT 1`,
         [user.id]
       );

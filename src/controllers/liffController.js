@@ -1,4 +1,4 @@
-const { hosofficePool } = require('../config/db');
+const { hosofficePool, STAFF } = require('../config/db');
 const { logAudit } = require('../utils/audit');
 const bcrypt = require('bcryptjs');
 const { personByExternal, setLink, linkOf } = require('../services/messagingLinks');
@@ -39,7 +39,7 @@ exports.login = async (req, res) => {
     const personId = await personByExternal('line', lineUserId);
     const [rows] = personId ? await hosofficePool.query(
       `SELECT ID AS id, HR_CID AS cid, FINGLE_ID AS fingle_id, CONCAT(HR_FNAME, ' ', HR_LNAME) AS fullname, USER_TYPE AS role
-       FROM hr_person WHERE ID = ? AND HR_STATUS_ID IN ('01', '02', '03', '04', '09') LIMIT 1`,
+       FROM ${STAFF} WHERE ID = ? AND HR_STATUS_ID IN ('01', '02', '03', '04', '09') LIMIT 1`,
       [personId]
     ) : [[]];
     if (rows.length !== 1) {
@@ -102,7 +102,7 @@ exports.link = async (req, res) => {
   try {
     const [rows] = await hosofficePool.query(
       `SELECT ID AS id, HR_CID AS cid, FINGLE_ID AS fingle_id, CONCAT(HR_FNAME, ' ', HR_LNAME) AS fullname, USER_TYPE AS role, HR_PASSWORD_HASH AS hash
-       FROM hr_person WHERE (HR_CID = ? OR FINGLE_ID = ?) AND HR_STATUS_ID IN ('01', '02', '03', '04', '09') LIMIT 1`,
+       FROM ${STAFF} WHERE (HR_CID = ? OR FINGLE_ID = ?) AND HR_STATUS_ID IN ('01', '02', '03', '04', '09') LIMIT 1`,
       [username.trim(), username.trim()]);
     const user = rows[0];
     const ok = user && user.hash && await bcrypt.compare(password, user.hash);

@@ -1,4 +1,4 @@
-const { pool, hosofficePool } = require('../config/db');
+const { pool, hosofficePool, STAFF } = require('../config/db');
 const { toShiftCode, toShiftLabel } = require('../utils/shifts');
 const { logAudit } = require('../utils/audit');
 
@@ -163,7 +163,7 @@ exports.getStaffSchedule = async (req, res) => {
     const currentUser = req.session.user;
     const isPrivileged = currentUser && (currentUser.role === 'admin' || currentUser.role === 'super');
     if (!isPrivileged) {
-      const [userRows] = await hosofficePool.query('SELECT FINGLE_ID FROM hr_person WHERE ID = ?', [currentUser.id]);
+      const [userRows] = await hosofficePool.query(`SELECT FINGLE_ID FROM ${STAFF} WHERE ID = ?`, [currentUser.id]);
       if (String(id) !== String(userRows[0]?.FINGLE_ID || '')) return res.status(403).json({ error: 'Forbidden: You can only access your own schedule' });
     }
 
@@ -188,7 +188,7 @@ exports.getStaffSchedule = async (req, res) => {
 
     let leaves = [];
     try {
-      const [personRows] = await hosofficePool.query('SELECT ID FROM hr_person WHERE FINGLE_ID = ? LIMIT 1', [id]);
+      const [personRows] = await hosofficePool.query(`SELECT ID FROM ${STAFF} WHERE FINGLE_ID = ? LIMIT 1`, [id]);
       if (personRows.length > 0) {
         const [mRows] = await hosofficePool.query('SELECT * FROM service_work_scans_morning WHERE hr_person_id = ? AND year_and_month = ? LIMIT 1', [personRows[0].ID, yearMonth]);
         if (mRows.length > 0) {
@@ -240,7 +240,7 @@ exports.getScheduleAudit = async (req, res) => {
     const employeeIds = [...new Set(rows.map(row => row.employee_id))];
     if (employeeIds.length > 0) {
       const [people] = await hosofficePool.query(
-        `SELECT FINGLE_ID, CONCAT(HR_FNAME, ' ', HR_LNAME) AS name FROM hr_person WHERE FINGLE_ID IN (?)`,
+        `SELECT FINGLE_ID, CONCAT(HR_FNAME, ' ', HR_LNAME) AS name FROM ${STAFF} WHERE FINGLE_ID IN (?)`,
         [employeeIds]
       );
       nameMap = Object.fromEntries(people.map(p => [p.FINGLE_ID, p.name]));

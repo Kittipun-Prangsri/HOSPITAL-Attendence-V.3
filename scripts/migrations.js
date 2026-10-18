@@ -369,6 +369,36 @@ const migrations = [
         ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
       `);
     }
+  },
+  {
+    // Accounts and profile edits move out of HOSoffice hr_person: nothing here writes HOSoffice any more.
+    // No data is copied — v_staff falls back to HOSoffice values until this system overrides one.
+    id: '013_app_accounts_staff_profiles',
+    up: async () => {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS app_accounts (
+          hr_person_id INT PRIMARY KEY,
+          role VARCHAR(20) NULL,
+          password_hash VARCHAR(255) NULL,
+          disabled TINYINT(1) NOT NULL DEFAULT 0,
+          updated_by VARCHAR(150) NULL,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+      `);
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS staff_profiles (
+          hr_person_id INT PRIMARY KEY,
+          nickname VARCHAR(100) NULL,
+          phone VARCHAR(50) NULL,
+          email VARCHAR(255) NULL,
+          work_shift VARCHAR(50) NULL,
+          time_in VARCHAR(20) NULL,
+          time_out VARCHAR(20) NULL,
+          updated_by VARCHAR(150) NULL,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+      `);
+    }
   }
 ];
 
@@ -388,6 +418,9 @@ async function runMigrations() {
     await pool.query('INSERT INTO schema_migrations (id) VALUES (?)', [migration.id]);
     console.log(`[migrate] Applied ${migration.id}`);
   }
+  // Not versioned: rebuilt every run so it tracks hr_person's columns on this server
+  await require('../src/services/staffStore').ensureStaffView();
+  console.log('[migrate] View v_staff is up to date');
 }
 
 if (require.main === module) {

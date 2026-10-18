@@ -1,5 +1,5 @@
 const fs = require('fs');
-const { pool, hosofficePool } = require('../config/db');
+const { pool, hosofficePool, STAFF } = require('../config/db');
 const { logAudit } = require('../utils/audit');
 const { analyzeJpeg, MODEL_VERSION } = require('../services/faceEngine');
 const { encryptTemplate, isConfigured } = require('../utils/faceCrypto');
@@ -25,7 +25,7 @@ function tooManyAttempts(key) {
 async function personOf(user) {
   const [rows] = await hosofficePool.query(
     `SELECT p.ID AS id, p.FINGLE_ID AS fingle_id, CONCAT(p.HR_FNAME, ' ', p.HR_LNAME) AS fullname
-     FROM hr_person p WHERE p.ID = ? LIMIT 1`, [user.id]);
+     FROM ${STAFF} p WHERE p.ID = ? LIMIT 1`, [user.id]);
   if (!rows[0]) return null;
   rows[0].line_user_id = (await require('../services/messagingLinks').linkOf(rows[0].id)).line;
   return rows[0];
@@ -203,7 +203,7 @@ exports.listScans = async (req, res) => {
     let names = {};
     if (ids.length) {
       const [people] = await hosofficePool.query(
-        "SELECT FINGLE_ID, CONCAT(HR_FNAME, ' ', HR_LNAME) AS name FROM hr_person WHERE FINGLE_ID IN (?)", [ids]);
+        `SELECT FINGLE_ID, CONCAT(HR_FNAME, ' ', HR_LNAME) AS name FROM ${STAFF} WHERE FINGLE_ID IN (?)`, [ids]);
       names = Object.fromEntries(people.map(p => [p.FINGLE_ID, p.name]));
     }
     const [[counts]] = await pool.query(`SELECT SUM(status = 'pending') AS pending FROM mobile_scans${f.sql ? ' WHERE ' + f.sql : ''}`, f.params);

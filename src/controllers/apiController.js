@@ -1,4 +1,4 @@
-const { pool, hosofficePool } = require('../config/db');
+const { pool, hosofficePool, STAFF } = require('../config/db');
 const { ensureIncidentsSynced } = require('../services/incidentSync');
 const { approvedLeaveMap, leaveFor } = require('../services/leaveCalendar');
 const { getHolidaySet, getOutageSet } = require('../services/holidays');
@@ -57,7 +57,7 @@ exports.getData = async (req, res) => {
         '0' as hours, 
         '0' as ot, 
         100 as conf 
-      FROM hr_person p
+      FROM ${STAFF} p
       LEFT JOIN hr_department d ON p.HR_DEPARTMENT_ID = d.HR_DEPARTMENT_ID
       LEFT JOIN hr_status s ON p.HR_STATUS_ID = s.HR_STATUS_ID
       LEFT JOIN (
@@ -119,7 +119,7 @@ exports.getData = async (req, res) => {
         '' as shift, 
         ROUND(RAND() * (99.9 - 95.0) + 95.0, 1) as conf 
       FROM hikvision h
-      LEFT JOIN hr_person p ON h.EmployeeID = p.FINGLE_ID
+      LEFT JOIN ${STAFF} p ON h.EmployeeID = p.FINGLE_ID
       LEFT JOIN hr_department d ON p.HR_DEPARTMENT_ID = d.HR_DEPARTMENT_ID
       WHERE h.AccessDate = ?
       AND (p.HR_STATUS_ID IN ('01', '02', '03', '04', '09') OR h.PersonName IS NOT NULL)
@@ -149,7 +149,7 @@ exports.getData = async (req, res) => {
         d.HR_DEPARTMENT_NAME as dept,
         m.${dayColumnIn} as morning,
         a.${dayColumnOut} as afternoon
-      FROM hr_person p
+      FROM ${STAFF} p
       JOIN service_work_scans_morning m ON p.ID = m.hr_person_id
       JOIN service_work_scans_afternoon a ON p.ID = a.hr_person_id
       LEFT JOIN hr_department d ON p.HR_DEPARTMENT_ID = d.HR_DEPARTMENT_ID
@@ -190,7 +190,7 @@ exports.getData = async (req, res) => {
     let faceFailQuery = `
       SELECT COUNT(*) as failCount
       FROM hikvision h
-      LEFT JOIN hr_person p ON h.EmployeeID = p.FINGLE_ID
+      LEFT JOIN ${STAFF} p ON h.EmployeeID = p.FINGLE_ID
       WHERE h.AccessDate = ? AND h.AuthenticationResult = 'Failed'
     `;
     const faceFailParams = [targetDateStr];
@@ -229,7 +229,7 @@ async function syncIncidentsForMonth(year, month) {
   const [employees] = await hosofficePool.query(`
     SELECT hp.ID, hp.FINGLE_ID, hp.HR_CID,
            COALESCE(hht.TEMPLATE_ID, 1) AS TEMPLATE_ID
-    FROM hr_person hp
+    FROM ${STAFF} hp
     LEFT JOIN hr_person_hiling_time hht ON hht.HR_PERSON_ID = hp.ID
     WHERE hp.HR_STATUS_ID IN ('01', '02', '03', '04', '09')
       AND hp.FINGLE_ID IS NOT NULL AND hp.FINGLE_ID != ''
@@ -449,7 +449,7 @@ exports.getMonthlyReport = async (req, res) => {
         COALESCE(i.lateCount, 0) as lateCount,
         COALESCE(i.absentCount, 0) as absentCount,
         COALESCE(i.overdueCount, 0) as overdueCount
-      FROM hr_person p
+      FROM ${STAFF} p
       LEFT JOIN hr_person_hiling_time hht ON hht.HR_PERSON_ID = p.ID
       LEFT JOIN hiling_time_template htt ON htt.ID = hht.TEMPLATE_ID
       LEFT JOIN hr_department d ON p.HR_DEPARTMENT_ID = d.HR_DEPARTMENT_ID
