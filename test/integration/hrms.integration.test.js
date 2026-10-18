@@ -1073,6 +1073,49 @@ test('two-step sign-in for admins: setup gate, authenticator, recovery code, Tel
   }
 });
 
+test('unreachable Telegram chats are unlinked after 3 permanent failures, logged, listed and resolved on relink', async () => {
+  const deadLinks = require('../../src/services/deadLinks');
+  const NotificationService = require('../../src/services/notificationService');
+  const CHAT = '9990001';
+  await admin.query(`INSERT INTO ${HOSPITAL_DB}.messaging_links (hr_person_id, channel, external_id, linked_via) VALUES (4, 'telegram', ?, 'import'),
+    (4, 'line', ?, 'self')`, [CHAT, 'U4004' + 'd'.repeat(28)]);
+  const notFound = new Error('ETELEGRAM: 400 Bad Request: chat not found');
+  const failCount = async () => (await admin.query(`SELECT fail_count FROM ${HOSPITAL_DB}.messaging_links WHERE hr_person_id = 4 AND channel = 'telegram'`))[0][0];
+  const realLine = NotificationService.sendDirectLine;
+  let lineMsg = null;
+  NotificationService.sendDirectLine = async (to, text) => { lineMsg = { to, text }; return true; };
+  try {
+    await deadLinks.recordTelegram(CHAT, notFound);
+    await deadLinks.recordTelegram(CHAT, new Error('ETELEGRAM: 429 Too Many Requests: retry after 5')); // temporary: not counted
+    await deadLinks.recordTelegram(CHAT, notFound);
+    assert.equal((await failCount()).fail_count, 2);
+    await deadLinks.recordTelegram(CHAT, null); // a delivered message resets the streak
+    assert.equal((await failCount()).fail_count, 0);
+    await deadLinks.recordTelegram('5555555', notFound); // not a staff link (e.g. admin group): ignored
+
+    for (let i = 0; i < 2; i++) assert.equal(await deadLinks.recordTelegram(CHAT, notFound), null);
+    const removed = await deadLinks.recordTelegram(CHAT, notFound);
+    assert.equal(removed.lineNotified, true);
+    assert.equal(await failCount(), undefined, 'link removed');
+    assert.equal(lineMsg.to, 'U4004' + 'd'.repeat(28));
+    assert.match(lineMsg.text, /Telegram/);
+    const [[audit]] = await admin.query(`SELECT actor_id, action, entity, entity_id FROM ${HOSPITAL_DB}.audit_log WHERE entity = 'messaging_link' ORDER BY id DESC LIMIT 1`);
+    assert.deepEqual(audit, { actor_id: 'system', action: 'unlink', entity: 'messaging_link', entity_id: '4' });
+
+    const list = await call(users.admin, 'GET', '/api/notifications/unlinked');
+    assert.equal(list.status, 200);
+    assert.deepEqual(list.body.cases.map(c => [c.employeeId, c.linkedVia, Boolean(c.lineNotifiedAt), c.hasLine]), [['1004', 'import', true, true]]);
+    assert.equal((await call(users.staff, 'GET', '/api/notifications/unlinked')).status, 403);
+
+    // Relinking (e.g. via the one-time Telegram link) closes the case
+    await require('../../src/services/messagingLinks').setLink({ personId: 4, channel: 'telegram', externalId: '9990002', via: 'self' });
+    assert.deepEqual((await call(users.admin, 'GET', '/api/notifications/unlinked')).body.cases, []);
+  } finally {
+    NotificationService.sendDirectLine = realLine;
+    await admin.query(`DELETE FROM ${HOSPITAL_DB}.messaging_links WHERE hr_person_id = 4`);
+  }
+});
+
 test('escalation finds approvals pending for more than two days', async () => {
   const { collectStalePending, formatEscalation } = require('../../src/services/pendingEscalation');
   assert.equal((await collectStalePending(2)).leaves.length, 0);

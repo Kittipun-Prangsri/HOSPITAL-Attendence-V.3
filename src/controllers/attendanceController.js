@@ -155,6 +155,37 @@ exports.getNotificationStatus = async (req, res) => {
 /**
  * List LINE/Telegram delivery attempts that failed (Admin only)
  */
+/** People whose Telegram link was removed because it could never be reached (deadLinks.js). */
+exports.getUnlinkedTelegram = async (req, res) => {
+  try {
+    const cases = await require('../services/deadLinks').openCases();
+    const ids = [...new Set(cases.map(c => c.hr_person_id))];
+    const people = new Map();
+    if (ids.length) {
+      const [rows] = await hosofficePool.query(
+        `SELECT p.ID, p.FINGLE_ID, CONCAT(p.HR_FNAME, ' ', p.HR_LNAME) AS name, d.HR_DEPARTMENT_NAME AS dept
+         FROM ${STAFF} p LEFT JOIN hr_department d ON d.HR_DEPARTMENT_ID = p.HR_DEPARTMENT_ID WHERE p.ID IN (?)`, [ids]);
+      rows.forEach(r => people.set(String(r.ID), r));
+    }
+    const links = await require('../services/messagingLinks').linksFor(ids);
+    res.json({
+      success: true,
+      threshold: require('../services/deadLinks').THRESHOLD,
+      cases: cases.map(c => {
+        const p = people.get(String(c.hr_person_id)) || {};
+        return {
+          id: c.id, employeeId: p.FINGLE_ID || null, name: p.name || `#${c.hr_person_id}`, dept: p.dept || null,
+          reason: c.reason, linkedVia: c.linked_via, unlinkedAt: c.unlinked_at, lineNotifiedAt: c.line_notified_at,
+          hasLine: Boolean((links.get(String(c.hr_person_id)) || {}).line)
+        };
+      })
+    });
+  } catch (e) {
+    console.error('Error in /api/notifications/unlinked:', e);
+    res.status(500).json({ success: false, cases: [] });
+  }
+};
+
 exports.getFailedNotifications = async (req, res) => {
   try {
     const [rows] = await pool.query(

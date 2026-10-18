@@ -104,6 +104,7 @@
           <div id="notifStatus" class="grid grid-cols-1 gap-3 border-b border-slate-200 bg-slate-50/60 p-3 md:grid-cols-3 2xl:grid-cols-5" aria-live="polite">
             <div class="text-xs text-slate-400">กำลังตรวจสอบช่องทางแจ้งเตือน…</div>
           </div>
+          <div id="unlinkedBox" class="hidden border-b border-amber-200 bg-amber-50/60 p-3" aria-live="polite"></div>
           <div class="flex items-center justify-between border-b border-slate-200 p-3">
             <p class="text-xs text-slate-500">รายการแจ้งเตือนการสแกนที่ส่งไม่สำเร็จ (ไม่มีการส่งซ้ำ — ดูสาเหตุในคอลัมน์ข้อผิดพลาด)</p>
             <button type="button" class="erp-btn erp-btn-secondary h-8" onclick="fetchFailedNotifications()"><i class="bi bi-arrow-clockwise" aria-hidden="true"></i> โหลดใหม่</button>
@@ -323,8 +324,36 @@
       }
     }
 
+    // Telegram links the system removed because messages could never be delivered
+    async function fetchUnlinked() {
+      const box = $('unlinkedBox');
+      try {
+        const res = await fetch('/api/notifications/unlinked', { headers: { Accept: 'application/json' } });
+        const { cases = [], threshold = 3 } = await res.json();
+        box.classList.toggle('hidden', !cases.length);
+        if (!cases.length) { box.innerHTML = ''; return; }
+        const status = c => c.lineNotifiedAt
+          ? `<span class="text-emerald-700"><i class="bi bi-check2" aria-hidden="true"></i> แจ้งทาง LINE แล้ว</span>`
+          : c.hasLine ? '<span class="text-amber-700">ส่ง LINE ไม่สำเร็จ — แจ้งเอง</span>' : '<span class="text-red-600">ไม่มี LINE — แอดมินต้องแจ้งเอง</span>';
+        box.innerHTML = `<div class="mb-2 flex items-start gap-2 text-xs text-amber-900">
+            <i class="bi bi-telegram mt-0.5" aria-hidden="true"></i>
+            <div><b>ต้องเชื่อม Telegram ใหม่ ${cases.length} คน</b> — ส่งไม่ถึง ${threshold} ครั้งติดกัน (ไม่พบแชต/บล็อกบอท) ระบบจึงยกเลิกการเชื่อมเดิมแล้ว
+            · ให้เจ้าตัวเปิดเมนู LINE "สแกนใบหน้า" → การ์ดช่องทางแจ้งเตือน → กด "เชื่อม" ข้าง Telegram → กด Start · รายชื่อหายไปเองเมื่อเชื่อมใหม่</div></div>
+          <div class="max-h-56 overflow-auto rounded border border-amber-200 bg-white"><table class="w-full text-left text-xs">
+            <thead class="sticky top-0 bg-amber-50 text-2xs text-slate-500"><tr><th class="px-3 py-1.5">พนักงาน</th><th class="px-3 py-1.5">กลุ่มงาน</th><th class="px-3 py-1.5">ยกเลิกเมื่อ</th><th class="px-3 py-1.5">การแจ้งเจ้าตัว</th></tr></thead>
+            <tbody class="divide-y divide-slate-100">${cases.map(c => `<tr>
+              <td class="px-3 py-1.5"><b class="text-slate-900">${esc(c.name)}</b> <span class="font-mono text-2xs text-slate-400">${esc(c.employeeId || '')}</span></td>
+              <td class="px-3 py-1.5 text-slate-600">${esc(c.dept || '—')}</td>
+              <td class="whitespace-nowrap px-3 py-1.5 text-slate-500">${c.unlinkedAt ? new Date(c.unlinkedAt).toLocaleString('th-TH') : '—'}</td>
+              <td class="px-3 py-1.5">${status(c)}</td></tr>`).join('')}</tbody></table></div>`;
+      } catch (err) {
+        box.classList.add('hidden');
+      }
+    }
+
     async function fetchFailedNotifications() {
       fetchNotifStatus();
+      fetchUnlinked();
       const tbody = $('failedNotifBody');
       tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-12 text-center text-slate-400">กำลังโหลด…</td></tr>';
       try {

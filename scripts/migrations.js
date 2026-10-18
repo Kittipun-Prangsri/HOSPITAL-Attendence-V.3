@@ -399,6 +399,34 @@ const migrations = [
         ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
       `);
     }
+  },
+  {
+    // Telegram chats that can never be reached: count permanent failures, unlink after 3, keep the cases
+    id: '014_dead_messaging_links',
+    up: async () => {
+      const [cols] = await pool.query("SHOW COLUMNS FROM messaging_links LIKE 'fail_count'");
+      if (!cols.length) {
+        await pool.query(`ALTER TABLE messaging_links
+          ADD COLUMN fail_count SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+          ADD COLUMN last_error VARCHAR(255) NULL,
+          ADD COLUMN last_failed_at DATETIME NULL`);
+      }
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS messaging_unlinked (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          hr_person_id INT NOT NULL,
+          channel VARCHAR(10) NOT NULL,
+          external_id VARCHAR(64) NOT NULL,
+          linked_via VARCHAR(20) NULL,
+          reason VARCHAR(255) NULL,
+          unlinked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          line_notified_at DATETIME NULL,
+          resolved_at DATETIME NULL,
+          KEY idx_unlinked_open (channel, resolved_at),
+          KEY idx_unlinked_person (hr_person_id)
+        ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+      `);
+    }
   }
 ];
 

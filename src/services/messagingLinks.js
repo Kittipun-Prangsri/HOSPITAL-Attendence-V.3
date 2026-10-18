@@ -55,6 +55,7 @@ async function setLink({ personId, channel, externalId, via, by }) {
     `INSERT INTO messaging_links (hr_person_id, channel, external_id, linked_via, linked_by) VALUES (?, ?, ?, ?, ?)
      ON DUPLICATE KEY UPDATE external_id = VALUES(external_id), linked_via = VALUES(linked_via), linked_by = VALUES(linked_by), linked_at = CURRENT_TIMESTAMP`,
     [personId, channel, id, via, by || null]);
+  if (channel === 'telegram') await require('./deadLinks').resolve(personId);
   return { previous: current && current.external_id !== id ? current.external_id : null };
 }
 

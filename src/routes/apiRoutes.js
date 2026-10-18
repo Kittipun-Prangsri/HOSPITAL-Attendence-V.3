@@ -30,6 +30,7 @@ router.post('/attendance/check-out', checkAuth, attendanceController.checkOut);
 router.get('/notifications/mappings', checkAuth, checkAdmin, attendanceController.getMappings);
 router.post('/notifications/mappings', checkAuth, checkAdmin, attendanceController.updateMapping);
 router.get('/notifications/failed', checkAuth, checkAdmin, attendanceController.getFailedNotifications);
+router.get('/notifications/unlinked', checkAuth, checkAdmin, attendanceController.getUnlinkedTelegram);
 router.get('/notifications/status', checkAuth, checkAdmin, attendanceController.getNotificationStatus);
 
 // User management

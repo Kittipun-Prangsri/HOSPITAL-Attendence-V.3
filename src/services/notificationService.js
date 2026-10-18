@@ -137,15 +137,22 @@ function describeLineError(err) {
  * Telegram rejects the whole message on a parse error, so retry once as plain text.
  */
 async function telegramSend(chatId, text, options = {}) {
+  let sent;
   try {
-    return await telegramBot.sendMessage(chatId, text, options);
-  } catch (err) {
-    if (options.parse_mode && /can't parse entities/i.test(err.message || '')) {
+    try {
+      sent = await telegramBot.sendMessage(chatId, text, options);
+    } catch (err) {
+      if (!(options.parse_mode && /can't parse entities/i.test(err.message || ''))) throw err;
       const { parse_mode, ...plain } = options;
-      return telegramBot.sendMessage(chatId, text, plain);
+      sent = await telegramBot.sendMessage(chatId, text, plain);
     }
+  } catch (err) {
+    // Unreachable staff chats are unlinked after a few tries (see deadLinks.js)
+    await require('./deadLinks').safeRecordTelegram(chatId, err);
     throw err;
   }
+  await require('./deadLinks').safeRecordTelegram(chatId, null);
+  return sent;
 }
 
 // Mapping path
@@ -216,7 +223,7 @@ class NotificationService {
 
       // Send to Telegram if chat_id exists
       if (telegramChatId && process.env.TELEGRAM_BOT_TOKEN) {
-        await telegramBot.sendMessage(telegramChatId, message);
+        await telegramSend(telegramChatId, message);
       }
 
       // Send to LINE if user_id exists (check-in/out confirmations are routine traffic)
@@ -444,3 +451,4 @@ class NotificationService {
 
 module.exports = new NotificationService();
 module.exports.describeLineError = describeLineError;
+module.exports._telegramSend = telegramSend; // tests
