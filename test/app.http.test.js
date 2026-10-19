@@ -96,3 +96,17 @@ test('own CSS/JS links carry a content hash so phones never keep stale styles', 
   const css = await fetch(`${base}/css/erp.css?v=${m[1]}`);
   assert.equal(css.status, 200);
 });
+
+test('favicon, touch icon and manifest are served and linked from every page head', async () => {
+  const page = await (await fetch(`${base}/login`)).text();
+  assert.match(page, /<link rel="icon" href="\/favicon\.ico"/);
+  assert.match(page, /rel="apple-touch-icon" href="\/icons\/apple-touch-icon\.png\?v=[0-9a-f]{10}"/);
+  assert.match(page, /rel="manifest" href="\/site\.webmanifest"/);
+  for (const [url, type] of [['/favicon.ico', /icon/], ['/icons/favicon-32x32.png', /png/], ['/icons/apple-touch-icon.png', /png/], ['/site.webmanifest', /manifest|json/]]) {
+    const res = await fetch(`${base}${url}`);
+    assert.equal(res.status, 200, url);
+    assert.match(res.headers.get('content-type') || '', type, url);
+  }
+  const manifest = await (await fetch(`${base}/site.webmanifest`)).json();
+  for (const icon of manifest.icons) assert.equal((await fetch(`${base}${icon.src}`)).status, 200, icon.src);
+});
