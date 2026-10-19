@@ -73,24 +73,26 @@ exports.getExcuses = async (req, res) => {
 /**
  * Create or update an excuse
  */
+/** Same rules for a new and an edited excuse. Returns an error message, or null when valid. */
+function excuseInputError({ date, issue_type, reason }) {
+  if (!date || !issue_type || !reason) return 'กรุณากรอกข้อมูลให้ครบถ้วน';
+  const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Bangkok' });
+  const oldest = new Date(Date.now() - 90 * 86400000).toLocaleDateString('sv-SE', { timeZone: 'Asia/Bangkok' });
+  if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date) || date > today || date < oldest) {
+    return 'วันที่ต้องไม่เกินวันนี้ และย้อนหลังได้ไม่เกิน 90 วัน';
+  }
+  if (!['scan-failed', 'absent', 'leave', 'late'].includes(issue_type)) return 'ประเภทปัญหาไม่ถูกต้อง';
+  if (typeof reason !== 'string' || !reason.trim() || reason.length > 1000) return 'กรุณาระบุเหตุผล (ไม่เกิน 1000 ตัวอักษร)';
+  return null;
+}
+exports._excuseInputError = excuseInputError; // tests
+
 exports.createExcuse = async (req, res) => {
   const user = req.session.user;
   const { date, issue_type, reason } = req.body;
-  
-  if (!date || !issue_type || !reason) {
-    return res.status(400).json({ success: false, error: 'กรุณากรอกข้อมูลให้ครบถ้วน' });
-  }
-  const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Bangkok' });
-  const oldest = new Date(Date.now() - 90 * 86400000).toLocaleDateString('sv-SE', { timeZone: 'Asia/Bangkok' });
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date > today || date < oldest) {
-    return res.status(400).json({ success: false, error: 'วันที่ต้องไม่เกินวันนี้ และย้อนหลังได้ไม่เกิน 90 วัน' });
-  }
-  if (!['scan-failed', 'absent', 'leave', 'late'].includes(issue_type)) {
-    return res.status(400).json({ success: false, error: 'ประเภทปัญหาไม่ถูกต้อง' });
-  }
-  if (typeof reason !== 'string' || !reason.trim() || reason.length > 1000) {
-    return res.status(400).json({ success: false, error: 'กรุณาระบุเหตุผล (ไม่เกิน 1000 ตัวอักษร)' });
-  }
+
+  const invalid = excuseInputError({ date, issue_type, reason });
+  if (invalid) return res.status(400).json({ success: false, error: invalid });
 
   try {
     // An approved excuse is final; only pending/rejected ones can be resubmitted
@@ -134,9 +136,8 @@ exports.updateExcuse = async (req, res) => {
   const { date, issue_type, reason } = req.body;
   const user = req.session.user;
 
-  if (!date || !issue_type || !reason) {
-    return res.status(400).json({ success: false, error: 'กรุณากรอกข้อมูลให้ครบถ้วน' });
-  }
+  const invalid = excuseInputError({ date, issue_type, reason });
+  if (invalid) return res.status(400).json({ success: false, error: invalid });
 
   try {
     // 1. Check if excuse exists and is pending
@@ -153,12 +154,18 @@ exports.updateExcuse = async (req, res) => {
       return res.status(400).json({ success: false, error: 'ไม่สามารถแก้ไขรายการที่ผ่านการพิจารณาแล้วได้' });
     }
 
-    // 2. Execute Update
-    await pool.query(
-      'UPDATE attendance_excuses SET date = ?, issue_type = ?, reason = ?, submitted_at = CURRENT_TIMESTAMP WHERE id = ?',
-      [date, issue_type, reason, id]
-    );
+    // 2. Execute Update (one excuse per person per day: moving it onto another excuse's date is refused)
+    try {
+      await pool.query(
+        'UPDATE attendance_excuses SET date = ?, issue_type = ?, reason = ?, submitted_at = CURRENT_TIMESTAMP WHERE id = ?',
+        [date, issue_type, reason.trim(), id]
+      );
+    } catch (err) {
+      if (err.code === 'ER_DUP_ENTRY') return res.status(409).json({ success: false, error: 'วันที่นี้มีคำร้องของท่านอยู่แล้ว — แก้ไขรายการของวันนั้นแทน' });
+      throw err;
+    }
 
+    logAudit(req, 'update', 'excuse', id, { date, issue_type });
     res.json({ success: true, message: 'แก้ไขข้อมูลเรียบร้อยแล้ว' });
   } catch (error) {
     console.error('Error updating excuse:', error);

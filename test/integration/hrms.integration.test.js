@@ -887,6 +887,24 @@ test('my month: own day-by-day status, and excuses are validated', async () => {
   assert.equal((await call(users.staff, 'POST', '/api/excuses', { date: '2026-09-29', issue_type: 'late', reason: '   ' })).status, 400, 'empty reason');
   // 1001's excuse for the 23rd was approved by the department head earlier: it cannot be reopened
   assert.equal((await call(users.staff, 'POST', '/api/excuses', { date: '2026-09-23', issue_type: 'late', reason: 'แก้ไข' })).status, 409);
+
+  // Editing a pending excuse follows the same rules, and cannot land on a day that already has one
+  for (const d of ['2026-09-29', '2026-09-30']) {
+    assert.equal((await call(users.staff, 'POST', '/api/excuses', { date: d, issue_type: 'late', reason: 'รถติด' })).status, 200);
+  }
+  const [[{ id: id30 }]] = await admin.query(`SELECT id FROM ${HOSPITAL_DB}.attendance_excuses WHERE username = '1001' AND date = '2026-09-30'`);
+  const put = body => call(users.staff, 'PUT', `/api/excuses/${id30}`, { date: '2026-09-30', issue_type: 'late', reason: 'รถติด', ...body });
+  assert.equal((await put({ date: future })).status, 400, 'edit: no future date');
+  assert.equal((await put({ date: '2025-01-02' })).status, 400, 'edit: not older than 90 days');
+  assert.equal((await put({ issue_type: 'party' })).status, 400, 'edit: unknown type');
+  assert.equal((await put({ reason: 'x'.repeat(1001) })).status, 400, 'edit: reason too long');
+  const clash = await put({ date: '2026-09-29' });
+  assert.equal(clash.status, 409, 'edit: day already has an excuse');
+  assert.match(clash.body.error, /มีคำร้อง/);
+  assert.equal((await put({ issue_type: 'scan-failed', reason: '  สแกนไม่ผ่าน  ' })).status, 200);
+  const [[row]] = await admin.query(`SELECT issue_type, reason FROM ${HOSPITAL_DB}.attendance_excuses WHERE id = ?`, [id30]);
+  assert.deepEqual(row, { issue_type: 'scan-failed', reason: 'สแกนไม่ผ่าน' });
+  await admin.query(`DELETE FROM ${HOSPITAL_DB}.attendance_excuses WHERE username = '1001' AND date IN ('2026-09-29', '2026-09-30')`);
 });
 
 test('LINE / Telegram links are saved in hospital_db only, one person per account', async () => {

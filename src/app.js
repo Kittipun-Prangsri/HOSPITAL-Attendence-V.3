@@ -163,7 +163,7 @@ function lineQuickReply() {
     pb('📇 สแกนล่าสุด', 'action=latest_scan', 'สแกนล่าสุด'),
     pb('📋 ประวัติวันนี้', 'action=today_history', 'ดูประวัติการเข้างาน'),
     pb('🏖️ สิทธิ์ลาคงเหลือ', 'action=leave_balance', 'สิทธิ์ลาคงเหลือ'),
-    pb('📝 ยื่นใบลา', 'action=excuse', 'ยื่นใบลา'),
+    pb('📝 แจ้งเหตุ / ลา', 'action=excuse', 'แจ้งเหตุ / ยื่นใบลา'),
     base.startsWith('http') && uri('🗓️ ตารางเวร', `${base}/schedule`),
     { type: 'action', action: { type: 'message', label: '🔑 ขอไอดี', text: 'ขอไอดี' } }
   ].filter(Boolean);
@@ -200,7 +200,7 @@ app.post(['/', '/webhook'], verifyLineSignature, async (req, res) => {
             const historyTextMatch = /^(?:ดูประวัติการเข้างาน|ดูประวัติการสแกน|ดูประวัติ|ขอดูการสแกนวันนี้|ขอดูแสกนวันนี้)$/i.test(cleanText);
             const balanceTextMatch = /^(?:สิทธิ์ลาคงเหลือ|สิทธิ์ลา|สิทธิลา|วันลาคงเหลือ|วันลาเหลือ|เหลือวันลา)$/i.test(cleanText);
             const latestTextMatch = /^(?:สแกนล่าสุด|แสกนล่าสุด|ล่าสุด|การ์ด|การ์ดสแกน|latest)$/i.test(cleanText);
-            const excuseTextMatch = /^(?:ยื่นใบลา\s*\/\s*แจ้งเหตุสาย|ยื่นใบลา|แจ้งเหตุสาย|แจ้งเหตุ|ขอใบลา|ใบลา|แก้ต่าง)$/i.test(cleanText);
+            const excuseTextMatch = /^(?:ยื่นใบลา\s*\/\s*แจ้งเหตุสาย|แจ้ง(?:สา)?เหตุ\s*\/\s*ยื่นใบลา|แจ้งสาเหตุ|ยื่นใบลา|แจ้งเหตุสาย|แจ้งเหตุ|ขอใบลา|ใบลา|แก้ต่าง)$/i.test(cleanText);
 
             let flexReply = null;
             if (balanceTextMatch) {

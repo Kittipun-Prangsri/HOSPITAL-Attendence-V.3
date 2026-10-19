@@ -203,9 +203,9 @@ function buildAttendanceFlex(params = {}) {
 
   const excuseAction = {
     type: 'postback',
-    label: '📝 ยื่นใบลา / แจ้งเหตุสาย',
+    label: '📝 แจ้งสาเหตุ / ยื่นใบลา',
     data: 'action=excuse',
-    displayText: 'ยื่นใบลา / แจ้งเหตุสาย'
+    displayText: 'แจ้งสาเหตุ / ยื่นใบลา'
   };
 
   return {
@@ -574,9 +574,9 @@ function buildHistoryFlex(params = {}) {
           type: 'button',
           action: {
             type: 'postback',
-            label: '📝 ยื่นใบลา / แจ้งเหตุสาย',
+            label: '📝 แจ้งสาเหตุ / ยื่นใบลา',
             data: 'action=excuse',
-            displayText: 'ยื่นใบลา / แจ้งเหตุสาย'
+            displayText: 'แจ้งสาเหตุ / ยื่นใบลา'
           },
           style: 'secondary',
           height: 'sm'
@@ -595,13 +595,23 @@ function buildExcuseFlex(params = {}) {
     employeeId = ''
   } = params;
 
-  const baseUrl = (process.env.SYSTEM_URL || process.env.DOMAIN || '').trim();
+  const baseUrl = (process.env.SYSTEM_URL || process.env.DOMAIN || '').trim().replace(/\/+$/, '');
   const hasValidUrl = baseUrl && baseUrl.startsWith('http') && !baseUrl.includes('your-hospital-system.com') && !baseUrl.includes('khh-attendance.com');
-  const excuseUrl = hasValidUrl ? `${baseUrl}/excuses` : null;
+  const liffId = (process.env.LIFF_ID || '').trim();
+  // Excuses: the LIFF month calendar (already signed in, tap the day) beats the web form inside LINE
+  const excuseUrl = liffId ? `https://liff.line.me/${liffId}?tab=month` : hasValidUrl ? `${baseUrl}/excuses` : null;
+  const leaveUrl = hasValidUrl ? `${baseUrl}/leave` : null;
 
-  const mainAction = excuseUrl
-    ? { type: 'uri', label: '🔗 เปิดระบบยื่นใบลาออนไลน์', uri: excuseUrl }
-    : { type: 'postback', label: '📋 ดูประวัติการเข้างาน', data: 'action=today_history', displayText: 'ดูประวัติการเข้างาน' };
+  const buttons = [
+    excuseUrl && { type: 'button', style: 'primary', color: '#0284C7', height: 'sm',
+      action: { type: 'uri', label: '📝 แจ้งสาเหตุ สาย/ขาด/ลืมสแกน', uri: excuseUrl } },
+    leaveUrl && { type: 'button', style: 'secondary', height: 'sm',
+      action: { type: 'uri', label: '🗓️ ยื่นใบลา (ป่วย/กิจ/พักผ่อน)', uri: leaveUrl } }
+  ].filter(Boolean);
+  if (!buttons.length) {
+    buttons.push({ type: 'button', style: 'primary', color: '#0284C7', height: 'sm',
+      action: { type: 'postback', label: '📋 ดูประวัติการเข้างาน', data: 'action=today_history', displayText: 'ดูประวัติการเข้างาน' } });
+  }
 
   return {
     type: 'bubble',
@@ -622,7 +632,7 @@ function buildExcuseFlex(params = {}) {
         },
         {
           type: 'text',
-          text: 'ระบบแจ้งสาเหตุ & ยื่นใบลา',
+          text: 'แจ้งสาเหตุการลงเวลา & ยื่นใบลา',
           color: '#FFFFFF',
           size: 'lg',
           weight: 'bold',
@@ -669,14 +679,14 @@ function buildExcuseFlex(params = {}) {
           contents: [
             {
               type: 'text',
-              text: '📝 แจ้งเหตุผลเข้างานสาย / ลืมสแกน / ยื่นใบลา',
+              text: 'เลือกให้ตรงเรื่อง',
               color: '#0369A1',
               weight: 'bold',
               size: 'xs'
             },
             {
               type: 'text',
-              text: 'หากท่านมีเหตุจำเป็นในการเข้างานสาย ลืมบันทึกเวลา หรือต้องการยื่นใบลาป่วย/ลากิจ สามารถบันทึกข้อมูลผ่านระบบหรือติดต่อ HR โรงพยาบาลได้ครับ',
+              text: '• มาสาย ขาด ลืมสแกน สแกนไม่ผ่าน → "แจ้งสาเหตุ" แตะวันที่ในปฏิทินแล้วพิมพ์เหตุผล\n• ลาป่วย ลากิจ ลาพักผ่อน → "ยื่นใบลา"',
               size: 'xs',
               color: '#334155',
               wrap: true,
@@ -691,15 +701,7 @@ function buildExcuseFlex(params = {}) {
       layout: 'vertical',
       spacing: 'sm',
       paddingAll: '16px',
-      contents: [
-        {
-          type: 'button',
-          action: mainAction,
-          style: 'primary',
-          color: '#0284C7',
-          height: 'sm'
-        }
-      ]
+      contents: buttons
     }
   };
 }

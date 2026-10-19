@@ -259,13 +259,14 @@ class ChatbotService {
     // Command: "ยื่นใบลา" / "แจ้งเหตุสาย" / "แจ้งเหตุ" / "ขอใบลา"
     const excuseKeywords = ['ยื่นใบลา', 'แจ้งเหตุสาย', 'แจ้งเหตุ', 'ขอใบลา', 'ใบลา', 'แก้ต่าง', 'ยื่นใบลา / แจ้งเหตุสาย', 'ส่งใบแก้ต่าง'];
     if (excuseKeywords.some(k => cleanText.toLowerCase().includes(k))) {
-      const baseUrl = process.env.SYSTEM_URL || process.env.DOMAIN || '';
-      const linkMsg = baseUrl && baseUrl.startsWith('http')
-        ? `\n🔗 ลิงก์ยื่นใบลาออนไลน์: ${baseUrl}/excuses`
-        : '';
-      return `📝 *ระบบแจ้งสาเหตุการลงเวลา / ยื่นใบลา*\n\n` +
-             `ท่านสามารถแจ้งเหตุผลการเข้างานสาย ลืมสแกน หรือยื่นใบลาออนไลน์ได้ที่ระบบ${linkMsg}\n\n` +
-             `หรือติดต่อเจ้าหน้าที่งานบริหารทรัพยากรบุคคล (HR) โรงพยาบาลคลองหาดครับ`;
+      const baseUrl = (process.env.SYSTEM_URL || process.env.DOMAIN || '').trim().replace(/\/+$/, '');
+      const web = baseUrl.startsWith('http');
+      const liffId = (process.env.LIFF_ID || '').trim();
+      const excuseLink = liffId ? `https://liff.line.me/${liffId}?tab=month` : web ? `${baseUrl}/excuses` : '';
+      return `📝 *แจ้งสาเหตุการลงเวลา / ยื่นใบลา*\n\n` +
+             `• มาสาย ขาด ลืมสแกน สแกนไม่ผ่าน → แจ้งสาเหตุ${excuseLink ? `\n${excuseLink}` : ''}${liffId ? '\n(แตะวันที่ในปฏิทินแล้วพิมพ์เหตุผล)' : ''}\n\n` +
+             `• ลาป่วย ลากิจ ลาพักผ่อน → ยื่นใบลา${web ? `\n${baseUrl}/leave` : ''}\n\n` +
+             `สอบถามเพิ่มเติม ติดต่องานบริหารทรัพยากรบุคคล (HR) โรงพยาบาลคลองหาดครับ`;
     }
 
     // 1. Command: "ขอดูการสแกนวันนี้" / "ดูประวัติการเข้างาน" [EmployeeID/Name]
