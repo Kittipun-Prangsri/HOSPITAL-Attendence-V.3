@@ -1,6 +1,7 @@
 const { pool, hosofficePool, STAFF } = require('../config/db');
 const { toShiftCode, toShiftLabel } = require('../utils/shifts');
 const { logAudit } = require('../utils/audit');
+const { approvedLeaveMap } = require('../services/leaveCalendar');
 
 const OFF_SHIFTS = new Set(['', 'OFF', 'EMPTY']);
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -199,6 +200,13 @@ exports.getStaffSchedule = async (req, res) => {
         }
       }
     } catch (leaveErr) { console.warn('[schedule/staff] leave query failed:', leaveErr.message); }
+
+    // Approved leaves from leave_requests (in-app + synced from HOSoffice) cover future days the scan table doesn't have yet
+    const appLeaves = await approvedLeaveMap(`${yearMonth}-01`, `${yearMonth}-${String(daysInMonth).padStart(2, '0')}`);
+    for (let day = 1; day <= daysInMonth; day += 1) {
+      const hit = appLeaves.get(`${id}_${yearMonth}-${String(day).padStart(2, '0')}`);
+      if (hit && !leaves.some(l => l.day === day)) leaves.push({ day, reason: hit.label });
+    }
     res.json({ success: true, staffId: id, yearMonth, shifts, times, leaves });
   } catch (err) {
     console.error('Error in /api/schedule/staff:', err);
