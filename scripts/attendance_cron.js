@@ -3,6 +3,7 @@ const { pool, hosofficePool, STAFF } = require('../src/config/db');
 const NotificationService = require('../src/services/notificationService');
 const { syncIncidentsForMonth } = require('../src/controllers/apiController');
 const { buildWeeklySummaryFlex } = require('../src/services/flexBuilder');
+const { approvedLeaveMap } = require('../src/services/leaveCalendar');
 
 const ACTIVE_STATUS_IDS = ['01', '02', '03', '04', '09'];
 
@@ -43,6 +44,7 @@ function monthKeysInRange(startStr, endStr) {
 /** Count leave-marked days (per hr_person.ID) that fall within [startStr, endStr] */
 async function getLeaveCounts(startStr, endStr) {
   const leaveCounts = {};
+  const scanDays = {};
   for (const ym of monthKeysInRange(startStr, endStr)) {
     const [rows] = await hosofficePool.query(
       `SELECT hr_person_id,
@@ -61,20 +63,26 @@ async function getLeaveCounts(startStr, endStr) {
         const val = row[`di${d}`];
         if (val && typeof val === 'string' && val.trim() !== '' && !/^\d{2}:\d{2}/.test(val)) {
           leaveCounts[row.hr_person_id] = (leaveCounts[row.hr_person_id] || 0) + 1;
+          (scanDays[row.hr_person_id] = scanDays[row.hr_person_id] || new Set()).add(dateStr);
         }
       }
     }
   }
-  // Also count approved leaves from leave_requests (synced from HOSoffice & in-app)
+  // Also count approved leaves from leave_requests (synced from HOSoffice & in-app),
+  // skipping days the HOSoffice scan table already marked so synced leaves aren't counted twice
   try {
     const [appRows] = await pool.query(
-      `SELECT hr_person_id, days FROM leave_requests WHERE status = 'approved' AND start_date <= ? AND end_date >= ?`,
+      `SELECT employee_id, hr_person_id FROM leave_requests WHERE status = 'approved' AND start_date <= ? AND end_date >= ?`,
       [endStr, startStr]
     );
-    for (const r of appRows) {
-      if (r.hr_person_id) {
-        leaveCounts[r.hr_person_id] = (leaveCounts[r.hr_person_id] || 0) + (parseFloat(r.days) || 1);
-      }
+    const personByEmployee = {};
+    for (const r of appRows) if (r.hr_person_id) personByEmployee[r.employee_id] = r.hr_person_id;
+    const appLeaves = await approvedLeaveMap(startStr, endStr);
+    for (const [key, info] of appLeaves) {
+      const date = key.slice(-10);
+      const pid = personByEmployee[key.slice(0, -11)];
+      if (!pid || (scanDays[pid] && scanDays[pid].has(date))) continue;
+      leaveCounts[pid] = (leaveCounts[pid] || 0) + (info.halfDay && info.halfDay !== 'none' ? 0.5 : 1);
     }
   } catch (err) {
     console.warn('[cron] leave_requests count fallback:', err.message);
