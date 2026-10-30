@@ -9,13 +9,13 @@ const { getHolidaySet } = require('./holidays');
  * Weekends and public holidays are only included for types that count calendar days.
  * Fails soft (empty map) so attendance keeps working before migration 004 runs.
  */
-async function approvedLeaveMap(from, to) {
+async function approvedLeaveMap(from, to, status = 'approved') {
   const map = new Map();
   try {
     const [rows] = await pool.query(
       `SELECT employee_id, leave_type, half_day, DATE_FORMAT(start_date, '%Y-%m-%d') AS start_date, DATE_FORMAT(end_date, '%Y-%m-%d') AS end_date
-       FROM leave_requests WHERE status = 'approved' AND start_date <= ? AND end_date >= ?`,
-      [to, from]
+       FROM leave_requests WHERE status = ? AND start_date <= ? AND end_date >= ?`,
+      [status, to, from]
     );
     const holidays = rows.length ? await getHolidaySet(from, to) : new Set();
     const lo = parseDate(from);

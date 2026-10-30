@@ -207,6 +207,12 @@ exports.getStaffSchedule = async (req, res) => {
       const hit = appLeaves.get(`${id}_${yearMonth}-${String(day).padStart(2, '0')}`);
       if (hit && !leaves.some(l => l.day === day)) leaves.push({ day, reason: hit.label });
     }
+    // Pending requests show too (marked) so planned leave is visible before it is approved
+    const pendingLeaves = await approvedLeaveMap(`${yearMonth}-01`, `${yearMonth}-${String(daysInMonth).padStart(2, '0')}`, 'pending');
+    for (let day = 1; day <= daysInMonth; day += 1) {
+      const hit = pendingLeaves.get(`${id}_${yearMonth}-${String(day).padStart(2, '0')}`);
+      if (hit && !leaves.some(l => l.day === day)) leaves.push({ day, reason: `${hit.label} (รออนุมัติ)` });
+    }
     res.json({ success: true, staffId: id, yearMonth, shifts, times, leaves });
   } catch (err) {
     console.error('Error in /api/schedule/staff:', err);
