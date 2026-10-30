@@ -65,6 +65,20 @@ async function getLeaveCounts(startStr, endStr) {
       }
     }
   }
+  // Also count approved leaves from leave_requests (synced from HOSoffice & in-app)
+  try {
+    const [appRows] = await pool.query(
+      `SELECT hr_person_id, days FROM leave_requests WHERE status = 'approved' AND start_date <= ? AND end_date >= ?`,
+      [endStr, startStr]
+    );
+    for (const r of appRows) {
+      if (r.hr_person_id) {
+        leaveCounts[r.hr_person_id] = (leaveCounts[r.hr_person_id] || 0) + (parseFloat(r.days) || 1);
+      }
+    }
+  } catch (err) {
+    console.warn('[cron] leave_requests count fallback:', err.message);
+  }
   return leaveCounts;
 }
 
@@ -202,8 +216,16 @@ cron.schedule('30 8 * * 1-5', async () => {
   }
 }, { timezone: process.env.APP_TIMEZONE || 'Asia/Bangkok' });
 
-// Nightly: keep incident_logs current for this and last month so report views stay fast
+// Nightly: sync leaves from HOSoffice and keep incident_logs current for this and last month
 cron.schedule('0 1 * * *', async () => {
+  try {
+    const { syncLeavesFromHosoffice } = require('../src/services/hosofficeLeaveSync');
+    const syncRes = await syncLeavesFromHosoffice();
+    console.log(`[cron] leaves synced from HOSoffice: ${syncRes.synced} items`);
+  } catch (err) {
+    console.error('[cron] HOSoffice leave sync failed:', err.message);
+  }
+
   const now = new Date();
   const months = [[now.getFullYear(), now.getMonth() + 1]];
   const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);

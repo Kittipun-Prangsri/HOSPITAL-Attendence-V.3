@@ -1,4 +1,4 @@
-const { hosofficePool } = require('../src/config/db');
+const { hosofficePool, STAFF } = require('../src/config/db');
 const bcrypt = require('bcryptjs');
 
 const RESET = '\x1b[0m';
@@ -38,7 +38,7 @@ async function testLogin(username, password) {
 
   try {
     const [rows] = await hosofficePool.query(
-      'SELECT ID as id, HR_CID as username, CONCAT(HR_FNAME, \' \', HR_LNAME) as fullname, USER_TYPE as role, HR_PASSWORD_HASH as password_hash FROM hr_person WHERE HR_CID = ? OR FINGLE_ID = ?',
+      `SELECT ID as id, HR_CID as username, CONCAT(HR_FNAME, ' ', HR_LNAME) as fullname, USER_TYPE as role, HR_PASSWORD_HASH as password_hash FROM ${STAFF} WHERE HR_CID = ? OR FINGLE_ID = ?`,
       [username, username]
     );
 

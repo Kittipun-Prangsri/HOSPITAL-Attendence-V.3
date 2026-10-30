@@ -74,6 +74,7 @@ router.post('/leaves', checkAuth, leaveController.createLeave);
 router.post('/leaves/:id(\\d+)/cancel', checkAuth, leaveController.cancelLeave);
 router.post('/leaves/:id(\\d+)/review', checkAuth, leaveController.reviewLeave);
 router.get('/leaves/:id(\\d+)/attachment', checkAuth, leaveController.getAttachment);
+router.post('/leaves/sync-hosoffice', checkAuth, checkAdmin, leaveController.syncHosofficeLeaves);
 
 // Shared work settings (read: everyone, write: admin/super — enforced in controller)
 router.get('/settings', checkAuth, settingsController.getSettings);

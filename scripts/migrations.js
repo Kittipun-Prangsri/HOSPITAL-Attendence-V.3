@@ -427,6 +427,20 @@ const migrations = [
         ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
       `);
     }
+  },
+  {
+    id: '015_hosoffice_leave_sync',
+    up: async () => {
+      const [cols] = await pool.query("SHOW COLUMNS FROM leave_requests LIKE 'hosoffice_leave_id'");
+      if (!cols.length) {
+        await pool.query(`
+          ALTER TABLE leave_requests
+            ADD COLUMN hosoffice_leave_id INT NULL,
+            ADD COLUMN synced_from VARCHAR(50) NULL DEFAULT NULL,
+            ADD UNIQUE KEY uq_hosoffice_leave (hosoffice_leave_id)
+        `);
+      }
+    }
   }
 ];
 

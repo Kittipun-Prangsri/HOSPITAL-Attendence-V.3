@@ -25,7 +25,8 @@
     "check-tables": "node scripts/check_tables.js",
     "test-scans": "node scripts/test_scans.js",
     "retest": "node scripts/retest_hikvision.js",
-    "inspect": "node scripts/db_inspector.js"
+    "inspect": "node scripts/db_inspector.js",
+    "sync-leaves": "node scripts/sync_hosoffice_leaves.js"
   },
   "dependencies": {
     "@line/bot-sdk": "^11.0.0",

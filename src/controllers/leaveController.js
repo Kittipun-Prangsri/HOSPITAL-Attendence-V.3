@@ -254,3 +254,21 @@ exports.getAttachment = async (req, res) => {
     res.status(500).json({ success: false, error: 'ไม่สามารถเปิดไฟล์แนบได้' });
   }
 };
+
+exports.syncHosofficeLeaves = async (req, res) => {
+  try {
+    const { fromDate, toDate } = req.body || {};
+    const { syncLeavesFromHosoffice } = require('../services/hosofficeLeaveSync');
+    const result = await syncLeavesFromHosoffice({ fromDate, toDate });
+    logAudit(req, 'sync_leaves', 'leave', null, { total: result.total, synced: result.synced, months: result.months }, req.session.user);
+    res.json({
+      success: true,
+      message: `ซิงค์วันลาจาก HOSoffice เรียบร้อยแล้ว (${result.synced} รายการ)`,
+      ...result
+    });
+  } catch (err) {
+    console.error('[leaveController] syncHosofficeLeaves failed:', err);
+    res.status(500).json({ success: false, error: 'เกิดข้อผิดพลาดในการซิงค์วันลา: ' + err.message });
+  }
+};
+

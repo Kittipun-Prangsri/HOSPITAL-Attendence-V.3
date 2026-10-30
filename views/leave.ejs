@@ -18,7 +18,14 @@
           <h2 id="leave-heading" class="text-xl font-semibold text-slate-900">การลา</h2>
           <p class="mt-1 text-[13px] text-slate-500">ยื่นใบลา ตรวจสอบสิทธิ์วันลาคงเหลือ<%= isReviewer ? ' และพิจารณาอนุมัติใบลาของบุคลากร' : '' %> · <span id="fyLabel">ปีงบประมาณ –</span></p>
         </div>
-        <button type="button" class="erp-btn erp-btn-primary" onclick="openLeaveForm()"><i class="bi bi-plus-lg" aria-hidden="true"></i> ยื่นใบลา</button>
+        <div class="flex items-center gap-2">
+          <% if (locals.user && (user.role === 'admin' || user.role === 'super')) { %>
+            <button type="button" class="erp-btn erp-btn-secondary" id="syncHosofficeBtn" onclick="syncHosofficeLeaves()">
+              <i class="bi bi-arrow-repeat" aria-hidden="true"></i> Sync HOSoffice
+            </button>
+          <% } %>
+          <button type="button" class="erp-btn erp-btn-primary" onclick="openLeaveForm()"><i class="bi bi-plus-lg" aria-hidden="true"></i> ยื่นใบลา</button>
+        </div>
       </section>
 
       <!-- Balance -->
@@ -533,6 +540,28 @@
         ['ชื่อ-นามสกุล', 'กลุ่มงาน', 'ประเภท', 'ตั้งแต่', 'ถึง', 'ช่วงเวลา', 'จำนวนวัน', 'เหตุผล', 'สถานะ', 'ผู้พิจารณา', 'ความเห็น', 'ยื่นเมื่อ'],
         rows.map(l => [l.fullname, l.dept, typeLabel(l.leave_type), l.start_date, l.end_date, halfText(l.half_day).trim() || 'ทั้งวัน',
           fmtDays(l.days), l.reason, (STATUS[l.status] || [l.status])[0], l.reviewer, l.review_comment, l.submitted_at]));
+    }
+
+    async function syncHosofficeLeaves() {
+      const btn = $('syncHosofficeBtn');
+      if (!btn) return;
+      const oldHtml = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<span class="inline-block animate-spin mr-1"><i class="bi bi-arrow-repeat"></i></span> กำลังซิงค์...';
+      try {
+        const data = await getJson('/api/leaves/sync-hosoffice', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({})
+        });
+        ERP.toast(data.message || `ซิงค์วันลาจาก HOSoffice สำเร็จ (${data.synced} รายการ)`, 'success');
+        await loadData();
+      } catch (err) {
+        ERP.toast('ซิงค์วันลาไม่สำเร็จ: ' + err.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = oldHtml;
+      }
     }
 
     /* ---------------- Events & boot ---------------- */
